@@ -1,0 +1,3 @@
+/home/cerdogan/Documents/Krang/Software/project/krang/demos/sensors/build/CMakeFiles/Main.dir
+/home/cerdogan/Documents/Krang/Software/project/krang/demos/sensors/build/CMakeFiles/sensors.dir
+/home/cerdogan/Documents/Krang/Software/project/krang/demos/sensors/build/CMakeFiles/sensors.run.dir
