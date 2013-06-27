@@ -13,6 +13,17 @@ if(${CMAKE_SOURCE_DIR} STREQUAL ${CMAKE_BINARY_DIR})
   message(FATAL_ERROR "In-source builds are not allowed. You may need to remove CMakeCache.txt.")
 endif()
 
+#Include the OpenCV library
+set(OpenCV_DIr "/usr/share/OpenCV")
+find_package(OpenCV REQUIRED)
+include_directories(${OpenCV_INCLUDE_DIR})
+link_libraries(${OpenCV_LIBS})
+
+#Include the PCL Library
+find_package(PCL 1.6 REQUIRED)
+include_directories(${PCL_INCLUDE_DIRS})
+link_directories(${PCL_LIBRARY_DIRS})
+
 # Include Dart and Grip stuff
 include(simulation.cmake)
 
@@ -45,6 +56,7 @@ foreach(script_src_file ${scripts_source})
 	add_executable(${script_base} ${script_src_file})
 	target_link_libraries(${script_base} Main) 
 	target_link_libraries(${script_base} ${GRIP_LIBRARIES} ${DART_LIBRARIES} ${DARTExt_LIBRARIES} ${wxWidgets_LIBRARIES}) 
+	target_link_libraries(${script_base} ${PCL_LIBRARIES} )
 	add_custom_target(${script_base}.run ${script_base} ${ARGN})
 endforeach(script_src_file)
 message(STATUS " ")

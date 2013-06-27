@@ -12,10 +12,24 @@
 #define protected public
 #define private public
 
-#include <imud.h>
+#define RAD2DEG RAD2DEG	// to deal with a define bug in grip which clashes with pcl
+#define DEG2RAD DEG2RAD
 
-#include "simTab.h"
+#include <Eigen/Dense>
+#include <iostream>
+
+#include <opencv2/core/core.hpp>
+#include <opencv2/highgui/highgui.hpp>
+#include <pcl/io/pcd_io.h>
+#include <pcl/io/openni_grabber.h>
+#include <pcl/point_types.h>
+#include <pcl/console/parse.h>
+#include <pcl/common/transforms.h>
+
+#include <imud.h>
 #include "GRIPApp.h"
+#include "simTab.h"
+
 
 #include "helpers.h"
 #include "initModules.h"
@@ -24,6 +38,11 @@
 using namespace std;
 using namespace Eigen;
 using namespace dynamics;
+using namespace cv;
+using namespace pcl;
+
+#define NUM_ROWS 480
+#define NUM_COLUMNS 640
 
 #define getMotorMessage(x) (SOMATIC_WAIT_LAST_UNPACK( r, somatic__motor_state, \
 	&protobuf_c_system_allocator, 1024, &x, &abstime))
@@ -48,6 +67,73 @@ ach_channel_t ftRightChan;
 FILE* gnuplot;
 int windowSize = 100;		// "int" because we need to use it in subtraction
 float** data;					///< windowSize x 6 matrix with each row contains force values for left/right
+
+/* ******************************************************************************************* */
+// Vision 
+
+pcl::Grabber* gKinectGrabber;
+pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
+Mat* currentColor, *nextColor;
+Mat* currentDepth, *nextDepth;
+
+/* ******************************************************************************************* */
+// Create the matrix for color image
+Mat* createColor (PointCloud <PointXYZRGBA>::ConstPtr cloud) {
+	Mat* rgb = new Mat (NUM_ROWS, NUM_COLUMNS, CV_8UC3);
+	for(size_t row = 0; row < NUM_ROWS; row++) {
+		for(size_t col = 0; col < NUM_COLUMNS; col++) {
+			rgb->at < Vec3b > (row, col)[0] = cloud->at(row * NUM_COLUMNS + col).b;
+			rgb->at < Vec3b > (row, col)[1] = cloud->at(row * NUM_COLUMNS + col).g;
+			rgb->at < Vec3b > (row, col)[2] = cloud->at(row * NUM_COLUMNS + col).r;
+		}
+	}
+	return rgb;
+}
+
+/* ******************************************************************************************* */
+// Create the matrix for depth image
+Mat* createDepth (PointCloud <PointXYZRGBA>::ConstPtr cloud) {
+	
+  // Create the matrix for distances
+	double min = 10000.0, max = -0.1;
+	Mat* depth = new Mat (NUM_ROWS, NUM_COLUMNS, CV_32FC1);
+	for(size_t row = 0; row < NUM_ROWS; row++) {
+		for(size_t col = 0; col < NUM_COLUMNS; col++) {
+			float z = cloud->at(row * NUM_COLUMNS + col).z;
+			if(isnan(z)) z = 0.0;
+			else if(z > max) max = z;
+			else if(z < min) min = z;
+			depth->at <float> (row, col) = z;
+		}
+	}
+
+	// ... and normalize the distances
+	float range = max - min;
+	for(size_t row = 0; row < NUM_ROWS; row++) {
+		for(size_t col = 0; col < NUM_COLUMNS; col++) {
+			float temp = depth->at <float> (row, col);
+			if(temp == 0.0) continue;
+			depth->at <float> (row, col) = 1 - (temp - min) / range;
+		}
+	}
+
+	return depth;
+}
+
+/* ******************************************************************************************* */
+/// Callback function for the Kinect data
+void grabberCallback( const pcl::PointCloud<pcl::PointXYZRGBA>::ConstPtr &_cloud ) {
+
+	// Create the new image from cloud
+	Mat* tempColor = createColor(_cloud);
+	Mat* tempDepth = createDepth(_cloud);
+
+	// Set it
+	pthread_mutex_lock(&mutex);
+	nextColor = tempColor;
+	nextDepth = tempDepth;
+	pthread_mutex_unlock(&mutex);
+}
 
 /* ********************************************************************************************* */
 double getImu () {
@@ -175,6 +261,27 @@ void drawForces (Somatic__ForceMoment* leftArm, Somatic__ForceMoment* rightArm) 
 }
 
 /* ********************************************************************************************* */
+/// Visualize Kinect
+void drawKinect() {
+
+	// Get the nextColor image if one exists
+	pthread_mutex_lock(&mutex);
+	if(nextColor != NULL) {
+		delete currentColor;
+		currentColor = nextColor;
+		currentDepth = nextDepth;
+		nextColor = NULL;
+	}
+	pthread_mutex_unlock(&mutex);
+		
+	// Display the currentColor image	
+	if(currentColor != NULL) {
+		cv::imshow("Color", *currentColor); 
+		cv::imshow("Depth", *currentDepth); 
+	}
+}
+
+/* ********************************************************************************************* */
 /// Picks a random configuration for the robot, moves it, does f.k. for the right and left 
 /// end-effectors, places blue and green boxes for their locations and visualizes it all
 void Timer::Notify() {
@@ -191,6 +298,9 @@ void Timer::Notify() {
 
 	// Draw the force values
 	drawForces(leftFt, rightFt);
+
+	// Draw Kinect
+	drawKinect();
 
 	// Restart the timer for the next start
 	Start(0.005 * 1e4);	
@@ -233,6 +343,22 @@ SimTab::SimTab(wxWindow *parent, const wxWindowID id, const wxPoint& pos, const 
 			data[i][j] = 0.0f;
 	}
 
+	// ===========================================================================
+	// Initiailize Vision stuff
+
+	// Kill any trace of previous call
+  system("killall -s 9 XnSensorServer");
+
+  // Create the callback function for OpenNI
+	gKinectGrabber = new pcl::OpenNIGrabber();
+	assert(gKinectGrabber != 0 && "Could not create grabber");
+	boost::function< void (const pcl::PointCloud<pcl::PointXYZRGBA>::ConstPtr&) > f = 
+		boost::bind( &grabberCallback, _1 );
+	gKinectGrabber->registerCallback(f);
+
+  // visualize Kinect data
+  gKinectGrabber->start();
+
 	// ============================================================================
 	// Initialize robot stuff
 
@@ -249,7 +375,7 @@ SimTab::SimTab(wxWindow *parent, const wxWindowID id, const wxPoint& pos, const 
 	somatic_d_channel_open(&daemon_cx, &rightArmChan, "rlwa-state", NULL);
 	somatic_d_channel_open(&daemon_cx, &ftLeftChan, "llwa_ft", NULL);
 	somatic_d_channel_open(&daemon_cx, &ftRightChan, "rlwa_ft", NULL);
-	
+
 	// Send a message; set the event code and the priority
 	somatic_d_event(&daemon_cx, SOMATIC__EVENT__PRIORITIES__NOTICE, 
 			SOMATIC__EVENT__CODES__PROC_RUNNING, NULL, NULL);
@@ -263,10 +389,13 @@ SimTab::~SimTab() {
 	// Close the pipe to gnuplot
 	pclose(gnuplot);
 
-	// Send the stoppig event
+	// Send the stopping event
 	somatic_d_event(&daemon_cx, SOMATIC__EVENT__PRIORITIES__NOTICE,
 					 SOMATIC__EVENT__CODES__PROC_STOPPING, NULL, NULL);
 
+  // If capturing Kinectt data, stop the stream before exiting
+  gKinectGrabber->stop();
+	
 	// Destroy the channel and daemon resources
 	somatic_d_channel_close(&daemon_cx, &imuChan);
 	somatic_d_channel_close(&daemon_cx, &waistChan);	 
