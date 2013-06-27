@@ -54,6 +54,7 @@ using namespace pcl;
 // Communication
 
 somatic_d_t daemon_cx;
+ach_channel_t amcChan;
 ach_channel_t imuChan;
 ach_channel_t waistChan;		///< the state channel for the waist module
 ach_channel_t leftArmChan;		///< the state channel for the left arm modules
@@ -166,7 +167,8 @@ double getImu () {
 /* ********************************************************************************************* */
 /// Gets the data from the channels
 void getData (Somatic__MotorState** waist, Somatic__MotorState** leftArm, Somatic__MotorState** 
-		rightArm, Somatic__ForceMoment** leftFt, Somatic__ForceMoment** rightFt, double* imu) {
+		rightArm, Somatic__MotorState** amc, Somatic__ForceMoment** leftFt, 
+		Somatic__ForceMoment** rightFt, double* imu) {
 
 	// Get the time to get the sensor values by
 	struct timespec currTime;
@@ -176,6 +178,7 @@ void getData (Somatic__MotorState** waist, Somatic__MotorState** leftArm, Somati
 	// Get the data from the motors
 	int r;
 	assert(((*waist = getMotorMessage(waistChan)) != NULL) && "Waist call failed");
+	assert(((*amc = getMotorMessage(amcChan)) != NULL) && "Wheels call failed");
 	assert(((*leftArm = getMotorMessage(leftArmChan)) != NULL) && "leftArm call failed");
 	assert(((*rightArm = getMotorMessage(rightArmChan)) != NULL) && "rightArm call failed");
 
@@ -288,9 +291,9 @@ void Timer::Notify() {
 
 	// Get the data
 	double imu = 0.0;
-	Somatic__MotorState* waist, *leftArm, *rightArm;
+	Somatic__MotorState* waist, *leftArm, *rightArm, *amc;
 	Somatic__ForceMoment* leftFt, *rightFt;
-	getData(&waist, &leftArm, &rightArm, &leftFt, &rightFt, &imu);
+	getData(&waist, &leftArm, &rightArm, &amc, &leftFt, &rightFt, &imu);
 
 	// Reflect the changes in the dart kinematics and update the viewer
 	changeKinematics(world, waist, leftArm, rightArm, imu);
@@ -301,6 +304,10 @@ void Timer::Notify() {
 
 	// Draw Kinect
 	drawKinect();
+
+	// Print the wheel positions
+	printf("Wheel positions: <%3.3lf, %3.3lf>\n", amc->position->data[0], amc->position->data[1]);
+	fflush(stdout);
 
 	// Restart the timer for the next start
 	Start(0.005 * 1e4);	
@@ -369,6 +376,7 @@ SimTab::SimTab(wxWindow *parent, const wxWindowID id, const wxPoint& pos, const 
 	somatic_d_init( &daemon_cx, &dopt );
 
 	// Initialize the channels to the sensors
+	somatic_d_channel_open(&daemon_cx, &amcChan, "amc-state", NULL);
 	somatic_d_channel_open(&daemon_cx, &imuChan, "imu-data", NULL);
 	somatic_d_channel_open(&daemon_cx, &waistChan, "waist-state", NULL);
 	somatic_d_channel_open(&daemon_cx, &leftArmChan, "llwa-state", NULL);
