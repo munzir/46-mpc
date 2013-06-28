@@ -309,6 +309,15 @@ void Timer::Notify() {
 	printf("Wheel positions: <%3.3lf, %3.3lf>\n", amc->position->data[0], amc->position->data[1]);
 	fflush(stdout);
 
+	// Clean up the messages
+	aa_mem_region_release(&daemon_cx.memreg);
+	somatic__motor_state__free_unpacked(leftArm, &protobuf_c_system_allocator );
+	somatic__motor_state__free_unpacked(rightArm, &protobuf_c_system_allocator );
+	somatic__motor_state__free_unpacked(waist, &protobuf_c_system_allocator );
+	somatic__motor_state__free_unpacked(amc, &protobuf_c_system_allocator );
+	somatic__force_moment__free_unpacked(leftFt, &protobuf_c_system_allocator );
+	somatic__force_moment__free_unpacked(rightFt, &protobuf_c_system_allocator );
+	
 	// Restart the timer for the next start
 	Start(0.005 * 1e4);	
 }
