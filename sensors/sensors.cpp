@@ -15,6 +15,11 @@
 #define RAD2DEG RAD2DEG	// to deal with a define bug in grip which clashes with pcl
 #define DEG2RAD DEG2RAD
 
+#include "somatic.h"
+#include "somatic/daemon.h"
+#include <somatic.pb-c.h>
+#include <somatic/motor.h>
+
 #include <Eigen/Dense>
 #include <iostream>
 
@@ -29,11 +34,6 @@
 #include <imud.h>
 #include "GRIPApp.h"
 #include "simTab.h"
-
-
-#include "helpers.h"
-#include "initModules.h"
-#include "motion.h"
 
 using namespace std;
 using namespace Eigen;
