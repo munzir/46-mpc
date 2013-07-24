@@ -50,19 +50,24 @@ Eigen::MatrixXd fix (const Eigen::MatrixXd& mat) {
 
 int left_arm_ids_a [7] = {11, 13, 15, 17, 19, 21, 23}; 
 int right_arm_ids_a [7] = {12, 14, 16, 18, 20, 22, 24}; 
-int imuWaist_ids_a [2] = {5, 8};
+int imuWaist_ids_a [3] = {5, 8};
 vector <int> left_arm_ids (left_arm_ids_a, left_arm_ids_a + 7);						
 vector <int> right_arm_ids (right_arm_ids_a, right_arm_ids_a + 7);	
 vector <int> imuWaist_ids (imuWaist_ids_a, imuWaist_ids_a + 2);		
+
+// Needed to temporarily adjust the torso misaligment
+int imuWaistTorso_ids_a [3] = {5, 8, 9};
+vector <int> imuWaistTorso_ids (imuWaistTorso_ids_a, imuWaistTorso_ids_a + 3);		
 
 /* ******************************************************************************************** */
 /// Updates the dart robot representation
 void updateDart (double imu) {
 
 	// Update imu and waist values
+	// FIXME: Thr torso value is added temporarily to adjust for the misalignment of torso
 	double waist_val = (waist.pos[0] - waist.pos[1]) / 2.0;
-	Vector2d imuWaist_vals (-imu + M_PI_2, waist_val);
-	robot->setConfig(imuWaist_ids, imuWaist_vals);
+	Vector3d imuWaistTorso_vals (-imu + M_PI_2, waist_val, 0.0*M_PI/180.0);
+	robot->setConfig(imuWaistTorso_ids, imuWaistTorso_vals);
 
 	// Update the robot state
 	Vector7d larm_vals = eig7(llwa.pos), rarm_vals = eig7(rlwa.pos);

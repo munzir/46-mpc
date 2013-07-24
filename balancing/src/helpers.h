@@ -99,6 +99,7 @@ extern Vector6d K;
 extern std::vector <int> left_arm_ids;			///< Ids for left arm
 extern std::vector <int> right_arm_ids;			///< Ids for right arm
 extern std::vector <int> imuWaist_ids;			///< Ids for waist/imu
+extern std::vector <int> imuWaistTorso_ids;			///< Ids for waist/imu (needed for temporary adjustment for torso misalignment)
 
 /// Makes the small 1e-17 values in a matrix zero for printing
 Eigen::MatrixXd fix (const Eigen::MatrixXd& mat);
@@ -106,7 +107,8 @@ Eigen::MatrixXd fix (const Eigen::MatrixXd& mat);
 /* ******************************************************************************************** */
 // Constants for end-effector wrench estimation
 
-static const double eeMass = 2.3 + 0.169 + 0.000;			///< The mass of the robotiq end-effector
+//static const double eeMass = 2.3 + 0.169 + 0.000;			///< The mass of the robotiq end-effector
+static const double eeMass = 1.6 + 0.169 + 0.000;			///< The mass of the Schunk end-effector
 static const Vector3d s2com (0.0, -0.008, 0.091); // 0.065 robotiq itself, 0.026 length of ext + 2nd
 
 /* ******************************************************************************************** */

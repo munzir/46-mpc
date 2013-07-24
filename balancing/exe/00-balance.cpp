@@ -587,7 +587,7 @@ int main(int argc, char* argv[]) {
 
 	// Load the world and the robot
 	DartLoader dl;
-	world = dl.parseWorld("../../common/scenes/01-World-Robot.urdf");
+	world = dl.parseWorld("../../../experiments/common/scenes/01-World-RobotSchunkGrippers.urdf");
 	assert((world != NULL) && "Could not find the world");
 	robot = world->getSkeleton(0);
 
