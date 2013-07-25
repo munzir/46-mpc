@@ -17,7 +17,7 @@ using namespace std;
 /* ******************************************************************************************** */
 // Initialize the gains for controller and joystick
 
-size_t MODE = 0;
+size_t MODE = 1;
 Vector6d K_ground = (Vector6d() << 0.0, 0.0, 0.0, -20.0, 0.0, 20.0).finished();
 Vector2d J_ground (1.0, 1.0);
 Vector6d K_stand;
@@ -28,7 +28,7 @@ Vector6d K_balLow;
 Vector2d J_balLow;
 Vector6d K_balHigh;
 Vector2d J_balHigh;
-Vector6d K;
+Vector6d K = K_ground;
 
 /* ******************************************************************************************** */
 // Constants for the robot kinematics
@@ -174,7 +174,9 @@ bool getJoystickInput(double& js_forw, double& js_spin) {
 		js_forw = -x[1] * jsFwdAmp;
 		js_spin = x[2] * jsSpinAmp;; 
 	}
+
 	
+		
 	return true;
 }
 

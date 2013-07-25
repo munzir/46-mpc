@@ -131,7 +131,7 @@ void controlArms () {
 
 	// Check if one of the preset configurations are requested by pressing 9 and
 	// any of the buttons from 1 to 4 at the same time
-	if(b[8] == 1) {
+	if((b[4] == 1) && (b[5] == 1) && (b[6] == 1) && (b[7] == 1)) {
 
 		// Check if the button is pressed for the arm configuration is pressed, if so send pos commands
 		bool noConfs = true;
@@ -402,7 +402,46 @@ void run () {
 		// Control the robotiq hands
 		controlRobotiq();
 
-}
+		// ==========================================================================
+		// Quit if button 9 on the joystick is pressed, stand/sit if button 10 is pressed
+
+		static bool b9Prev = 0; // To store the value of button 9 in last iteration
+
+		// Quit
+		if(b[8] == 1) break;
+
+		// Stand/Sit if button 10 is presed and conditions are right
+		else if(b9Prev == 0 && b[9] == 1) {
+
+			// If in ground mode and state error is not high stand up
+			if(MODE == 1) {
+				if(state(0) < 0.0 && error(0) > -10.0*M_PI/180.0)	{
+					printf("\n\n\nMode 2\n\n\n");
+					K = K_stand;
+					MODE = 2;	
+				}	else {
+					printf("\n\n\nCan't stand up, balancing error is too high!\n\n\n");
+				}
+			}
+			
+			// If in balLow mode and waist is not too high, sit down
+			else if(MODE == 4) {
+				if((waist.pos[0] - waist.pos[1])/2.0 > 150.0*M_PI/180.0) {
+					printf("\n\n\nMode 3\n\n\n");
+					K = K_sit;
+					MODE = 3;	
+				} else {
+					printf("\n\n\nCan't sit down, Waist is too high!\n\n\n");
+				}
+			}
+		}
+	
+		// Store the value of button 10 in the last iteration
+		b9Prev = b[9];
+
+		// Print the mode
+		if(debug) printf("Mode : %d\n", MODE);
+	}
 
 	// Send the stoppig event
 	somatic_d_event(&daemon_cx, SOMATIC__EVENT__PRIORITIES__NOTICE,
