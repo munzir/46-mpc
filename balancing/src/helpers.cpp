@@ -80,32 +80,23 @@ void updateDart (double imu) {
 
 /* ******************************************************************************************** */
 /// Get the joint values from the encoders and the imu and compute the center of mass as well 
-void getState(Vector6d& state, double dt, Vector3d* com_, double* imu_) {
+void getState(Vector6d& state, double dt, Vector3d* com_) {
 
-	// Read imu
-	double imu, imuSpeed;
-	getImu(&imuChan, imu, imuSpeed, dt, kf); 
-	if(imu_ != NULL) *imu_ = imu;
+	// Read motor encoders, imu and ft and update dart skeleton
+	krang.updateSensors();
 
-	// Read Motors 
-	somatic_motor_update(&daemon_cx, &amc);
-	somatic_motor_update(&daemon_cx, &waist);
-	somatic_motor_update(&daemon_cx, &llwa);
-	somatic_motor_update(&daemon_cx, &rlwa);
-
-	// Update the dart robot representation and get the center of mass (decrease height of wheel)
-	updateDart(imu);
+	// Calculate the COM	
 	Vector3d com = robot->getWorldCOM();
 	com(2) -= 0.264;
 	if(com_ != NULL) *com_ = com;
 
 	// Update the state (note for amc we are reversing the effect of the motion of the upper body)
 	state(0) = atan2(com(0), com(2)) + 2.0 * M_PI / 180.0;;
-	state(1) = imuSpeed;
-	state(2) = (amc.pos[0] + amc.pos[1])/2.0 + imu;
-	state(3) = (amc.vel[0] + amc.vel[1])/2.0 + imuSpeed;
-	state(4) = (amc.pos[1] - amc.pos[0]) / 2.0;
-	state(5) = (amc.vel[1] - amc.vel[0]) / 2.0;
+	state(1) = krang.imuSpeed;
+	state(2) = (krang.amc.pos[0] + krang.amc.pos[1])/2.0 + krang.imu;
+	state(3) = (krang.amc.vel[0] + krang.amc.vel[1])/2.0 + krang.imuSpeed;
+	state(4) = (krang.amc.pos[1] - krang.amc.pos[0]) / 2.0;
+	state(5) = (krang.amc.vel[1] - krang.amc.vel[0]) / 2.0;
 
 	// Making adjustment in com to make it consistent with the hack above for state(0)
 	com(0) = com(2) * tan(state(0));

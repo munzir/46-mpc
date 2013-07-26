@@ -36,6 +36,8 @@
 #include <kinematics/BodyNode.h>
 #include <math/UtilsRotation.h>
 
+#include <library/kore.h>
+
 using namespace Eigen;
 using namespace dynamics;
 
@@ -50,21 +52,7 @@ typedef Matrix<double, 6, 6> Matrix6d;			///< A typedef for convenience to conta
 /* ******************************************************************************************** */
 // Globals for imu, motors and joystick
 
-filter_kalman_t *kf;					///< the kalman filter to smooth the imu readings
-ach_channel_t imuChan;				///< the state channel to listen to imu data
-somatic_d_t daemon_cx;				///< The properties of this "daemon"
-somatic_motor_t amc; 					///< The interface to the wheel motor group
-somatic_motor_t waist;
-somatic_motor_t llwa;
-somatic_motor_t rlwa;
-somatic_motor_t torso;
-ach_channel_t js_chan;				///< The ach channel to the joystick daemon
-ach_channel_t left_ft_chan;				///< The ach channel to the left ft 
-ach_channel_t right_ft_chan;				///< The ach channel to the right ft
-ach_channel_t waistCmdChan;
-
-Somatic__WaistCmd *waistDaemonCmd = somatic_waist_cmd_alloc();		///< The waist command
-
+Krang::Hardware* krang;				///< Interface for the motor and sensors on the hardware
 simulation::World* world;			///< the world representation in dart
 SkeletonDynamics* robot;			///< the robot representation in dart
 
@@ -124,7 +112,7 @@ bool getJoystickInput(double& js_forw, double& js_spin);
 void updateReference (double js_forw, double js_spin, double dt, Vector6d& refState);
 
 /// Get the joint values from the encoders and the imu and compute the center of mass as well 
-void getState(Vector6d& state, double dt, Vector3d* com = NULL, double* imu = NULL);
+void getState(Vector6d& state, double dt, Vector3d* com = NULL);
 
 /// Updates the dart robot representation
 void updateDart (double imu);
