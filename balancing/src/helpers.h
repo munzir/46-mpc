@@ -52,6 +52,8 @@ typedef Matrix<double, 6, 6> Matrix6d;			///< A typedef for convenience to conta
 /* ******************************************************************************************** */
 // Globals for imu, motors and joystick
 
+somatic_d_t daemon_cx;				///< The context of the current daemon
+
 Krang::Hardware* krang;				///< Interface for the motor and sensors on the hardware
 simulation::World* world;			///< the world representation in dart
 SkeletonDynamics* robot;			///< the robot representation in dart

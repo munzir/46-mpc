@@ -127,8 +127,8 @@ void controlArms () {
 		bool noConfs = true;
 		for(size_t i = 0; i < 4; i++) {
 			if(b[i] == 1) {
-				somatic_motor_cmd(&daemon_cx, krang->llwa, POSITION, presetArmConfs[2*i], 7, NULL);
-				somatic_motor_cmd(&daemon_cx, krang->rlwa, POSITION, presetArmConfs[2*i+1], 7, NULL);
+				somatic_motor_cmd(&daemon_cx, krang->larm, POSITION, presetArmConfs[2*i], 7, NULL);
+				somatic_motor_cmd(&daemon_cx, krang->rarm, POSITION, presetArmConfs[2*i+1], 7, NULL);
 				noConfs = false; 
 				return;
 			}
@@ -137,15 +137,15 @@ void controlArms () {
 		// If nothing is pressed, stop the arms
 		if(noConfs) {
 			double dq [] = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
-			somatic_motor_cmd(&daemon_cx, krang->llwa, VELOCITY, dq, 7, NULL);
-			somatic_motor_cmd(&daemon_cx, krang->rlwa, VELOCITY, dq, 7, NULL);
+			somatic_motor_cmd(&daemon_cx, krang->larm, VELOCITY, dq, 7, NULL);
+			somatic_motor_cmd(&daemon_cx, krang->rarm, VELOCITY, dq, 7, NULL);
 			return;
 		}
 	}
 	
 	// Check the b for each arm and apply velocities accordingly
 	// For left: 4 or 6, for right: 5 or 7, lower arm button is smaller (4 or 5)
-	somatic_motor_t* arm [] = {krang->llwa, krang->rlwa};
+	somatic_motor_t* arm [] = {krang->larm, krang->rarm};
 	for(size_t arm_idx = 0; arm_idx < 2; arm_idx++) {
 
 		// Initialize the input
@@ -448,7 +448,7 @@ void init() {
 	somatic_d_init(&daemon_cx, &dopt);
 
 	// Initialize the motors and sensors on the hardware and update the kinematics in dart
-	krang = new Krang::Hardware(Krang::Hardware::MODE_ALL, &daemon_cx, robot); 
+	krang = new Krang::Hardware(Krang::Hardware::MODE_ALL_GRIPSCH, &daemon_cx, robot); 
 
 	// Initialize the joystick channel
 	int r = ach_open(&js_chan, "joystick-data", NULL);
