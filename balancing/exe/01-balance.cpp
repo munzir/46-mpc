@@ -59,30 +59,20 @@ bool debugGlobal = false, logGlobal = true;
 /// Computes the wrench on the wheels due to external force from the f/t sensors' data
 void getExternalWrench (Vector6d& external) {
 
-	// Get wrenches on the two arms in world frame and shift them to find the wrench on the wheel
-	Vector6d raw, leftFTWrench = Vector6d::Zero(), rightFTWrench = Vector6d::Zero();
-	if(getFT(daemon_cx, left_ft_chan, raw)) {
+	// If the wrench sensed on left FT sensor is not high use it calculate wrench on the wheel
+	if((krang->lft->lastExternal.topLeftCorner<3,1>().norm() > 7) || 
+		 (krang->lft->lastExternal.bottomLeftCorner<3,1>().norm() > 0.4)) {
+		computeWheelWrench(krang->lft->lastExternal, *robot, leftWheelWrench, true);
+	}
+	else leftWheelWrench = Vector6d::Zero();
 
-		// Compute the external force and threshold it.
-		computeExternal(raw + leftOffset, *robot, leftFTWrench, true);
-		if((leftFTWrench.topLeftCorner<3,1>().norm() > 7) || 
-       (leftFTWrench.bottomLeftCorner<3,1>().norm() > 0.4)) {
-
-			// If force is not negligible, compute the effect on wheel 
-			computeWheelWrench(leftFTWrench, *robot, leftWheelWrench, true);
-		}
-		else leftWheelWrench = Vector6d::Zero();
-	} 
-
-	// Do the same as left arm
-	if(getFT(daemon_cx, right_ft_chan, raw)) {
-		computeExternal(raw + rightOffset, *robot, rightFTWrench, false);
-		if((rightFTWrench.topLeftCorner<3,1>().norm() > 7) || 
-       (rightFTWrench.bottomLeftCorner<3,1>().norm() > 0.4)) 
-			computeWheelWrench(rightFTWrench, *robot, rightWheelWrench, false);
-		else rightWheelWrench = Vector6d::Zero();
-	} 
-		
+	// If the wrench sensed on right FT sensor is not high use it calculate wrench on the wheel
+	if((krang->rft->lastExternal.topLeftCorner<3,1>().norm() > 7) || 
+		 (krang->rft->lastExternal.bottomLeftCorner<3,1>().norm() > 0.4)) {
+		computeWheelWrench(krang->rft->lastExternal, *robot, rightWheelWrench, false);
+	}
+	else rightWheelWrench = Vector6d::Zero();
+			
 	// Sum the wheel wrenches from the two f/t sensors
 	external = leftWheelWrench + rightWheelWrench;
 }
@@ -137,8 +127,8 @@ void controlArms () {
 		bool noConfs = true;
 		for(size_t i = 0; i < 4; i++) {
 			if(b[i] == 1) {
-				somatic_motor_cmd(&daemon_cx, &llwa, POSITION, presetArmConfs[2*i], 7, NULL);
-				somatic_motor_cmd(&daemon_cx, &rlwa, POSITION, presetArmConfs[2*i+1], 7, NULL);
+				somatic_motor_cmd(&daemon_cx, krang->llwa, POSITION, presetArmConfs[2*i], 7, NULL);
+				somatic_motor_cmd(&daemon_cx, krang->rlwa, POSITION, presetArmConfs[2*i+1], 7, NULL);
 				noConfs = false; 
 				return;
 			}
@@ -147,15 +137,15 @@ void controlArms () {
 		// If nothing is pressed, stop the arms
 		if(noConfs) {
 			double dq [] = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
-			somatic_motor_cmd(&daemon_cx, &llwa, VELOCITY, dq, 7, NULL);
-			somatic_motor_cmd(&daemon_cx, &rlwa, VELOCITY, dq, 7, NULL);
+			somatic_motor_cmd(&daemon_cx, krang->llwa, VELOCITY, dq, 7, NULL);
+			somatic_motor_cmd(&daemon_cx, krang->rlwa, VELOCITY, dq, 7, NULL);
 			return;
 		}
 	}
 	
 	// Check the b for each arm and apply velocities accordingly
 	// For left: 4 or 6, for right: 5 or 7, lower arm button is smaller (4 or 5)
-	somatic_motor_t* arm [] = {&llwa, &rlwa};
+	somatic_motor_t* arm [] = {krang->llwa, krang->rlwa};
 	for(size_t arm_idx = 0; arm_idx < 2; arm_idx++) {
 
 		// Initialize the input
@@ -283,8 +273,8 @@ void run () {
 		// Print the information about the last iteration (after reading effects of it from sensors)
 		// NOTE: Constructor order is NOT the print order
 		if(logGlobal) {
-			logStates.push_back(new LogState(time, com, averagedTorque, externalWrench(4), krang.amc.cur[0],
-				krang.amc.cur[1], state, refState, lastUleft, lastUright));
+			logStates.push_back(new LogState(time, com, averagedTorque, externalWrench(4), krang->amc->cur[0],
+				krang->amc->cur[1], state, refState, lastUleft, lastUright));
 		}
 
 		// Get the joystick input for the js_forw and js_spin axes (to set the gains)
@@ -295,7 +285,7 @@ void run () {
 		// Get the wrench on the wheel due to external force
 		getExternalWrench(externalWrench);
 		if(debug) cout << "tangible torque: " << externalWrench(4) << endl;
-
+/*
 		// Compute the offsets of the FT sensor again if commanded
 		if(resetFT) {
 
@@ -314,7 +304,7 @@ void run () {
 				resetFT = false;
 			}
 		} 
-	
+	*/
 		// =======================================================================
 		// Compute ref state: (1) joystick, (2) running average of external, (3) ref angle
 
@@ -343,13 +333,13 @@ void run () {
 		// If we are in the sit down mode, over write the reference
 		if(MODE == 3) {
 			static const double limit = ((-103.0 / 180.0) * M_PI);
-			if(imu < limit) {
-				printf("imu (%lf) < limit (%lf): changing to mode 1\n", imu, limit);
+			if(krang->imu < limit) {
+				printf("imu (%lf) < limit (%lf): changing to mode 1\n", krang->imu, limit);
 				MODE = 1;
 				K = K_ground;
 
 			}
-			else error(0) = imu - limit;
+			else error(0) = krang->imu - limit;
 		}
 		// if in standing up mode check if the balancing angle is reached and stayed, if so switch to balLow mode
 		else if(MODE == 2) {
@@ -365,7 +355,7 @@ void run () {
 		else if(MODE == 5) {
 			error(0) -= 0.005;	
 		}
-		if(debug) cout << "error: " << error.transpose() << ", imu: " << imu / M_PI * 180.0 << endl;
+		if(debug) cout << "error: " << error.transpose() << ", imu: " << krang->imu / M_PI * 180.0 << endl;
 
 		// Compute the current
 		double u = K.topLeftCorner<4,1>().dot(error.topLeftCorner<4,1>());
@@ -382,7 +372,7 @@ void run () {
 		// Set the motor velocities
 		if(start) {
 			if(debug) cout << "Started..." << endl;
-			somatic_motor_cmd(&daemon_cx, &amc, SOMATIC__MOTOR_PARAM__MOTOR_CURRENT, input, 2, NULL);
+			somatic_motor_cmd(&daemon_cx, krang->amc, SOMATIC__MOTOR_PARAM__MOTOR_CURRENT, input, 2, NULL);
 		}
 	
 		// =======================================================================
@@ -393,7 +383,7 @@ void run () {
 
 		// Control the torso
 		double dq [] = {x[4] / 7.0};
-		somatic_motor_cmd(&daemon_cx, &torso, VELOCITY, dq, 1, NULL);
+		somatic_motor_cmd(&daemon_cx, krang->torso, VELOCITY, dq, 1, NULL);
 
 		// Control the waist
 		controlWaist();
