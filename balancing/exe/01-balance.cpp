@@ -36,7 +36,7 @@ struct LogState {
 	void print () {
 		//       torques         currents        state        refstate       time
 		printf("%lf\t%lf\t  %lf\t%lf\t%lf\t%lf\t  %lf\t%lf\t%lf\t %lf\t%lf\t%lf\t %lf\n", 
-        averagedTorque, torque, lastUleft, lastUright, amc.cur[0], amc.cur[1],  
+        averagedTorque, torque, lastUleft, lastUright, krang->amc->cur[0], krang->amc->cur[1],  
 				state(0)*180.0/M_PI, state(2)*180.0/M_PI, state(4)*180.0/M_PI, refState(0)*180.0/M_PI, 
 				refState(2)*180.0/M_PI, refState(4)*180.0/M_PI, time);
 	}
@@ -175,7 +175,7 @@ void controlWaist() {
 
 	// Send message to the krang-waist daemon
 	somatic_waist_cmd_set(waistDaemonCmd, waistMode);
-	int r = SOMATIC_PACK_SEND(&waistCmdChan, somatic__waist_cmd, waistDaemonCmd);
+	int r = SOMATIC_PACK_SEND(krang->waistCmdChan, somatic__waist_cmd, waistDaemonCmd);
 	if(ACH_OK != r) fprintf(stderr, "Couldn't send message: %s\n", 
 		ach_result_to_string(static_cast<ach_status_t>(r)));
 }
@@ -415,7 +415,7 @@ void run () {
 			
 			// If in balLow mode and waist is not too high, sit down
 			else if(MODE == 4) {
-				if((waist.pos[0] - waist.pos[1])/2.0 > 150.0*M_PI/180.0) {
+				if((krang->waist->pos[0] - krang->waist->pos[1])/2.0 > 150.0*M_PI/180.0) {
 					printf("\n\n\nMode 3\n\n\n");
 					K = K_sit;
 					MODE = 3;	

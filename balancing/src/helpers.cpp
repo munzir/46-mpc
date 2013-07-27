@@ -60,30 +60,11 @@ int imuWaistTorso_ids_a [3] = {5, 8, 9};
 vector <int> imuWaistTorso_ids (imuWaistTorso_ids_a, imuWaistTorso_ids_a + 3);		
 
 /* ******************************************************************************************** */
-/// Updates the dart robot representation
-void updateDart (double imu) {
-
-	// Update imu and waist values
-	// FIXME: Thr torso value is added temporarily to adjust for the misalignment of torso
-	double waist_val = (waist.pos[0] - waist.pos[1]) / 2.0;
-	Vector3d imuWaistTorso_vals (-imu + M_PI_2, waist_val, 0.0*M_PI/180.0);
-	robot->setConfig(imuWaistTorso_ids, imuWaistTorso_vals);
-
-	// Update the robot state
-	Vector7d larm_vals = eig7(llwa.pos), rarm_vals = eig7(rlwa.pos);
-	robot->setConfig(left_arm_ids, larm_vals);
-	robot->setConfig(right_arm_ids, rarm_vals);
-
-	if(debugGlobal) cout << "i: " << imu / M_PI * 180.0 << " w: " << waist_val << " l: " << larm_vals.transpose() <<
-    " r: " << rarm_vals.transpose() << endl;
-}
-
-/* ******************************************************************************************** */
 /// Get the joint values from the encoders and the imu and compute the center of mass as well 
 void getState(Vector6d& state, double dt, Vector3d* com_) {
 
 	// Read motor encoders, imu and ft and update dart skeleton
-	krang->updateSensors();
+	krang->updateSensors(dt);
 
 	// Calculate the COM	
 	Vector3d com = robot->getWorldCOM();

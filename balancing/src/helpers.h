@@ -56,6 +56,9 @@ Krang::Hardware* krang;				///< Interface for the motor and sensors on the hardw
 simulation::World* world;			///< the world representation in dart
 SkeletonDynamics* robot;			///< the robot representation in dart
 
+Somatic__WaistCmd *waistDaemonCmd = somatic_waist_cmd_alloc(); ///< Cmds for waist daemon
+ach_channel_t js_chan;				///< Read joystick data on this channel
+
 bool start = false;						///< Giving time to the user to get the robot in balancing angle
 bool complyTorque = false;
 bool resetFT = false; 		
