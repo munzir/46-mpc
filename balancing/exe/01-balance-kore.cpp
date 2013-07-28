@@ -74,7 +74,9 @@ void getExternalWrench (Vector6d& external) {
 	else rightWheelWrench = Vector6d::Zero();
 			
 	// Sum the wheel wrenches from the two f/t sensors
-	external = leftWheelWrench + rightWheelWrench;
+	// NOTE: In kore library, the FT sensing is returning the negative of the sensed force so we 
+	// have to negate it back to get the sensed force
+	external = -leftWheelWrench - rightWheelWrench;
 }
 
 /* ******************************************************************************************** */
@@ -350,6 +352,10 @@ void run () {
 				mode4iter = 0;
 				K = K_balLow;
 			}
+		}
+		// COM error correction in balLow mode
+		else if(MODE == 4) {
+			error(0) += 0.005;
 		}
 		// COM error correction in balHigh mode
 		else if(MODE == 5) {
