@@ -64,7 +64,7 @@ vector <int> imuWaistTorso_ids (imuWaistTorso_ids_a, imuWaistTorso_ids_a + 3);
 void getState(Vector6d& state, double dt, Vector3d* com_) {
 
 	// Read motor encoders, imu and ft and update dart skeleton
-	krang->updateSensors(dt);
+  krang->updateSensors(dt);
 
 	// Calculate the COM	
 	Vector3d com = robot->getWorldCOM();

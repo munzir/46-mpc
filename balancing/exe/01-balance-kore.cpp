@@ -343,7 +343,7 @@ void run () {
 		}
 		// if in standing up mode check if the balancing angle is reached and stayed, if so switch to balLow mode
 		else if(MODE == 2) {
-			if(fabs(state(0)) < 0.01) mode4iter++;
+			if(fabs(state(0)) < 0.034) mode4iter++;
 			// Change to mode 4 (balance low) if stood up enough
 			if(mode4iter > mode4iterLimit) {
 				MODE = 4;
@@ -414,7 +414,7 @@ void run () {
 			}
 			
 			// If in balLow mode and waist is not too high, sit down
-			else if(MODE == 4) {
+			else if(MODE == 2 || MODE == 4) {
 				if((krang->waist->pos[0] - krang->waist->pos[1])/2.0 > 150.0*M_PI/180.0) {
 					printf("\n\n\nMode 3\n\n\n");
 					K = K_sit;
