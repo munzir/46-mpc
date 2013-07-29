@@ -119,10 +119,12 @@ bool getJoystickInput(double& js_forw, double& js_spin) {
 	
 	// Change the gains with the given joystick input
 	double deltaTH = 0.2, deltaX = 0.02, deltaSpin = 0.02;
-	for(size_t i = 0; i < 4; i++) {
-		if(((b[5] == 0) && (b[7] == 0)) && (b[i] == 1)) K(i % 2) += ((i < 2) ? deltaTH : -deltaTH);
-		else if((b[5] == 1) && (b[i] == 1)) K((i % 2) + 2) += ((i < 2) ? deltaX : -deltaX);
-		else if((b[7] == 1) && (b[i] == 1)) K((i % 2) + 4) += ((i < 2) ? deltaSpin : -deltaSpin);
+	if(!joystickControl) {
+		for(size_t i = 0; i < 4; i++) {
+			if(((b[5] == 0) && (b[7] == 0)) && (b[i] == 1)) K(i % 2) += ((i < 2) ? deltaTH : -deltaTH);
+			else if((b[5] == 1) && (b[i] == 1)) K((i % 2) + 2) += ((i < 2) ? deltaX : -deltaX);
+			else if((b[7] == 1) && (b[i] == 1)) K((i % 2) + 4) += ((i < 2) ? deltaSpin : -deltaSpin);
+		}
 	}
 	
 	// Ignore the joystick statements for the arm control 
@@ -192,9 +194,10 @@ void *kbhit(void *) {
 	while(true){ 
 		input=cin.get(); 
 		if(input=='s') start = true; 
-		else if(input=='t') complyTorque = true;
+		else if(input=='t') complyTorque = !complyTorque;
 		else if(input=='f') resetFT = true; 
 		else if(input=='.') readGains();
+		else if(input=='j') joystickControl = !joystickControl;
 		else if(input=='1') {
 			printf("Mode 1\n"); 
 			K = K_ground;

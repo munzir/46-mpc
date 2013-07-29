@@ -322,7 +322,10 @@ void run () {
 		averagedTorque /= historySize;
 		
 		// Compute the balancing angle reference using the center of mass, total mass and felt wrench.
-		if(complyTorque) computeBalAngleRef(com, averagedTorque, refState(0));
+		if(complyTorque) { 
+			if(debug) cout << "Force-Responsive Balancing ..." << endl;
+			computeBalAngleRef(com, averagedTorque, refState(0));
+		}
 		if(debug) cout << "refState: " << refState.transpose() << endl;
 
 		// =======================================================================
@@ -384,8 +387,16 @@ void run () {
 		// =======================================================================
 		// Control the arms, waist torso and robotiq grippers based on the joystick input
 
-		// Control the arms if necessary
-		controlArms();
+		if(joystickControl) {
+		
+			if(debug) cout << "Joystick for Arms ..." << endl;
+		
+			// Control the arms if necessary
+			controlArms();
+
+			// Control the robotiq hands
+			controlRobotiq();
+		}
 
 		// Control the torso
 		double dq [] = {x[4] / 7.0};
@@ -394,9 +405,7 @@ void run () {
 		// Control the waist
 		controlWaist();
 
-		// Control the robotiq hands
-		controlRobotiq();
-
+	
 		// ==========================================================================
 		// Quit if button 9 on the joystick is pressed, stand/sit if button 10 is pressed
 
