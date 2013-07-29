@@ -262,7 +262,7 @@ void run () {
 	// Continue processing data until stop received
 	double js_forw = 0.0, js_spin = 0.0, averagedTorque = 0.0, lastUleft = 0.0, lastUright = 0.0;
 	size_t mode4iter = 0, mode4iterLimit = 100;
-	size_t lastMode = MODE;
+	size_t lastMode = MODE; bool lastStart = start; 
 	while(!somatic_sig_received) {
 
 		bool debug = (c_++ % 20 == 0);
@@ -273,6 +273,10 @@ void run () {
 		if(lastMode != MODE) {
 			refState(2) = state(2), refState(4) = state(4);
 			lastMode = MODE;
+		}
+		if(lastStart != start) {
+			refState(2) = state(2), refState(4) = state(4);
+			lastStart = start;
 		}
 
 		// =======================================================================
@@ -384,15 +388,17 @@ void run () {
 		if(debug) cout << "error: " << error.transpose() << ", imu: " << krang->imu / M_PI * 180.0 << endl;
 
 		// Compute the current
-		double u = K.topLeftCorner<4,1>().dot(error.topLeftCorner<4,1>());
+		double u_theta = K.topLeftCorner<2,1>().dot(error.topLeftCorner<2,1>());
+		double u_x = K(2)*error(2) + K(3)*error(3);
 		double u_spin =  -K.bottomLeftCorner<2,1>().dot(error.bottomLeftCorner<2,1>());
-		u_spin = max(-15.0, min(15.0, u_spin));
+		u_spin = max(-30.0, min(30.0, u_spin));
     	
 		// Compute the input for left and right wheels
-		double input [2] = {u + u_spin, u - u_spin};
+		if(joystickControl) {u_x = 0.0; u_spin = 0.0;}
+		double input [2] = {u_theta + u_x + u_spin, u_theta + u_x - u_spin};
 		input[0] = max(-49.0, min(49.0, input[0]));
 		input[1] = max(-49.0, min(49.0, input[1]));
-		if(debug) printf("u: %lf, u_spin: %lf\n", u, u_spin);
+		if(debug) printf("u_theta: %lf, u_x: %lf, u_spin: %lf\n", u_theta, u_x, u_spin);
 		lastUleft = input[0], lastUright = input[1];
 		
 		// Set the motor velocities
