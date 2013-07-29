@@ -75,7 +75,8 @@ double x [6];						///< Stores the joystick axes inputs
 // All the freaking gains
 
 extern size_t MODE;
-extern Vector6d K_ground;
+extern Vector6d K_groundLo;
+extern Vector6d K_groundHi;
 extern Vector2d J_ground;
 extern Vector6d K_stand;
 extern Vector2d J_stand;

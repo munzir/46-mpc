@@ -18,7 +18,8 @@ using namespace std;
 // Initialize the gains for controller and joystick
 
 size_t MODE = 1;
-Vector6d K_ground = (Vector6d() << 0.0, 0.0, 0.0, -20.0, 0.0, 20.0).finished();
+Vector6d K_groundLo;
+Vector6d K_groundHi;
 Vector2d J_ground (1.0, 1.0);
 Vector6d K_stand;
 Vector2d J_stand;
@@ -28,10 +29,11 @@ Vector6d K_balLow;
 Vector2d J_balLow;
 Vector6d K_balHigh;
 Vector2d J_balHigh;
-Vector6d K = K_ground;
+Vector6d K = K_groundLo;
 
 /* ******************************************************************************************** */
 // Constants for the robot kinematics
+
 
 const double wheelRadius = 10.5; 							///< Radius of krang wheels in inches
 const double distanceBetweenWheels = 27.375; 	///< Distance Between krang's wheels in inches 
@@ -135,7 +137,7 @@ bool getJoystickInput(double& js_forw, double& js_spin) {
 
 	// Set the values for the axis
 	double* x = &(js_msg->axes->data[0]);
-	if(MODE == 1) {
+	if(MODE == 1 || MODE == 6) {
 		js_forw = -J_ground(0) * x[1], js_spin = J_ground(1) * x[2];
 	}
 	else if(MODE == 4) {
@@ -158,12 +160,12 @@ bool getJoystickInput(double& js_forw, double& js_spin) {
 /// Read file for gains
 void readGains () {
 
-	Vector6d* kgains [] = {&K_ground, &K_stand, &K_sit, &K_balLow, &K_balHigh};
-	Vector2d* jgains [] = {&J_ground, &J_stand, &J_sit, &J_balLow, &J_balHigh};
+	Vector6d* kgains [] = {&K_groundLo, &K_stand, &K_sit, &K_balLow, &K_balHigh, &K_groundHi};
+	Vector2d* jgains [] = {&J_ground, &J_stand, &J_sit, &J_balLow, &J_balHigh, &J_ground};
 	ifstream file ("../gains.txt");
 	assert(file.is_open());
 	char line [1024];
-	for(size_t k_idx = 0; k_idx < 5; k_idx++) {
+	for(size_t k_idx = 0; k_idx < 6; k_idx++) {
 		*kgains[k_idx] = Vector6d::Zero();
 		*jgains[k_idx] = Vector2d::Zero();
 		file.getline(line, 1024);
@@ -175,7 +177,8 @@ void readGains () {
 	}
 	file.close();
 
-	pv(K_ground);
+	pv(K_groundLo);
+	pv(K_groundHi);
 	pv(J_ground);
 	pv(K_stand);
 	pv(J_stand);
@@ -186,7 +189,7 @@ void readGains () {
 	pv(K_balHigh);
 	pv(J_balHigh);
 
-	K = K_ground;
+	K = K_groundLo;
 }
 
 /* ********************************************************************************************* */
@@ -208,7 +211,7 @@ void *kbhit(void *) {
 		}
 		else if(input=='1') {
 			printf("Mode 1\n"); 
-			K = K_ground;
+			K = K_groundLo;
 			MODE = 1;
 		}
 		else if(input=='2') {
@@ -231,6 +234,12 @@ void *kbhit(void *) {
 			K = K_balHigh;
 			MODE = 5;
 		}
+		else if(input=='6') {
+			printf("Mode 6\n"); 
+			K = K_groundHi;
+			MODE = 6;
+		}
+
 
 	}
 	start = true;

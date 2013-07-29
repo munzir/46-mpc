@@ -356,14 +356,28 @@ void run () {
 		if(debug) cout << "K: " << K.transpose() << endl;
 		error = state - refState;
 
+		// If in ground Lo mode and waist angle increases beyond 150.0 goto groundHi mode
+		if(MODE == 1) {
+			if((krang->waist->pos[0]-krang->waist->pos[1])/2.0 < 150.0*M_PI/180.0) {
+				MODE = 6;
+				K = K_groundHi;
+			}
+		}
+		// If in ground Hi mode and waist angle decreases below 150.0 goto groundLo mode
+		else if(MODE == 6) {
+			if((krang->waist->pos[0]-krang->waist->pos[1])/2.0 > 150.0*M_PI/180.0) {
+				MODE = 1;
+				K = K_groundLo;
+			}
+		}
+
 		// If we are in the sit down mode, over write the reference
-		if(MODE == 3) {
+		else if(MODE == 3) {
 			static const double limit = ((-103.0 / 180.0) * M_PI);
 			if(krang->imu < limit) {
 				printf("imu (%lf) < limit (%lf): changing to mode 1\n", krang->imu, limit);
 				MODE = 1;
-				K = K_ground;
-
+				K = K_groundLo;
 			}
 			else error(0) = krang->imu - limit;
 		}
@@ -420,7 +434,7 @@ void run () {
 
 		// Control the grippers 
 		//controlRobotiq();
-		controlSchunkGrippers();
+		//controlSchunkGrippers();
 
 		// Control the torso
 		double dq [] = {x[4] / 7.0};
@@ -487,7 +501,7 @@ void init() {
 	somatic_d_init(&daemon_cx, &dopt);
 
 	// Initialize the motors and sensors on the hardware and update the kinematics in dart
-	krang = new Krang::Hardware(Krang::Hardware::MODE_ALL_GRIPSCH, &daemon_cx, robot); 
+	krang = new Krang::Hardware(Krang::Hardware::MODE_ALL, &daemon_cx, robot); 
 
 	// Initialize the joystick channel
 	int r = ach_open(&js_chan, "joystick-data", NULL);
@@ -534,7 +548,7 @@ int main(int argc, char* argv[]) {
 
 	// Load the world and the robot
 	DartLoader dl;
-	world = dl.parseWorld("../../../experiments/common/scenes/01-World-RobotSchunkGrippers.urdf");
+	world = dl.parseWorld("../../../experiments/common/scenes/01-World-Robot.urdf");
 	assert((world != NULL) && "Could not find the world");
 	robot = world->getSkeleton(0);
 
