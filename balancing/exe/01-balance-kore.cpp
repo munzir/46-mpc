@@ -123,14 +123,16 @@ void controlArms () {
 
 	// Check if one of the preset configurations are requested by pressing 9 and
 	// any of the buttons from 1 to 4 at the same time
-	if((b[4] == 1) && (b[5] == 1) && (b[6] == 1) && (b[7] == 1)) {
+	if(((b[4] == 1) && (b[6] == 1)) || ((b[5] == 1) && (b[7] == 1))) {
 
 		// Check if the button is pressed for the arm configuration is pressed, if so send pos commands
 		bool noConfs = true;
 		for(size_t i = 0; i < 4; i++) {
 			if(b[i] == 1) {
-				somatic_motor_cmd(&daemon_cx, krang->larm, POSITION, presetArmConfs[2*i], 7, NULL);
-				somatic_motor_cmd(&daemon_cx, krang->rarm, POSITION, presetArmConfs[2*i+1], 7, NULL);
+				if((b[4] == 1) && (b[6] == 1)) 
+					somatic_motor_cmd(&daemon_cx, krang->larm, POSITION, presetArmConfs[2*i], 7, NULL);
+				if((b[5] == 1) && (b[7] == 1)) 
+					somatic_motor_cmd(&daemon_cx, krang->rarm, POSITION, presetArmConfs[2*i+1], 7, NULL);
 				noConfs = false; 
 				return;
 			}
@@ -208,6 +210,21 @@ void controlRobotiq() {
 			system(buf);
 		}
 	}
+}
+
+/* ********************************************************************************************* */
+/// Handles the joystick commands for the left/right Schunk grippers
+void controlSchunkGrippers () {
+
+	// Button 4 with top/down at the right circular thingy indicates a motion for the left gripper
+	double dq [] = {0.0};
+	dq[0] = x[3] * 10.0;
+	if(b[4]) 
+		somatic_motor_cmd(&daemon_cx, krang->lgripper, SOMATIC__MOTOR_PARAM__MOTOR_CURRENT, dq, 1, NULL);
+
+	// Button 5 with the same circular thingy for the right gripper
+	if(b[5]) 
+		somatic_motor_cmd(&daemon_cx, krang->rgripper, SOMATIC__MOTOR_PARAM__MOTOR_CURRENT, dq, 1, NULL);
 }
 
 /* ******************************************************************************************** */
@@ -393,10 +410,11 @@ void run () {
 		
 			// Control the arms if necessary
 			controlArms();
-
-			// Control the robotiq hands
-			controlRobotiq();
 		}
+
+		// Control the grippers 
+		//controlRobotiq();
+		controlSchunkGrippers();
 
 		// Control the torso
 		double dq [] = {x[4] / 7.0};
@@ -444,7 +462,7 @@ void run () {
 		b9Prev = b[9];
 
 		// Print the mode
-		if(debug) printf("Mode : %d\n", MODE);
+		if(debug) printf("Mode : %d\tdt: %lf\n", MODE, dt);
 	}
 
 	// Send the stoppig event
@@ -481,7 +499,16 @@ void destroy() {
 
 	cout << "destroying" << endl;
 
+	// ===========================
 	// Stop motors, close motor/sensor channels and destroy motor objects
+	
+	// To prevent arms from halting if joystick control is not on, change mode of krang
+	if(!joystickControl) {
+		somatic_motor_destroy(&daemon_cx, krang->larm);
+		somatic_motor_destroy(&daemon_cx, krang->rarm);
+	  krang->larm = NULL;
+	  krang->rarm = NULL;
+	}
 	delete krang;
 		
 	// Destroy the daemon resources

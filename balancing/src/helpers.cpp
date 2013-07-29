@@ -185,6 +185,8 @@ void readGains () {
 	pv(J_balLow);
 	pv(K_balHigh);
 	pv(J_balHigh);
+
+	K = K_ground;
 }
 
 /* ********************************************************************************************* */
@@ -197,7 +199,13 @@ void *kbhit(void *) {
 		else if(input=='t') complyTorque = !complyTorque;
 		else if(input=='f') resetFT = true; 
 		else if(input=='.') readGains();
-		else if(input=='j') joystickControl = !joystickControl;
+		else if(input=='j') { 
+			joystickControl = !joystickControl;
+			if(joystickControl == true) {
+				somatic_motor_reset(&daemon_cx, krang->larm);
+				somatic_motor_reset(&daemon_cx, krang->rarm);
+			}
+		}
 		else if(input=='1') {
 			printf("Mode 1\n"); 
 			K = K_ground;
