@@ -64,7 +64,7 @@ ach_channel_t js_chan;				///< Read joystick data on this channel
 bool start = false;						///< Giving time to the user to get the robot in balancing angle
 bool complyTorque = false;
 bool joystickControl = false;
-bool resetFT = false; 		
+bool resetLeftFT = false, resetRightFT = false; 		
 	
 double jsFwdAmp;				///< The gains for joystick forward/reverse input
 double jsSpinAmp;				///< The gains for joystick left/right spin input

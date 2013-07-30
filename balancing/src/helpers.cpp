@@ -129,7 +129,17 @@ bool getJoystickInput(double& js_forw, double& js_spin) {
 			else if((b[7] == 1) && (b[i] == 1)) K((i % 2) + 4) += ((i < 2) ? deltaSpin : -deltaSpin);
 		}
 	}
+
+		// Reset fts
+	if(!resetLeftFT && (x[4] < -0.5)) resetLeftFT = true;
+	if(!resetRightFT && (x[4] > 0.5)) resetRightFT = true;
 	
+	// Update joystick and force-compensation controls
+	static int lastb0 = b[0], lastb1 = b[1], lastb2 = b[2];
+	if((b[4] == 1) && (b[6] == 0) && (b[0] == 1) && (lastb0 == 0)) joystickControl = !joystickControl;
+	if((b[4] == 1) && (b[6] == 0) && (b[1] == 1) && (lastb1 == 0)) complyTorque = !complyTorque;
+	lastb0 = b[0], lastb1 = b[1], lastb2 = b[2];
+
 	// Ignore the joystick statements for the arm control 
 	if((b[4] == 1) || (b[5] == 1) || (b[6] == 1) || (b[7] == 1)) {
 		js_forw = js_spin = 0.0;
@@ -201,7 +211,8 @@ void *kbhit(void *) {
 		input=cin.get(); 
 		if(input=='s') start = true; 
 		else if(input=='t') complyTorque = !complyTorque;
-		else if(input=='f') resetFT = true; 
+		else if(input=='e') resetLeftFT = true; 
+		else if(input=='r') resetRightFT = true; 
 		else if(input=='.') readGains();
 		else if(input=='j') { 
 			joystickControl = !joystickControl;

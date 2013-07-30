@@ -77,6 +77,8 @@ void getExternalWrench (Vector6d& external) {
 	// NOTE: In kore library, the FT sensing is returning the negative of the sensed force so we 
 	// have to negate it back to get the sensed force
 	external = -leftWheelWrench - rightWheelWrench;
+	if(debugGlobal) cout << "tangible torque: " << external(4) << " (" << -leftWheelWrench(4) <<
+		", " << -rightWheelWrench(4) << ")" << endl;
 }
 
 /* ******************************************************************************************** */
@@ -307,27 +309,40 @@ void run () {
 
 		// Get the wrench on the wheel due to external force
 		getExternalWrench(externalWrench);
-		if(debug) cout << "tangible torque: " << externalWrench(4) << endl;
-/*
-		// Compute the offsets of the FT sensor again if commanded
-		if(resetFT) {
 
-			if(debug)	cout << "Resetting FT" << endl;
+		// Compute the offsets of the FT sensor again if commanded
+		const size_t numResetFTIters = 30;
+		if(resetLeftFT) {
+
 			// Accumulate data for LEft FT
-			if(getFT(daemon_cx, left_ft_chan, temp) && leftFTIter < 500)  {	leftFTData += temp;	leftFTIter++; }
-			if(getFT(daemon_cx, right_ft_chan, temp) && rightFTIter < 500) { rightFTData += temp;	rightFTIter++;}
+			if(debug)	cout << "Resetting left FT" << endl;
+			if(krang->lft->getRaw(temp) && leftFTIter < numResetFTIters)  {	leftFTData += temp;	leftFTIter++; }
 		
 			// If done accumulating data compute the average
-			if(leftFTIter == 500 && rightFTIter == 500) {
-				leftFTData /= 500.0, rightFTData /= 500.0;
-				computeOffset(imu, (waist.pos[0]-waist.pos[1])/2.0, llwa, leftFTData, *robot, leftOffset, true);
-				computeOffset(imu, (waist.pos[0]-waist.pos[1])/2.0, rlwa, rightFTData, *robot, rightOffset, false);
-				leftFTData << 0,0,0,0,0,0; rightFTData << 0,0,0,0,0,0; 
-				leftFTIter = 0, rightFTIter = 0; 
-				resetFT = false;
+			if(leftFTIter == numResetFTIters) {
+				leftFTData /= numResetFTIters;
+				krang->lft->error(leftFTData, krang->lft->offset, false);
+				leftFTData << 0,0,0,0,0,0; 
+				leftFTIter = 0;
+				resetLeftFT = false;
 			}
 		} 
-	*/
+		if(resetRightFT) {
+			// Accumulate data for right FT
+			if(debug)	cout << "Resetting right FT" << endl;
+			if(krang->rft->getRaw(temp) && rightFTIter < numResetFTIters) { rightFTData += temp;	rightFTIter++;}
+		
+			// If done accumulating data compute the average
+			if(rightFTIter == numResetFTIters) {
+				rightFTData /= numResetFTIters;
+				krang->rft->error(rightFTData, krang->rft->offset, false);
+				rightFTData << 0,0,0,0,0,0; 
+				rightFTIter = 0; 
+				resetRightFT = false;
+			}
+		} 
+
+
 		// =======================================================================
 		// Compute ref state: (1) joystick, (2) running average of external, (3) ref angle
 
@@ -408,7 +423,7 @@ void run () {
 		u_spin = max(-30.0, min(30.0, u_spin));
     	
 		// Compute the input for left and right wheels
-		if(joystickControl) {u_x = 0.0; u_spin = 0.0;}
+		if(joystickControl && ((MODE == 1) || (MODE == 6))) {u_x = 0.0; u_spin = 0.0;}
 		double input [2] = {u_theta + u_x + u_spin, u_theta + u_x - u_spin};
 		input[0] = max(-49.0, min(49.0, input[0]));
 		input[1] = max(-49.0, min(49.0, input[1]));
