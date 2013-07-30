@@ -7,12 +7,21 @@
  */
 
 #include "helpers.h"
+#include "display.hpp"
 
 using namespace std;
 using namespace dynamics;
 
 /* ******************************************************************************************** */
 // For logging purposes
+
+int Krang::COLOR_RED_BACKGROUND = 11;
+int Krang::COLOR_YELLOW_BACKGROUND = 12;
+int Krang::COLOR_GREEN_BACKGROUND = 13;
+int Krang::COLOR_WHITE_BACKGROUND = 14;
+int Krang::curses_display_row = 30;
+int Krang::curses_display_precision = 15;
+bool Krang::doing_curses = false;
 
 struct LogState {
 	
@@ -108,10 +117,10 @@ void computeBalAngleRef(const Vector3d& com, double externalTorque, double& refI
 double presetArmConfs [][7] = {
   {  1.102, -0.589,  0.000, -1.339,  0.000, -0.959,  0.000},
   { -1.102,  0.589,  0.000,  1.339,  0.000,  0.959,  0.000},
-	{0.485336104,-0.60243517,0.613062565,-1.75666058,-0.21035582,0.620851580,-1.10388231},
-	{-0.42317802,0.94009322,-0.67358440,1.99423850,0.257047180,-1.00549746,-0.47120750},
-  {  1.400, -1.000,  0.000, -0.800,  0.000, -0.800,  -1.000}, 
-  { -1.400,  1.000,  0.000,  0.800,  0.000,  0.800,  -1.000},
+	{  1.130, -1.000,  0.000, -1.570, -0.000,  1.000,  -1.104},
+	{ -1.130,  1.000, -0.000,  1.570,  0.000, -1.000,  -0.958},
+  {  1.400, -1.000,  0.000, -0.800,  0.000, -0.500,  -1.000}, 
+  { -1.400,  1.000,  0.000,  0.800,  0.000,  0.500,  -1.000},
   {  0.000,  0.000,  0.000,  0.000,  0.000,  0.000,  0.000},
   {  0.000,  0.000,  0.000,  0.000,  0.000,  0.000,  0.000},
 };

@@ -42,18 +42,16 @@ include_directories(/usr/local/include/eigen3)
 
 # Include the project files
 include_directories(src)
-include_directories(../../experiments/common)
+include_directories(../../experiments/common/library)
+include_directories(../../experiments/common/)
 
 # Collect the source, script and fortran files
-file(GLOB main_source "src/*.cpp" "src/*.c")
+file(GLOB main_source "src/*.cpp" "src/*.c" "../../experiments/common/library/*.cpp")
 file(GLOB scripts_source "exe/*.cpp")
 list(SORT scripts_source)
 
 # Build the library and set the executables that use it (have to hardcode for now)
 add_library(Main SHARED ${main_source})
-add_library(Kore SHARED "../../experiments/common/library/kore.cpp")
-add_library(Sensors SHARED "../../experiments/common/library/sensors.cpp")
-add_library(Util SHARED "../../experiments/common/library/util.cpp")
 set(MainDependents kore balancing)
 
 # Build scripts
@@ -62,7 +60,7 @@ foreach(script_src_file ${scripts_source})
 	get_filename_component(script_base ${script_src_file} NAME_WE)
 	message(STATUS "Adding script ${script_src_file} with base name ${script_base}" )
 	add_executable(${script_base} ${script_src_file})
-	target_link_libraries(${script_base} Main Kore Sensors Util) 
+	target_link_libraries(${script_base} Main)
 	target_link_libraries(${script_base} ${GRIP_LIBRARIES} ${DART_LIBRARIES} ${DARTExt_LIBRARIES} ${wxWidgets_LIBRARIES}) 
 	add_custom_target(${script_base}.run ${script_base} ${ARGN})
 endforeach(script_src_file)

@@ -14,15 +14,15 @@ if(${CMAKE_SOURCE_DIR} STREQUAL ${CMAKE_BINARY_DIR})
 endif()
 
 #Include the OpenCV library
-set(OpenCV_DIr "/usr/share/OpenCV")
-find_package(OpenCV REQUIRED)
-include_directories(${OpenCV_INCLUDE_DIR})
-link_libraries(${OpenCV_LIBS})
-
-#Include the PCL Library
-find_package(PCL 1.6 REQUIRED)
-include_directories(${PCL_INCLUDE_DIRS})
-link_directories(${PCL_LIBRARY_DIRS})
+#set(OpenCV_DIr "/usr/share/OpenCV")
+#find_package(OpenCV REQUIRED)
+#include_directories(${OpenCV_INCLUDE_DIR})
+#link_libraries(${OpenCV_LIBS})
+#
+##Include the PCL Library
+#find_package(PCL 1.6 REQUIRED)
+#include_directories(${PCL_INCLUDE_DIRS})
+#link_directories(${PCL_LIBRARY_DIRS})
 
 # Include Dart and Grip stuff
 include(simulation.cmake)

@@ -136,7 +136,13 @@ bool getJoystickInput(double& js_forw, double& js_spin) {
 	
 	// Update joystick and force-compensation controls
 	static int lastb0 = b[0], lastb1 = b[1], lastb2 = b[2];
-	if((b[4] == 1) && (b[6] == 0) && (b[0] == 1) && (lastb0 == 0)) joystickControl = !joystickControl;
+	if((b[4] == 1) && (b[6] == 0) && (b[0] == 1) && (lastb0 == 0)) { 
+		joystickControl = !joystickControl;
+		if(joystickControl == true) {
+			somatic_motor_reset(&daemon_cx, krang->larm);
+			somatic_motor_reset(&daemon_cx, krang->rarm);
+		}
+	}
 	if((b[4] == 1) && (b[6] == 0) && (b[1] == 1) && (lastb1 == 0)) complyTorque = !complyTorque;
 	lastb0 = b[0], lastb1 = b[1], lastb2 = b[2];
 
