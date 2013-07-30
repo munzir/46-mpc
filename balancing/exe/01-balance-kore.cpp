@@ -393,11 +393,11 @@ void run () {
 		}
 		// COM error correction in balLow mode
 		else if(MODE == 4) {
-			error(0) += 0.005;
+			// error(0) += 0.005;
 		}
 		// COM error correction in balHigh mode
 		else if(MODE == 5) {
-			error(0) -= 0.005;	
+			// error(0) -= 0.005;	
 		}
 		if(debug) cout << "error: " << error.transpose() << ", imu: " << krang->imu / M_PI * 180.0 << endl;
 
