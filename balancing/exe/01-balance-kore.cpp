@@ -303,6 +303,8 @@ void run () {
 		getState(state, dt, &com);
 		if(debug) cout << "\nstate: " << state.transpose() << endl;
 		if(debug) cout << "com: " << com.transpose() << endl;
+		if(debug) cout << "WAIST ANGLE: " << krang->waist->pos[0] << endl;
+
 
 		// Print the information about the last iteration (after reading effects of it from sensors)
 		// NOTE: Constructor order is NOT the print order

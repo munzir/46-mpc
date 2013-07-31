@@ -144,6 +144,18 @@ bool getJoystickInput(double& js_forw, double& js_spin) {
 		}
 	}
 	if((b[4] == 1) && (b[6] == 0) && (b[1] == 1) && (lastb1 == 0)) complyTorque = !complyTorque;
+	if((b[4] == 1) && (b[6] == 0) && (b[2] == 1) && (lastb2 == 0)) {
+		if(MODE == 4) {
+			printf("Mode 5\n"); 
+			K = K_balHigh;
+			MODE = 5;
+		}
+		else if (MODE == 5) {
+			printf("Mode 4\n"); 
+			K = K_balLow;
+			MODE = 4;
+		}
+	}
 	lastb0 = b[0], lastb1 = b[1], lastb2 = b[2];
 
 	// Ignore the joystick statements for the arm control 
