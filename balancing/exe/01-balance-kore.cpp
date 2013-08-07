@@ -7,7 +7,7 @@
  */
 
 #include "helpers.h"
-#include "display.hpp"
+#include <kore/display.hpp>
 
 using namespace std;
 using namespace dynamics;
@@ -37,17 +37,17 @@ struct LogState {
 
 	/// Constructor
 	LogState (double t, const Vector3d& c, double aTo, double to, double aL, double aR, 
-		const Vector6d& s, const Vector6d& rS, double lUl, double lUr) :
-			time(t), com(c), averagedTorque(aTo), torque(to), amcLeft(aL), amcRight(aR), state(s), 
-			refState(rS), lastUleft(lUl), lastUright(lUr) {}
+	          const Vector6d& s, const Vector6d& rS, double lUl, double lUr) :
+		time(t), com(c), averagedTorque(aTo), torque(to), amcLeft(aL), amcRight(aR), state(s), 
+		refState(rS), lastUleft(lUl), lastUright(lUr) {}
 
 	/// Print
 	void print () {
 		//       torques         currents        state        refstate       time
 		printf("%lf\t%lf\t  %lf\t%lf\t%lf\t%lf\t  %lf\t%lf\t%lf\t %lf\t%lf\t%lf\t %lf\n", 
-        averagedTorque, torque, lastUleft, lastUright, krang->amc->cur[0], krang->amc->cur[1],  
-				state(0)*180.0/M_PI, state(2)*180.0/M_PI, state(4)*180.0/M_PI, refState(0)*180.0/M_PI, 
-				refState(2)*180.0/M_PI, refState(4)*180.0/M_PI, time);
+		       averagedTorque, torque, lastUleft, lastUright, krang->amc->cur[0], krang->amc->cur[1],  
+		       state(0)*180.0/M_PI, state(2)*180.0/M_PI, state(4)*180.0/M_PI, refState(0)*180.0/M_PI, 
+		       refState(2)*180.0/M_PI, refState(4)*180.0/M_PI, time);
 	}
 	
 };
@@ -69,16 +69,16 @@ bool debugGlobal = false, logGlobal = true;
 void getExternalWrench (Vector6d& external) {
 
 	// If the wrench sensed on left FT sensor is not high use it calculate wrench on the wheel
-	if((krang->lft->lastExternal.topLeftCorner<3,1>().norm() > 7) || 
-		 (krang->lft->lastExternal.bottomLeftCorner<3,1>().norm() > 0.4)) {
-		computeWheelWrench(krang->lft->lastExternal, *robot, leftWheelWrench, true);
+	if((krang->fts[Krang::LEFT]->lastExternal.topLeftCorner<3,1>().norm() > 7) || 
+	   (krang->fts[Krang::LEFT]->lastExternal.bottomLeftCorner<3,1>().norm() > 0.4)) {
+		computeWheelWrench(krang->fts[Krang::LEFT]->lastExternal, *robot, leftWheelWrench, true);
 	}
 	else leftWheelWrench = Vector6d::Zero();
 
 	// If the wrench sensed on right FT sensor is not high use it calculate wrench on the wheel
-	if((krang->rft->lastExternal.topLeftCorner<3,1>().norm() > 7) || 
-		 (krang->rft->lastExternal.bottomLeftCorner<3,1>().norm() > 0.4)) {
-		computeWheelWrench(krang->rft->lastExternal, *robot, rightWheelWrench, false);
+	if((krang->fts[Krang::RIGHT]->lastExternal.topLeftCorner<3,1>().norm() > 7) || 
+	   (krang->fts[Krang::RIGHT]->lastExternal.bottomLeftCorner<3,1>().norm() > 0.4)) {
+		computeWheelWrench(krang->fts[Krang::RIGHT]->lastExternal, *robot, rightWheelWrench, false);
 	}
 	else rightWheelWrench = Vector6d::Zero();
 			
@@ -87,7 +87,7 @@ void getExternalWrench (Vector6d& external) {
 	// have to negate it back to get the sensed force
 	external = -leftWheelWrench - rightWheelWrench;
 	if(debugGlobal) cout << "tangible torque: " << external(4) << " (" << -leftWheelWrench(4) <<
-		", " << -rightWheelWrench(4) << ")" << endl;
+		                ", " << -rightWheelWrench(4) << ")" << endl;
 }
 
 /* ******************************************************************************************** */
@@ -115,14 +115,14 @@ void computeBalAngleRef(const Vector3d& com, double externalTorque, double& refI
 /* ********************************************************************************************* */
 // The preset arm configurations: forward, thriller, goodJacobian
 double presetArmConfs [][7] = {
-  {  0.500, -0.600,  0.000, -1.000,  0.000, -1.450,  0.570},
-  { -0.500,  0.600,  0.000,  1.000,  0.000,  1.450, -0.480},
+	{  0.500, -0.600,  0.000, -1.000,  0.000, -1.450,  0.570},
+	{ -0.500,  0.600,  0.000,  1.000,  0.000,  1.450, -0.480},
 	{  1.130, -1.000,  0.000, -1.570, -0.000,  1.000,  -1.104},
 	{ -1.130,  1.000, -0.000,  1.570,  0.000, -1.000,  -0.958},
-  {  1.400, -1.000,  0.000, -0.800,  0.000, -0.500,  -1.000}, 
-  { -1.400,  1.000,  0.000,  0.800,  0.000,  0.500,  -1.000},
-  {  0.000,  0.000,  0.000,  0.000,  0.000,  0.000,  0.000},
-  {  0.000,  0.000,  0.000,  0.000,  0.000,  0.000,  0.000},
+	{  1.400, -1.000,  0.000, -0.800,  0.000, -0.500,  -1.000}, 
+	{ -1.400,  1.000,  0.000,  0.800,  0.000,  0.500,  -1.000},
+	{  0.000,  0.000,  0.000,  0.000,  0.000,  0.000,  0.000},
+	{  0.000,  0.000,  0.000,  0.000,  0.000,  0.000,  0.000},
 };
 
 /* ********************************************************************************************* */
@@ -141,9 +141,9 @@ void controlArms () {
 		for(size_t i = 0; i < 4; i++) {
 			if(b[i] == 1) {
 				if((b[4] == 1) && (b[6] == 1)) 
-					somatic_motor_cmd(&daemon_cx, krang->larm, POSITION, presetArmConfs[2*i], 7, NULL);
+					somatic_motor_cmd(&daemon_cx, krang->arms[Krang::LEFT], POSITION, presetArmConfs[2*i], 7, NULL);
 				if((b[5] == 1) && (b[7] == 1)) 
-					somatic_motor_cmd(&daemon_cx, krang->rarm, POSITION, presetArmConfs[2*i+1], 7, NULL);
+					somatic_motor_cmd(&daemon_cx, krang->arms[Krang::RIGHT], POSITION, presetArmConfs[2*i+1], 7, NULL);
 				noConfs = false; 
 				return;
 			}
@@ -152,15 +152,15 @@ void controlArms () {
 		// If nothing is pressed, stop the arms
 		if(noConfs) {
 			double dq [] = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
-			somatic_motor_cmd(&daemon_cx, krang->larm, VELOCITY, dq, 7, NULL);
-			somatic_motor_cmd(&daemon_cx, krang->rarm, VELOCITY, dq, 7, NULL);
+			somatic_motor_cmd(&daemon_cx, krang->arms[Krang::LEFT], VELOCITY, dq, 7, NULL);
+			somatic_motor_cmd(&daemon_cx, krang->arms[Krang::RIGHT], VELOCITY, dq, 7, NULL);
 			return;
 		}
 	}
 	
 	// Check the b for each arm and apply velocities accordingly
 	// For left: 4 or 6, for right: 5 or 7, lower arm button is smaller (4 or 5)
-	somatic_motor_t* arm [] = {krang->larm, krang->rarm};
+	somatic_motor_t* arm [] = {krang->arms[Krang::LEFT], krang->arms[Krang::RIGHT]};
 	for(size_t arm_idx = 0; arm_idx < 2; arm_idx++) {
 
 		// Initialize the input
@@ -192,7 +192,7 @@ void controlWaist() {
 	somatic_waist_cmd_set(waistDaemonCmd, waistMode);
 	int r = SOMATIC_PACK_SEND(krang->waistCmdChan, somatic__waist_cmd, waistDaemonCmd);
 	if(ACH_OK != r) fprintf(stderr, "Couldn't send message: %s\n", 
-		ach_result_to_string(static_cast<ach_status_t>(r)));
+	                        ach_result_to_string(static_cast<ach_status_t>(r)));
 }
 
 /* ********************************************************************************************* */
@@ -231,11 +231,11 @@ void controlSchunkGrippers () {
 	double dq [] = {0.0};
 	dq[0] = x[3] * 10.0;
 	if(b[4]) 
-		somatic_motor_cmd(&daemon_cx, krang->lgripper, SOMATIC__MOTOR_PARAM__MOTOR_CURRENT, dq, 1, NULL);
+		somatic_motor_cmd(&daemon_cx, krang->grippers[Krang::LEFT], SOMATIC__MOTOR_PARAM__MOTOR_CURRENT, dq, 1, NULL);
 
 	// Button 5 with the same circular thingy for the right gripper
 	if(b[5]) 
-		somatic_motor_cmd(&daemon_cx, krang->rgripper, SOMATIC__MOTOR_PARAM__MOTOR_CURRENT, dq, 1, NULL);
+		somatic_motor_cmd(&daemon_cx, krang->grippers[Krang::RIGHT], SOMATIC__MOTOR_PARAM__MOTOR_CURRENT, dq, 1, NULL);
 }
 
 /* ******************************************************************************************** */
@@ -246,7 +246,7 @@ void run () {
 
 	// Send a message; set the event code and the priority
 	somatic_d_event(&daemon_cx, SOMATIC__EVENT__PRIORITIES__NOTICE, 
-			SOMATIC__EVENT__CODES__PROC_RUNNING, NULL, NULL);
+	                SOMATIC__EVENT__CODES__PROC_RUNNING, NULL, NULL);
 
 	// Initially the reference position and velocities are zero (don't move!) (and error!)
 	// Initializing here helps to print logs of the previous state
@@ -310,7 +310,7 @@ void run () {
 		// NOTE: Constructor order is NOT the print order
 		if(logGlobal) {
 			logStates.push_back(new LogState(time, com, averagedTorque, externalWrench(4), krang->amc->cur[0],
-				krang->amc->cur[1], state, refState, lastUleft, lastUright));
+			                                 krang->amc->cur[1], state, refState, lastUleft, lastUright));
 		}
 
 		// Get the joystick input for the js_forw and js_spin axes (to set the gains)
@@ -327,12 +327,12 @@ void run () {
 
 			// Accumulate data for LEft FT
 			if(debug)	cout << "Resetting left FT" << endl;
-			if(krang->lft->getRaw(temp) && leftFTIter < numResetFTIters)  {	leftFTData += temp;	leftFTIter++; }
+			if(krang->fts[Krang::LEFT]->getRaw(temp) && leftFTIter < numResetFTIters)  {	leftFTData += temp;	leftFTIter++; }
 		
 			// If done accumulating data compute the average
 			if(leftFTIter == numResetFTIters) {
 				leftFTData /= numResetFTIters;
-				krang->lft->error(leftFTData, krang->lft->offset, false);
+				krang->fts[Krang::LEFT]->error(leftFTData, krang->fts[Krang::LEFT]->offset, false);
 				leftFTData << 0,0,0,0,0,0; 
 				leftFTIter = 0;
 				resetLeftFT = false;
@@ -341,12 +341,12 @@ void run () {
 		if(resetRightFT) {
 			// Accumulate data for right FT
 			if(debug)	cout << "Resetting right FT" << endl;
-			if(krang->rft->getRaw(temp) && rightFTIter < numResetFTIters) { rightFTData += temp;	rightFTIter++;}
+			if(krang->fts[Krang::RIGHT]->getRaw(temp) && rightFTIter < numResetFTIters) { rightFTData += temp;	rightFTIter++;}
 		
 			// If done accumulating data compute the average
 			if(rightFTIter == numResetFTIters) {
 				rightFTData /= numResetFTIters;
-				krang->rft->error(rightFTData, krang->rft->offset, false);
+				krang->fts[Krang::RIGHT]->error(rightFTData, krang->fts[Krang::RIGHT]->offset, false);
 				rightFTData << 0,0,0,0,0,0; 
 				rightFTIter = 0; 
 				resetRightFT = false;
@@ -513,7 +513,7 @@ void run () {
 
 	// Send the stoppig event
 	somatic_d_event(&daemon_cx, SOMATIC__EVENT__PRIORITIES__NOTICE,
-					 SOMATIC__EVENT__CODES__PROC_STOPPING, NULL, NULL);
+	                SOMATIC__EVENT__CODES__PROC_STOPPING, NULL, NULL);
 }
 
 /* ******************************************************************************************** */
@@ -532,7 +532,7 @@ void init() {
 	// Initialize the joystick channel
 	int r = ach_open(&js_chan, "joystick-data", NULL);
 	aa_hard_assert(r == ACH_OK, "Ach failure '%s' on opening Joystick channel (%s, line %d)\n", 
-		ach_result_to_string(static_cast<ach_status_t>(r)), __FILE__, __LINE__);
+	               ach_result_to_string(static_cast<ach_status_t>(r)), __FILE__, __LINE__);
 
 	// Create a thread to wait for user input to begin balancing
 	pthread_t kbhitThread;
@@ -550,10 +550,10 @@ void destroy() {
 	
 	// To prevent arms from halting if joystick control is not on, change mode of krang
 	if(!joystickControl) {
-		somatic_motor_destroy(&daemon_cx, krang->larm);
-		somatic_motor_destroy(&daemon_cx, krang->rarm);
-	  krang->larm = NULL;
-	  krang->rarm = NULL;
+		somatic_motor_destroy(&daemon_cx, krang->arms[Krang::LEFT]);
+		somatic_motor_destroy(&daemon_cx, krang->arms[Krang::RIGHT]);
+		krang->arms[Krang::LEFT] = NULL;
+		krang->arms[Krang::RIGHT] = NULL;
 	}
 	delete krang;
 		
@@ -580,12 +580,12 @@ int main(int argc, char* argv[]) {
 
 	// Read the gains from the command line
 /*
-	assert(argc >= 7 && "Where is my gains for th, x and spin?");
-	K << atof(argv[1]), atof(argv[2]), atof(argv[3]), atof(argv[4]), atof(argv[5]), atof(argv[6]);
-	jsFwdAmp = 0.3;
-	jsSpinAmp = 0.4;
+  assert(argc >= 7 && "Where is my gains for th, x and spin?");
+  K << atof(argv[1]), atof(argv[2]), atof(argv[3]), atof(argv[4]), atof(argv[5]), atof(argv[6]);
+  jsFwdAmp = 0.3;
+  jsSpinAmp = 0.4;
 	
-	cout << "K_bal: " << K_bal.transpose() << "\nPress enter: " << endl;
+  cout << "K_bal: " << K_bal.transpose() << "\nPress enter: " << endl;
 */
 
 	readGains();

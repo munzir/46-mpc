@@ -66,7 +66,7 @@ vector <int> imuWaistTorso_ids (imuWaistTorso_ids_a, imuWaistTorso_ids_a + 3);
 void getState(Vector6d& state, double dt, Vector3d* com_) {
 
 	// Read motor encoders, imu and ft and update dart skeleton
-  krang->updateSensors(dt);
+	krang->updateSensors(dt);
 
 	// Calculate the COM	
 	Vector3d com = robot->getWorldCOM();
@@ -109,7 +109,7 @@ bool getJoystickInput(double& js_forw, double& js_spin) {
 	// Get the message and check output is OK.
 	int r = 0;
 	Somatic__Joystick *js_msg = 
-			SOMATIC_GET_LAST_UNPACK( r, somatic__joystick, &protobuf_c_system_allocator, 4096, &js_chan );
+		SOMATIC_GET_LAST_UNPACK( r, somatic__joystick, &protobuf_c_system_allocator, 4096, &js_chan );
 	if(!(ACH_OK == r || ACH_MISSED_FRAME == r) || (js_msg == NULL)) return false;
 
 	// Get the values
@@ -130,7 +130,7 @@ bool getJoystickInput(double& js_forw, double& js_spin) {
 		}
 	}
 
-		// Reset fts
+	// Reset fts
 	if(!resetLeftFT && (x[4] < -0.5)) resetLeftFT = true;
 	if(!resetRightFT && (x[4] > 0.5)) resetRightFT = true;
 	
@@ -139,8 +139,8 @@ bool getJoystickInput(double& js_forw, double& js_spin) {
 	if((b[4] == 1) && (b[6] == 0) && (b[0] == 1) && (lastb0 == 0)) { 
 		joystickControl = !joystickControl;
 		if(joystickControl == true) {
-			somatic_motor_reset(&daemon_cx, krang->larm);
-			somatic_motor_reset(&daemon_cx, krang->rarm);
+			somatic_motor_reset(&daemon_cx, krang->arms[Krang::LEFT]);
+			somatic_motor_reset(&daemon_cx, krang->arms[Krang::RIGHT]);
 		}
 	}
 	if((b[4] == 1) && (b[6] == 0) && (b[1] == 1) && (lastb1 == 0)) complyTorque = !complyTorque;
@@ -235,8 +235,8 @@ void *kbhit(void *) {
 		else if(input=='j') { 
 			joystickControl = !joystickControl;
 			if(joystickControl == true) {
-				somatic_motor_reset(&daemon_cx, krang->larm);
-				somatic_motor_reset(&daemon_cx, krang->rarm);
+				somatic_motor_reset(&daemon_cx, krang->arms[Krang::LEFT]);
+				somatic_motor_reset(&daemon_cx, krang->arms[Krang::RIGHT]);
 			}
 		}
 		else if(input=='1') {
@@ -279,7 +279,7 @@ void *kbhit(void *) {
 /* ********************************************************************************************* */
 /// Computes the imu value from the imu readings
 void getImu (ach_channel_t* imuChan, double& _imu, double& _imuSpeed, double dt, 
-		filter_kalman_t* kf) {
+             filter_kalman_t* kf) {
 
 	// ======================================================================
 	// Get the readings
@@ -290,7 +290,7 @@ void getImu (ach_channel_t* imuChan, double& _imu, double& _imuSpeed, double dt,
 	clock_gettime(CLOCK_MONOTONIC, &currTime);
 	struct timespec abstime = aa_tm_add(aa_tm_sec2timespec(1.0/30.0), currTime);
 	Somatic__Vector *imu_msg = SOMATIC_WAIT_LAST_UNPACK(r, somatic__vector, 
-			&protobuf_c_system_allocator, IMU_CHANNEL_SIZE, imuChan, &abstime );
+	                                                    &protobuf_c_system_allocator, IMU_CHANNEL_SIZE, imuChan, &abstime );
 	assert((imu_msg != NULL) && "Imu message is faulty!");
 
 	// Get the imu position and velocity value from the readings (note imu mounted at 45 deg).
@@ -333,7 +333,7 @@ void getImu (ach_channel_t* imuChan, double& _imu, double& _imuSpeed, double dt,
 
 /* ******************************************************************************************** */
 void computeExternal (const Vector6d& input, SkeletonDynamics& robot, Vector6d& external, 
-		bool left) {
+                      bool left) {
 
 	// Get the point transform wrench due to moving the affected position from com to sensor origin
 	// The transform is an identity with the bottom left a skew symmetric of the point translation
@@ -370,7 +370,7 @@ void computeExternal (const Vector6d& input, SkeletonDynamics& robot, Vector6d& 
 
 /* ******************************************************************************************** */
 void computeOffset (double imu, double waist, const somatic_motor_t& lwa, const Vector6d& raw, 
-		SkeletonDynamics& robot, Vector6d& offset, bool left) {
+                    SkeletonDynamics& robot, Vector6d& offset, bool left) {
 
 	// Get the point transform wrench due to moving the affected position from com to sensor origin
 	// The transform is an identity with the bottom left a skew symmetric of the point translation
@@ -438,7 +438,7 @@ bool getFT (somatic_d_t& daemon_cx, ach_channel_t& ft_chan, Vector6d& data) {
 	size_t numBytes = 0;
 	struct timespec abstimeout = aa_tm_future(aa_tm_sec2timespec(.001));
 	uint8_t* buffer = (uint8_t*) somatic_d_get(&daemon_cx, &ft_chan, &numBytes, &abstimeout, 
-		ACH_O_LAST, &result);
+	                                           ACH_O_LAST, &result);
 
 	// Return if there is nothing to read
 	if(numBytes == 0) return false;
@@ -450,7 +450,7 @@ bool getFT (somatic_d_t& daemon_cx, ach_channel_t& ft_chan, Vector6d& data) {
 
 	// Read the force-torque message and write it into the vector
 	Somatic__ForceMoment* ftMessage = somatic__force_moment__unpack(&(daemon_cx.pballoc), 
-		numBytes, buffer);
+	                                                                numBytes, buffer);
 	for(size_t i = 0; i < 3; i++) data(i) = ftMessage->force->data[i]; 
 	for(size_t i = 0; i < 3; i++) data(i+3) = ftMessage->moment->data[i]; 
 	return true;
