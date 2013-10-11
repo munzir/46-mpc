@@ -128,14 +128,14 @@ void updateDart (double imu);
 
 /// Reads imu values from the ach channels and computes the imu values
 void getImu (ach_channel_t* imuChan, double& _imu, double& _imuSpeed, double dt, 
-		filter_kalman_t* kf);
+             filter_kalman_t* kf);
 
 /// Reads FT data from ach channels
 bool getFT (somatic_d_t& daemon_cx, ach_channel_t& ft_chan, Vector6d& data);
 
 /// Computes the offset due to the weights of the end-effector in the FT sensor readings
 void computeOffset (double imu, double waist, const somatic_motor_t& lwa, const Vector6d& raw, 
-		SkeletonDynamics& robot, Vector6d& offset, bool left);
+                    SkeletonDynamics& robot, Vector6d& offset, bool left);
 
 /// Givent the raw FT data, gives the wrench in the world frame acting on the FT sensor
 void computeExternal (const Vector6d& input, SkeletonDynamics& robot, Vector6d& external, bool left);
@@ -156,9 +156,9 @@ void readGains();
 #define pm(a) std::cout << #a << ":\n " << fix((a).matrix()) << "\n" << std::endl
 #define pmr(a) std::cout << #a << ":\n " << fix((a)) << "\n" << std::endl
 #define parm (cout << llwa.pos[0] << ", " << llwa.pos[1] << ", " << llwa.pos[2] << ", " << \
-	llwa.pos[3] << ", " << llwa.pos[4] << ", " << llwa.pos[5] << ", " << llwa.pos[6] << endl);
+              llwa.pos[3] << ", " << llwa.pos[4] << ", " << llwa.pos[5] << ", " << llwa.pos[6] << endl);
 #define darm (cout << "dq: "<<llwa.vel[0] << ", " <<llwa.vel[1] << ", " << llwa.vel[2] << ", " << \
-	llwa.vel[3] << ", " << llwa.vel[4] << ", " << llwa.vel[5] << ", " << llwa.vel[6] << endl);
+              llwa.vel[3] << ", " << llwa.vel[4] << ", " << llwa.vel[5] << ", " << llwa.vel[6] << endl);
 #define eig7(x) (Vector7d() << (x)[0], (x)[1], (x)[2], (x)[3], (x)[4], (x)[5], (x)[6]).finished()
 
 /* ******************************************************************************************** */
