@@ -7,10 +7,11 @@
  */
 
 #include "helpers.h"
-#include "display.hpp"
+#include "kore/display.hpp"
 
 using namespace std;
 using namespace dynamics;
+using namespace Krang;
 
 /* ******************************************************************************************** */
 // For logging purposes
@@ -69,16 +70,16 @@ bool debugGlobal = false, logGlobal = true;
 void getExternalWrench (Vector6d& external) {
 
 	// If the wrench sensed on left FT sensor is not high use it calculate wrench on the wheel
-	if((krang->lft->lastExternal.topLeftCorner<3,1>().norm() > 7) || 
-		 (krang->lft->lastExternal.bottomLeftCorner<3,1>().norm() > 0.4)) {
-		computeWheelWrench(krang->lft->lastExternal, *robot, leftWheelWrench, true);
+	if((krang->fts[LEFT]->lastExternal.topLeftCorner<3,1>().norm() > 7) || 
+		 (krang->fts[LEFT]->lastExternal.bottomLeftCorner<3,1>().norm() > 0.4)) {
+		computeWheelWrench(krang->fts[LEFT]->lastExternal, *robot, leftWheelWrench, true);
 	}
 	else leftWheelWrench = Vector6d::Zero();
 
 	// If the wrench sensed on right FT sensor is not high use it calculate wrench on the wheel
-	if((krang->rft->lastExternal.topLeftCorner<3,1>().norm() > 7) || 
-		 (krang->rft->lastExternal.bottomLeftCorner<3,1>().norm() > 0.4)) {
-		computeWheelWrench(krang->rft->lastExternal, *robot, rightWheelWrench, false);
+	if((krang->fts[RIGHT]->lastExternal.topLeftCorner<3,1>().norm() > 7) || 
+		 (krang->fts[RIGHT]->lastExternal.bottomLeftCorner<3,1>().norm() > 0.4)) {
+		computeWheelWrench(krang->fts[RIGHT]->lastExternal, *robot, rightWheelWrench, false);
 	}
 	else rightWheelWrench = Vector6d::Zero();
 			
@@ -141,9 +142,9 @@ void controlArms () {
 		for(size_t i = 0; i < 4; i++) {
 			if(b[i] == 1) {
 				if((b[4] == 1) && (b[6] == 1)) 
-					somatic_motor_cmd(&daemon_cx, krang->larm, POSITION, presetArmConfs[2*i], 7, NULL);
+					somatic_motor_cmd(&daemon_cx, krang->arms[LEFT], POSITION, presetArmConfs[2*i], 7, NULL);
 				if((b[5] == 1) && (b[7] == 1)) 
-					somatic_motor_cmd(&daemon_cx, krang->rarm, POSITION, presetArmConfs[2*i+1], 7, NULL);
+					somatic_motor_cmd(&daemon_cx, krang->arms[RIGHT], POSITION, presetArmConfs[2*i+1], 7, NULL);
 				noConfs = false; 
 				return;
 			}
@@ -152,15 +153,15 @@ void controlArms () {
 		// If nothing is pressed, stop the arms
 		if(noConfs) {
 			double dq [] = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
-			somatic_motor_cmd(&daemon_cx, krang->larm, VELOCITY, dq, 7, NULL);
-			somatic_motor_cmd(&daemon_cx, krang->rarm, VELOCITY, dq, 7, NULL);
+			somatic_motor_cmd(&daemon_cx, krang->arms[LEFT], VELOCITY, dq, 7, NULL);
+			somatic_motor_cmd(&daemon_cx, krang->arms[RIGHT], VELOCITY, dq, 7, NULL);
 			return;
 		}
 	}
 	
 	// Check the b for each arm and apply velocities accordingly
 	// For left: 4 or 6, for right: 5 or 7, lower arm button is smaller (4 or 5)
-	somatic_motor_t* arm [] = {krang->larm, krang->rarm};
+	somatic_motor_t* arm [] = {krang->arms[LEFT], krang->arms[RIGHT]};
 	for(size_t arm_idx = 0; arm_idx < 2; arm_idx++) {
 
 		// Initialize the input
@@ -231,11 +232,11 @@ void controlSchunkGrippers () {
 	double dq [] = {0.0};
 	dq[0] = x[3] * 10.0;
 	if(b[4]) 
-		somatic_motor_cmd(&daemon_cx, krang->lgripper, SOMATIC__MOTOR_PARAM__MOTOR_CURRENT, dq, 1, NULL);
+		somatic_motor_cmd(&daemon_cx, krang->grippers[LEFT], SOMATIC__MOTOR_PARAM__MOTOR_CURRENT, dq, 1, NULL);
 
 	// Button 5 with the same circular thingy for the right gripper
 	if(b[5]) 
-		somatic_motor_cmd(&daemon_cx, krang->rgripper, SOMATIC__MOTOR_PARAM__MOTOR_CURRENT, dq, 1, NULL);
+		somatic_motor_cmd(&daemon_cx, krang->grippers[RIGHT], SOMATIC__MOTOR_PARAM__MOTOR_CURRENT, dq, 1, NULL);
 }
 
 /* ******************************************************************************************** */
@@ -327,12 +328,12 @@ void run () {
 
 			// Accumulate data for LEft FT
 			if(debug)	cout << "Resetting left FT" << endl;
-			if(krang->lft->getRaw(temp) && leftFTIter < numResetFTIters)  {	leftFTData += temp;	leftFTIter++; }
+			if(krang->fts[LEFT]->getRaw(temp) && leftFTIter < numResetFTIters)  {	leftFTData += temp;	leftFTIter++; }
 		
 			// If done accumulating data compute the average
 			if(leftFTIter == numResetFTIters) {
 				leftFTData /= numResetFTIters;
-				krang->lft->error(leftFTData, krang->lft->offset, false);
+				krang->fts[LEFT]->error(leftFTData, krang->fts[LEFT]->offset, false);
 				leftFTData << 0,0,0,0,0,0; 
 				leftFTIter = 0;
 				resetLeftFT = false;
@@ -341,12 +342,12 @@ void run () {
 		if(resetRightFT) {
 			// Accumulate data for right FT
 			if(debug)	cout << "Resetting right FT" << endl;
-			if(krang->rft->getRaw(temp) && rightFTIter < numResetFTIters) { rightFTData += temp;	rightFTIter++;}
+			if(krang->fts[RIGHT]->getRaw(temp) && rightFTIter < numResetFTIters) { rightFTData += temp;	rightFTIter++;}
 		
 			// If done accumulating data compute the average
 			if(rightFTIter == numResetFTIters) {
 				rightFTData /= numResetFTIters;
-				krang->rft->error(rightFTData, krang->rft->offset, false);
+				krang->fts[RIGHT]->error(rightFTData, krang->fts[RIGHT]->offset, false);
 				rightFTData << 0,0,0,0,0,0; 
 				rightFTIter = 0; 
 				resetRightFT = false;
@@ -550,10 +551,10 @@ void destroy() {
 	
 	// To prevent arms from halting if joystick control is not on, change mode of krang
 	if(!joystickControl) {
-		somatic_motor_destroy(&daemon_cx, krang->larm);
-		somatic_motor_destroy(&daemon_cx, krang->rarm);
-	  krang->larm = NULL;
-	  krang->rarm = NULL;
+		somatic_motor_destroy(&daemon_cx, krang->arms[LEFT]);
+		somatic_motor_destroy(&daemon_cx, krang->arms[RIGHT]);
+	  krang->arms[LEFT] = NULL;
+	  krang->arms[RIGHT] = NULL;
 	}
 	delete krang;
 		

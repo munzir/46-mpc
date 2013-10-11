@@ -36,7 +36,7 @@
 #include <kinematics/BodyNode.h>
 #include <math/UtilsRotation.h>
 
-#include <library/kore.h>
+#include <kore.hpp>
 
 using namespace Eigen;
 using namespace dynamics;
@@ -88,13 +88,15 @@ extern Vector6d K_balHigh;
 extern Vector2d J_balHigh;
 extern Vector6d K;	
 
-/* ******************************************************************************************** */
+/* ******************************************************************************************** *
 // The arm indices to set/get configurations from dart
 
 extern std::vector <int> left_arm_ids;			///< Ids for left arm
 extern std::vector <int> right_arm_ids;			///< Ids for right arm
 extern std::vector <int> imuWaist_ids;			///< Ids for waist/imu
 extern std::vector <int> imuWaistTorso_ids;			///< Ids for waist/imu (needed for temporary adjustment for torso misalignment)
+
+/* ******************************************************************************************** */
 
 /// Makes the small 1e-17 values in a matrix zero for printing
 Eigen::MatrixXd fix (const Eigen::MatrixXd& mat);

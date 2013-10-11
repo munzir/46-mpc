@@ -13,6 +13,7 @@
 
 using namespace Eigen;
 using namespace std;
+using namespace Krang;
 
 /* ******************************************************************************************** */
 // Initialize the gains for controller and joystick
@@ -47,7 +48,7 @@ Eigen::MatrixXd fix (const Eigen::MatrixXd& mat) {
 	return mat2;
 }
 
-/* ******************************************************************************************** */
+/* ******************************************************************************************** *
 // Setup the indices for the motor groups
 
 int left_arm_ids_a [7] = {11, 13, 15, 17, 19, 21, 23}; 
@@ -60,6 +61,7 @@ vector <int> imuWaist_ids (imuWaist_ids_a, imuWaist_ids_a + 2);
 // Needed to temporarily adjust the torso misaligment
 int imuWaistTorso_ids_a [3] = {5, 8, 9};
 vector <int> imuWaistTorso_ids (imuWaistTorso_ids_a, imuWaistTorso_ids_a + 3);		
+/* ******************************************************************************************** */
 
 /* ******************************************************************************************** */
 /// Get the joint values from the encoders and the imu and compute the center of mass as well 
@@ -71,7 +73,7 @@ void getState(Vector6d& state, double dt, Vector3d* com_) {
 	// Calculate the COM	
 	Vector3d com = robot->getWorldCOM();
 	com(2) -= 0.264;
-	com(0) += 0.008;
+//	com(0) += 0.008;
 	if(com_ != NULL) *com_ = com;
 
 	// Update the state (note for amc we are reversing the effect of the motion of the upper body)
@@ -139,8 +141,8 @@ bool getJoystickInput(double& js_forw, double& js_spin) {
 	if((b[4] == 1) && (b[6] == 0) && (b[0] == 1) && (lastb0 == 0)) { 
 		joystickControl = !joystickControl;
 		if(joystickControl == true) {
-			somatic_motor_reset(&daemon_cx, krang->larm);
-			somatic_motor_reset(&daemon_cx, krang->rarm);
+			somatic_motor_reset(&daemon_cx, krang->arms[LEFT]);
+			somatic_motor_reset(&daemon_cx, krang->arms[RIGHT]);
 		}
 	}
 	if((b[4] == 1) && (b[6] == 0) && (b[1] == 1) && (lastb1 == 0)) complyTorque = !complyTorque;
@@ -235,8 +237,8 @@ void *kbhit(void *) {
 		else if(input=='j') { 
 			joystickControl = !joystickControl;
 			if(joystickControl == true) {
-				somatic_motor_reset(&daemon_cx, krang->larm);
-				somatic_motor_reset(&daemon_cx, krang->rarm);
+				somatic_motor_reset(&daemon_cx, krang->arms[LEFT]);
+				somatic_motor_reset(&daemon_cx, krang->arms[RIGHT]);
 			}
 		}
 		else if(input=='1') {
