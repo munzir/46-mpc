@@ -73,7 +73,7 @@ void getState(Vector6d& state, double dt, Vector3d* com_) {
 	// Calculate the COM	
 	Vector3d com = robot->getWorldCOM();
 	com(2) -= 0.264;
-//	com(0) += 0.008;
+	com(0) += 0.008;
 	if(com_ != NULL) *com_ = com;
 
 	// Update the state (note for amc we are reversing the effect of the motion of the upper body)

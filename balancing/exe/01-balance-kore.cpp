@@ -143,8 +143,9 @@ void controlArms () {
 			if(b[i] == 1) {
 				if((b[4] == 1) && (b[6] == 1)) 
 					somatic_motor_cmd(&daemon_cx, krang->arms[LEFT], POSITION, presetArmConfs[2*i], 7, NULL);
-				if((b[5] == 1) && (b[7] == 1)) 
+				if((b[5] == 1) && (b[7] == 1))  {
 					somatic_motor_cmd(&daemon_cx, krang->arms[RIGHT], POSITION, presetArmConfs[2*i+1], 7, NULL);
+				}
 				noConfs = false; 
 				return;
 			}
@@ -575,7 +576,8 @@ int main(int argc, char* argv[]) {
 
 	// Load the world and the robot
 	DartLoader dl;
-	world = dl.parseWorld("../../../experiments/common/scenes/01-World-Robot.urdf");
+	// world = dl.parseWorld("../../../experiments/common/scenes/01-World-Robot.urdf");
+	world = dl.parseWorld("/etc/kore/scenes/01-World-Robot.urdf");
 	assert((world != NULL) && "Could not find the world");
 	robot = world->getSkeleton(0);
 
