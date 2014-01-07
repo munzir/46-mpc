@@ -65,6 +65,10 @@ bool start = false;						///< Giving time to the user to get the robot in balanc
 bool complyTorque = false;
 bool joystickControl = false;
 bool resetLeftFT = false, resetRightFT = false; 		
+bool overwriteFT = false;			///< To apply force downwards on purpose
+bool spinFT= false;						///< To apply force sideways on purpose
+double spinGoal = 0.0;
+double downGoal = 0.0;
 	
 double jsFwdAmp;				///< The gains for joystick forward/reverse input
 double jsSpinAmp;				///< The gains for joystick left/right spin input

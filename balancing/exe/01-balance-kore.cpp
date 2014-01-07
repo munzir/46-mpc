@@ -66,6 +66,40 @@ Vector6d rightWheelWrench;
 bool debugGlobal = false, logGlobal = true;
 
 /* ******************************************************************************************** */
+void computeSpin (double& u_spin) {
+
+	// static const double goal = 10.0;
+	static const double kp = 1.0;
+	static const double ki = 0.05;
+	static const size_t numErrors = 20;
+	static size_t c_ = 0;
+
+	static vector <double > errors;
+	if(errors.empty()) 
+		for(size_t i = 0; i < numErrors; i++) errors.push_back(0);
+
+/*
+	if(fabs(goal) < 0.1 && (krang->fts[LEFT]->lastExternal.topLeftCorner<3,1>().norm() < 7)) {
+		u_spin = 0.0;
+		return;
+	}
+*/
+
+	double state = krang->fts[LEFT]->lastExternal(1);
+	double error = state - spinGoal;
+	errors[c_++ % numErrors] = error;
+	double totalError = 0.0;
+	for(size_t i = 0; i < numErrors; i++) totalError += errors[i];
+	
+	u_spin = kp * error  + ki * totalError;	
+	if(debugGlobal) {
+		cout << "\tft y: " << state << endl;
+		cout << "\tspin goal: " << spinGoal << endl;
+	}
+	
+}
+
+/* ******************************************************************************************** */
 /// Computes the wrench on the wheels due to external force from the f/t sensors' data
 void getExternalWrench (Vector6d& external) {
 
@@ -369,6 +403,13 @@ void run () {
 		torqueHistory[c_ % historySize] = externalWrench(4);
 		for(size_t i = 0; i < historySize; i++) averagedTorque += torqueHistory[i];
 		averagedTorque /= historySize;
+
+		if(overwriteFT) {
+			averagedTorque = downGoal;
+			if(debug) cout << "averagedTorque overwritten (downGoal): " << averagedTorque << endl;
+			if(debug) cout << "\tft x: " << krang->fts[LEFT]->lastExternal(0) << endl;
+			if(debug) cout << "\tft z: " << krang->fts[LEFT]->lastExternal(2) << endl;
+		}
 		
 		// Compute the balancing angle reference using the center of mass, total mass and felt wrench.
 		if(complyTorque) { 
@@ -435,6 +476,9 @@ void run () {
 		double u_spin =  -K.bottomLeftCorner<2,1>().dot(error.bottomLeftCorner<2,1>());
 		u_spin = max(-30.0, min(30.0, u_spin));
     	
+		// Override the u_spin to exert a force with the end-effector 
+		if(spinFT) computeSpin(u_spin);
+
 		// Compute the input for left and right wheels
 		if(joystickControl && ((MODE == 1) || (MODE == 6))) {u_x = 0.0; u_spin = 0.0;}
 		double input [2] = {u_theta + u_x + u_spin, u_theta + u_x - u_spin};
@@ -454,10 +498,14 @@ void run () {
 
 		if(joystickControl) {
 		
-			if(debug) cout << "Joystick for Arms ..." << endl;
+			if(debug) cout << "Joystick for Arms and Waist..." << endl;
 		
 			// Control the arms if necessary
 			controlArms();
+
+			// Control the waist
+			controlWaist();
+
 		}
 
 		// Control the grippers 
@@ -467,9 +515,6 @@ void run () {
 		// Control the torso
 		double dq [] = {x[4] / 7.0};
 		somatic_motor_cmd(&daemon_cx, krang->torso, VELOCITY, dq, 1, NULL);
-
-		// Control the waist
-		controlWaist();
 
 	
 		// ==========================================================================
@@ -529,7 +574,9 @@ void init() {
 	somatic_d_init(&daemon_cx, &dopt);
 
 	// Initialize the motors and sensors on the hardware and update the kinematics in dart
-	krang = new Krang::Hardware(Krang::Hardware::MODE_ALL, &daemon_cx, robot); 
+	int hwMode = Krang::Hardware::MODE_AMC | Krang::Hardware::MODE_LARM | 
+		Krang::Hardware::MODE_RARM | Krang::Hardware::MODE_TORSO | Krang::Hardware::MODE_WAIST;
+	krang = new Krang::Hardware((Krang::Hardware::Mode) hwMode, &daemon_cx, robot); 
 
 	// Initialize the joystick channel
 	int r = ach_open(&js_chan, "joystick-data", NULL);

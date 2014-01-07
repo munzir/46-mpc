@@ -73,7 +73,8 @@ void getState(Vector6d& state, double dt, Vector3d* com_) {
 	// Calculate the COM	
 	Vector3d com = robot->getWorldCOM();
 	com(2) -= 0.264;
-	com(0) += 0.008;
+//	com(0) += 0.008;
+	com(0) += 0.010;
 	if(com_ != NULL) *com_ = com;
 
 	// Update the state (note for amc we are reversing the effect of the motion of the upper body)
@@ -234,6 +235,12 @@ void *kbhit(void *) {
 		else if(input=='e') resetLeftFT = true; 
 		else if(input=='r') resetRightFT = true; 
 		else if(input=='.') readGains();
+		else if(input=='q') overwriteFT = true;
+		else if(input=='p') spinFT = true;
+		else if(input=='[') spinGoal -= 5.0;
+		else if(input==']') spinGoal += 5.0;
+		else if(input=='{') downGoal -= 5.0;
+		else if(input=='}') downGoal += 5.0;
 		else if(input=='j') { 
 			joystickControl = !joystickControl;
 			if(joystickControl == true) {
