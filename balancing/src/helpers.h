@@ -29,17 +29,22 @@
 #include <imud.h>
 #include <pciod.h>
 
-#include <dynamics/SkeletonDynamics.h>
-#include <robotics/parser/dart_parser/DartLoader.h>
-#include <simulation/World.h>
+#include <dart/dart.hpp>
+#include <dart/utils/urdf/urdf.hpp>
+//#include <dynamics/SkeletonDynamics.h>
+//#include <robotics/parser/dart_parser/DartLoader.h>
+//#include <simulation/World.h>
 #include <initModules.h>
-#include <kinematics/BodyNode.h>
-#include <math/UtilsRotation.h>
+//#include <kinematics/BodyNode.h>
+//#include <math/UtilsRotation.h>
 
 #include <kore.hpp>
 
 using namespace Eigen;
-using namespace dynamics;
+using namespace dart::dynamics;
+using namespace dart::simulation;
+using namespace dart::common;
+using namespace dart::math;
 
 bool myDebug;
 extern bool debugGlobal;
@@ -55,8 +60,8 @@ typedef Matrix<double, 6, 6> Matrix6d;			///< A typedef for convenience to conta
 somatic_d_t daemon_cx;				///< The context of the current daemon
 
 Krang::Hardware* krang;				///< Interface for the motor and sensors on the hardware
-simulation::World* world;			///< the world representation in dart
-SkeletonDynamics* robot;			///< the robot representation in dart
+WorldPtr world;			///< the world representation in dart
+SkeletonPtr robot;			///< the robot representation in dart
 
 Somatic__WaistCmd *waistDaemonCmd = somatic_waist_cmd_alloc(); ///< Cmds for waist daemon
 ach_channel_t js_chan;				///< Read joystick data on this channel
@@ -135,17 +140,17 @@ void getImu (ach_channel_t* imuChan, double& _imu, double& _imuSpeed, double dt,
              filter_kalman_t* kf);
 
 /// Reads FT data from ach channels
-bool getFT (somatic_d_t& daemon_cx, ach_channel_t& ft_chan, Vector6d& data);
+//bool getFT (somatic_d_t& daemon_cx, ach_channel_t& ft_chan, Vector6d& data);
 
 /// Computes the offset due to the weights of the end-effector in the FT sensor readings
-void computeOffset (double imu, double waist, const somatic_motor_t& lwa, const Vector6d& raw, 
-                    SkeletonDynamics& robot, Vector6d& offset, bool left);
+//void computeOffset (double imu, double waist, const somatic_motor_t& lwa, const Vector6d& raw, 
+//                    SkeletonDynamics& robot, Vector6d& offset, bool left);
 
 /// Givent the raw FT data, gives the wrench in the world frame acting on the FT sensor
-void computeExternal (const Vector6d& input, SkeletonDynamics& robot, Vector6d& external, bool left);
+//void computeExternal (const Vector6d& input, SkeletonDynamics& robot, Vector6d& external, bool left);
 
 /// Given the wrench at the FT sensor givers the wrench on the wheels
-void computeWheelWrench(const Vector6d& wrenchSensor, SkeletonDynamics& robot, Vector6d& wheelWrench, bool left);
+//void computeWheelWrench(const Vector6d& wrenchSensor, SkeletonDynamics& robot, Vector6d& wheelWrench, bool left);
 
 /// ........
 void readGains();
