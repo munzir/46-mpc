@@ -71,7 +71,8 @@ void getState(Vector6d& state, double dt, Vector3d* com_) {
   krang->updateSensors(dt);
 
 	// Calculate the COM	
-	Vector3d com = robot->getWorldCOM();
+	//Vector3d com = robot->getWorldCOM();
+	Vector3d com = Eigen::Vector3d::Zero();
 	com(2) -= 0.264;
 //	com(0) += 0.008;
 	com(0) += 0.010;
@@ -112,7 +113,7 @@ bool getJoystickInput(double& js_forw, double& js_spin) {
 	// Get the message and check output is OK.
 	int r = 0;
 	Somatic__Joystick *js_msg = 
-			SOMATIC_GET_LAST_UNPACK( r, somatic__joystick, &protobuf_c_system_allocator, 4096, &js_chan );
+			SOMATIC_GET_LAST_UNPACK( r, somatic__joystick, NULL /*&protobuf_c_system_allocator*/, 4096, &js_chan );
 	if(!(ACH_OK == r || ACH_MISSED_FRAME == r) || (js_msg == NULL)) return false;
 
 	// Get the values
@@ -121,7 +122,7 @@ bool getJoystickInput(double& js_forw, double& js_spin) {
 	memcpy(x, js_msg->axes->data, sizeof(x));
 
 	// Free the joystick message
-	somatic__joystick__free_unpacked(js_msg, &protobuf_c_system_allocator);
+	somatic__joystick__free_unpacked(js_msg, NULL /*&protobuf_c_system_allocator*/);
 	
 	// Change the gains with the given joystick input
 	double deltaTH = 0.2, deltaX = 0.02, deltaSpin = 0.02;
@@ -299,7 +300,7 @@ void getImu (ach_channel_t* imuChan, double& _imu, double& _imuSpeed, double dt,
 	clock_gettime(CLOCK_MONOTONIC, &currTime);
 	struct timespec abstime = aa_tm_add(aa_tm_sec2timespec(1.0/30.0), currTime);
 	Somatic__Vector *imu_msg = SOMATIC_WAIT_LAST_UNPACK(r, somatic__vector, 
-			&protobuf_c_system_allocator, IMU_CHANNEL_SIZE, imuChan, &abstime );
+			/*&protobuf_c_system_allocator*/ NULL, IMU_CHANNEL_SIZE, imuChan, &abstime );
 	assert((imu_msg != NULL) && "Imu message is faulty!");
 
 	// Get the imu position and velocity value from the readings (note imu mounted at 45 deg).
@@ -309,7 +310,7 @@ void getImu (ach_channel_t* imuChan, double& _imu, double& _imuSpeed, double dt,
 	_imuSpeed = imu_msg->data[3] * sin(mountAngle) + imu_msg->data[4] * cos(mountAngle);
 
 	// Free the unpacked message
-	somatic__vector__free_unpacked( imu_msg, &protobuf_c_system_allocator );
+	somatic__vector__free_unpacked( imu_msg, /*&protobuf_c_system_allocator*/ NULL );
 
 	// ======================================================================
 	// Filter the readings
@@ -341,7 +342,7 @@ void getImu (ach_channel_t* imuChan, double& _imu, double& _imuSpeed, double dt,
 }
 
 /* ******************************************************************************************** */
-void computeExternal (const Vector6d& input, SkeletonDynamics& robot, Vector6d& external, 
+/*void computeExternal (const Vector6d& input, SkeletonDynamics& robot, Vector6d& external, 
 		bool left) {
 
 	// Get the point transform wrench due to moving the affected position from com to sensor origin
@@ -375,10 +376,10 @@ void computeExternal (const Vector6d& input, SkeletonDynamics& robot, Vector6d& 
 	// Remove the effect from the sensor value and convert the wrench into the world frame
 	external = input - wrenchWeight;
 	external = pSsensor_world.transpose() * external;	
-}
+}*/
 
 /* ******************************************************************************************** */
-void computeOffset (double imu, double waist, const somatic_motor_t& lwa, const Vector6d& raw, 
+/*void computeOffset (double imu, double waist, const somatic_motor_t& lwa, const Vector6d& raw, 
 		SkeletonDynamics& robot, Vector6d& offset, bool left) {
 
 	// Get the point transform wrench due to moving the affected position from com to sensor origin
@@ -415,11 +416,11 @@ void computeOffset (double imu, double waist, const somatic_motor_t& lwa, const 
 	// Compute the difference between the actual and expected f/t values
 	offset = expectedFT - raw;
 	pv(offset);
-}
+}*/
 
 /* ******************************************************************************************* */
 // Compute the wrench on the wheel as an effect of the wrench acting on the sensor
-void computeWheelWrench(const Vector6d& wrenchSensor, SkeletonDynamics& robot, Vector6d& wheelWrench, bool left) {
+/*void computeWheelWrench(const Vector6d& wrenchSensor, SkeletonDynamics& robot, Vector6d& wheelWrench, bool left) {
 	
 	// Get the position vector of the sensor with respect to the wheels
 	const char* nodeName = left ? "lGripper" : "rGripper";
@@ -437,10 +438,10 @@ void computeWheelWrench(const Vector6d& wrenchSensor, SkeletonDynamics& robot, V
 
 	// Shift the wrench from the sensor origin to the wheel axis
 	wheelWrench = pTsensor_wheel * wrenchSensor;
-}
+}*/
 
 /* ********************************************************************************************* */
-bool getFT (somatic_d_t& daemon_cx, ach_channel_t& ft_chan, Vector6d& data) {
+/*bool getFT (somatic_d_t& daemon_cx, ach_channel_t& ft_chan, Vector6d& data) {
 
 	// Check if there is anything to read
 	int result;
@@ -463,5 +464,5 @@ bool getFT (somatic_d_t& daemon_cx, ach_channel_t& ft_chan, Vector6d& data) {
 	for(size_t i = 0; i < 3; i++) data(i) = ftMessage->force->data[i]; 
 	for(size_t i = 0; i < 3; i++) data(i+3) = ftMessage->moment->data[i]; 
 	return true;
-}
+}*/
 

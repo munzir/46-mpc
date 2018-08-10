@@ -10,7 +10,6 @@
 #include "kore/display.hpp"
 
 using namespace std;
-using namespace dynamics;
 using namespace Krang;
 
 /* ******************************************************************************************** */
@@ -66,7 +65,7 @@ Vector6d rightWheelWrench;
 bool debugGlobal = false, logGlobal = true;
 
 /* ******************************************************************************************** */
-void computeSpin (double& u_spin) {
+/*void computeSpin (double& u_spin) {
 
 	// static const double goal = 10.0;
 	static const double kp = 1.0;
@@ -78,12 +77,12 @@ void computeSpin (double& u_spin) {
 	if(errors.empty()) 
 		for(size_t i = 0; i < numErrors; i++) errors.push_back(0);
 
-/*
-	if(fabs(goal) < 0.1 && (krang->fts[LEFT]->lastExternal.topLeftCorner<3,1>().norm() < 7)) {
-		u_spin = 0.0;
-		return;
-	}
-*/
+
+//	if(fabs(goal) < 0.1 && (krang->fts[LEFT]->lastExternal.topLeftCorner<3,1>().norm() < 7)) {
+//		u_spin = 0.0;
+//		return;
+//	}
+
 
 	double state = krang->fts[LEFT]->lastExternal(1);
 	double error = state - spinGoal;
@@ -97,11 +96,11 @@ void computeSpin (double& u_spin) {
 		cout << "\tspin goal: " << spinGoal << endl;
 	}
 	
-}
+}*/
 
 /* ******************************************************************************************** */
 /// Computes the wrench on the wheels due to external force from the f/t sensors' data
-void getExternalWrench (Vector6d& external) {
+/*void getExternalWrench (Vector6d& external) {
 
 	// If the wrench sensed on left FT sensor is not high use it calculate wrench on the wheel
 	if((krang->fts[LEFT]->lastExternal.topLeftCorner<3,1>().norm() > 7) || 
@@ -123,7 +122,7 @@ void getExternalWrench (Vector6d& external) {
 	external = -leftWheelWrench - rightWheelWrench;
 	if(debugGlobal) cout << "tangible torque: " << external(4) << " (" << -leftWheelWrench(4) <<
 		", " << -rightWheelWrench(4) << ")" << endl;
-}
+}*/
 
 /* ******************************************************************************************** */
 /// Computes the reference balancing angle from center of mass, total mass and the felt wrenches.
@@ -132,7 +131,7 @@ void getExternalWrench (Vector6d& external) {
 /// Let com_x be the x component of the desired com such that com_x * mass * gravity = external
 /// torque. Now, given that we know com, we can compute its distance from the origin, and then
 /// compute the z component. The atan2(x,z) is the desired angle.
-void computeBalAngleRef(const Vector3d& com, double externalTorque, double& refImu) {
+/*void computeBalAngleRef(const Vector3d& com, double externalTorque, double& refImu) {
 
 	// Compute the x component of the desired com
 	static const double totalMass = 142.66;
@@ -145,7 +144,7 @@ void computeBalAngleRef(const Vector3d& com, double externalTorque, double& refI
 
 	// Compute the expected balancing angle	
 	refImu = atan2(-com_x, com_z);
-}
+}*/
 
 /* ********************************************************************************************* */
 // The preset arm configurations: forward, thriller, goodJacobian
@@ -355,10 +354,10 @@ void run () {
 		if(debug) cout << "js_forw: " << js_forw << ", js_spin: " << js_spin << endl;
 
 		// Get the wrench on the wheel due to external force
-		getExternalWrench(externalWrench);
+		//getExternalWrench(externalWrench);
 
 		// Compute the offsets of the FT sensor again if commanded
-		const size_t numResetFTIters = 30;
+		/*const size_t numResetFTIters = 30;
 		if(resetLeftFT) {
 
 			// Accumulate data for LEft FT
@@ -387,7 +386,7 @@ void run () {
 				rightFTIter = 0; 
 				resetRightFT = false;
 			}
-		} 
+		} */
 
 
 		// =======================================================================
@@ -399,7 +398,7 @@ void run () {
 		
 		// Perform a running average on the felt torque on the wheel by adding the index 
 		// and averaging the data again
-		averagedTorque = 0.0;
+		/*averagedTorque = 0.0;
 		torqueHistory[c_ % historySize] = externalWrench(4);
 		for(size_t i = 0; i < historySize; i++) averagedTorque += torqueHistory[i];
 		averagedTorque /= historySize;
@@ -407,15 +406,15 @@ void run () {
 		if(overwriteFT) {
 			averagedTorque = downGoal;
 			if(debug) cout << "averagedTorque overwritten (downGoal): " << averagedTorque << endl;
-			if(debug) cout << "\tft x: " << krang->fts[LEFT]->lastExternal(0) << endl;
-			if(debug) cout << "\tft z: " << krang->fts[LEFT]->lastExternal(2) << endl;
+//			if(debug) cout << "\tft x: " << krang->fts[LEFT]->lastExternal(0) << endl;
+//			if(debug) cout << "\tft z: " << krang->fts[LEFT]->lastExternal(2) << endl;
 		}
 		
 		// Compute the balancing angle reference using the center of mass, total mass and felt wrench.
 		if(complyTorque) { 
 			if(debug) cout << "Force-Responsive Balancing ..." << endl;
 			computeBalAngleRef(com, averagedTorque, refState(0));
-		}
+		}*/
 		if(debug) cout << "refState: " << refState.transpose() << endl;
 
 		// =======================================================================
@@ -477,7 +476,7 @@ void run () {
 		u_spin = max(-30.0, min(30.0, u_spin));
     	
 		// Override the u_spin to exert a force with the end-effector 
-		if(spinFT) computeSpin(u_spin);
+//		if(spinFT) computeSpin(u_spin);
 
 		// Compute the input for left and right wheels
 		if(joystickControl && ((MODE == 1) || (MODE == 6))) {u_x = 0.0; u_spin = 0.0;}
@@ -622,7 +621,7 @@ void destroy() {
 int main(int argc, char* argv[]) {
 
 	// Load the world and the robot
-	DartLoader dl;
+	dart::utils::DartLoader dl;
 	// world = dl.parseWorld("../../../experiments/common/scenes/01-World-Robot.urdf");
 	world = dl.parseWorld("/etc/kore/scenes/01-World-Robot.urdf");
 	assert((world != NULL) && "Could not find the world");
