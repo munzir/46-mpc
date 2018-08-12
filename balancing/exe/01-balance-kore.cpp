@@ -623,7 +623,7 @@ int main(int argc, char* argv[]) {
 	// Load the world and the robot
 	dart::utils::DartLoader dl;
   // world = dl.parseWorld("/etc/kore/scenes/01-World-Robot.urdf");
-	robot = dl.parseSkeleton("/home/munzir/project/krang/09-URDF/Krang/KrangOld.urdf");
+	robot = dl.parseSkeleton("/home/munzir/project/krang/09-URDF/Krang/KrangNoKinect.urdf");
 	assert((robot != NULL) && "Could not find the robot urdf");
 	world = std::make_shared<World>();
 	world->addSkeleton(robot);

@@ -71,15 +71,15 @@ void getState(Vector6d& state, double dt, Vector3d* com_) {
   krang->updateSensors(dt);
 
 	// Calculate the COM	
-	//Vector3d com = robot->getWorldCOM();
-	Vector3d com = Eigen::Vector3d::Zero();
-	com(2) -= 0.264;
+  Vector3d com = robot->getCOM() - robot->getPositions().segment(3,3);
+//	Vector3d com = Eigen::Vector3d::Zero();
+//	com(2) -= 0.264;
 //	com(0) += 0.008;
-	com(0) += 0.010;
+//	com(0) += 0.010;
 	if(com_ != NULL) *com_ = com;
 
 	// Update the state (note for amc we are reversing the effect of the motion of the upper body)
-	state(0) = atan2(com(0), com(2)) - 0.3 * M_PI / 180.0;;
+	state(0) = atan2(com(0), com(2)); // - 0.3 * M_PI / 180.0;;
 	state(1) = krang->imuSpeed;
 	state(2) = (krang->amc->pos[0] + krang->amc->pos[1])/2.0 + krang->imu;
 	state(3) = (krang->amc->vel[0] + krang->amc->vel[1])/2.0 + krang->imuSpeed;
