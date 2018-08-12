@@ -31,12 +31,7 @@
 
 #include <dart/dart.hpp>
 #include <dart/utils/urdf/urdf.hpp>
-//#include <dynamics/SkeletonDynamics.h>
-//#include <robotics/parser/dart_parser/DartLoader.h>
-//#include <simulation/World.h>
 #include <initModules.h>
-//#include <kinematics/BodyNode.h>
-//#include <math/UtilsRotation.h>
 
 #include <kore.hpp>
 
@@ -46,7 +41,6 @@ using namespace dart::simulation;
 using namespace dart::common;
 using namespace dart::math;
 
-bool myDebug;
 extern bool debugGlobal;
 
 /* ******************************************************************************************** */
@@ -80,6 +74,7 @@ double jsSpinAmp;				///< The gains for joystick left/right spin input
 
 char b [10];						///< Stores the joystick button inputs
 double x [6];						///< Stores the joystick axes inputs
+
 /* ******************************************************************************************** */
 // All the freaking gains
 
@@ -95,15 +90,7 @@ extern Vector6d K_balLow;
 extern Vector2d J_balLow;
 extern Vector6d K_balHigh;
 extern Vector2d J_balHigh;
-extern Vector6d K;	
-
-/* ******************************************************************************************** *
-// The arm indices to set/get configurations from dart
-
-extern std::vector <int> left_arm_ids;			///< Ids for left arm
-extern std::vector <int> right_arm_ids;			///< Ids for right arm
-extern std::vector <int> imuWaist_ids;			///< Ids for waist/imu
-extern std::vector <int> imuWaistTorso_ids;			///< Ids for waist/imu (needed for temporary adjustment for torso misalignment)
+extern Vector6d K;
 
 /* ******************************************************************************************** */
 
@@ -112,7 +99,6 @@ Eigen::MatrixXd fix (const Eigen::MatrixXd& mat);
 
 /* ******************************************************************************************** */
 // Constants for end-effector wrench estimation
-
 //static const double eeMass = 2.3 + 0.169 + 0.000;			///< The mass of the robotiq end-effector
 static const double eeMass = 1.6 + 0.169 + 0.000;			///< The mass of the Schunk end-effector
 static const Vector3d s2com (0.0, -0.008, 0.091); // 0.065 robotiq itself, 0.026 length of ext + 2nd
@@ -139,20 +125,6 @@ void updateDart (double imu);
 void getImu (ach_channel_t* imuChan, double& _imu, double& _imuSpeed, double dt, 
              filter_kalman_t* kf);
 
-/// Reads FT data from ach channels
-//bool getFT (somatic_d_t& daemon_cx, ach_channel_t& ft_chan, Vector6d& data);
-
-/// Computes the offset due to the weights of the end-effector in the FT sensor readings
-//void computeOffset (double imu, double waist, const somatic_motor_t& lwa, const Vector6d& raw, 
-//                    SkeletonDynamics& robot, Vector6d& offset, bool left);
-
-/// Givent the raw FT data, gives the wrench in the world frame acting on the FT sensor
-//void computeExternal (const Vector6d& input, SkeletonDynamics& robot, Vector6d& external, bool left);
-
-/// Given the wrench at the FT sensor givers the wrench on the wheels
-//void computeWheelWrench(const Vector6d& wrenchSensor, SkeletonDynamics& robot, Vector6d& wheelWrench, bool left);
-
-/// ........
 void readGains();
 
 /* ******************************************************************************************** */
@@ -160,14 +132,27 @@ void readGains();
 
 #define VELOCITY SOMATIC__MOTOR_PARAM__MOTOR_VELOCITY
 #define POSITION SOMATIC__MOTOR_PARAM__MOTOR_POSITION
+
+// prints vector a
 #define pv(a) std::cout << #a << ": " << fix((a).transpose()) << "\n" << std::endl
+
+// prints a as a column
 #define pc(a) std::cout << #a << ": " << (a) << "\n" << std::endl
+
+// prints a as a matrix
 #define pm(a) std::cout << #a << ":\n " << fix((a).matrix()) << "\n" << std::endl
+
 #define pmr(a) std::cout << #a << ":\n " << fix((a)) << "\n" << std::endl
+
+// Prints llwa pos positions
 #define parm (cout << llwa.pos[0] << ", " << llwa.pos[1] << ", " << llwa.pos[2] << ", " << \
               llwa.pos[3] << ", " << llwa.pos[4] << ", " << llwa.pos[5] << ", " << llwa.pos[6] << endl);
+
+// Print llwa velocities
 #define darm (cout << "dq: "<<llwa.vel[0] << ", " <<llwa.vel[1] << ", " << llwa.vel[2] << ", " << \
               llwa.vel[3] << ", " << llwa.vel[4] << ", " << llwa.vel[5] << ", " << llwa.vel[6] << endl);
+
+// Takes first 7 values of x and returns a 7d vector
 #define eig7(x) (Vector7d() << (x)[0], (x)[1], (x)[2], (x)[3], (x)[4], (x)[5], (x)[6]).finished()
 
 /* ******************************************************************************************** */
