@@ -622,10 +622,11 @@ int main(int argc, char* argv[]) {
 
 	// Load the world and the robot
 	dart::utils::DartLoader dl;
-	// world = dl.parseWorld("../../../experiments/common/scenes/01-World-Robot.urdf");
-	world = dl.parseWorld("/etc/kore/scenes/01-World-Robot.urdf");
-	assert((world != NULL) && "Could not find the world");
-	robot = world->getSkeleton(0);
+  // world = dl.parseWorld("/etc/kore/scenes/01-World-Robot.urdf");
+	robot = dl.parseSkeleton("/home/munzir/project/krang/09-URDF/Krang/KrangOld.urdf");
+	assert((robot != NULL) && "Could not find the robot urdf");
+	world = std::make_shared<World>();
+	world->addSkeleton(robot);
 
 	// Read the gains from the command line
 /*
