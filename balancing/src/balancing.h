@@ -77,5 +77,7 @@ typedef struct {
 } krang_cx_t;
 
 extern krang_cx_t krang_cx;
+
 void krang_threshold( krang_cx_t *X);
+
 #endif //KRANG_H

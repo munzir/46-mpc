@@ -14,7 +14,6 @@ using namespace Krang;
 
 /* ******************************************************************************************** */
 // For logging purposes
-
 int Krang::COLOR_RED_BACKGROUND = 11;
 int Krang::COLOR_YELLOW_BACKGROUND = 12;
 int Krang::COLOR_GREEN_BACKGROUND = 13;
@@ -55,96 +54,8 @@ struct LogState {
 /// The vector of states
 vector <LogState*> logStates;
 
-/* ******************************************************************************************** */
-// Offset values for FT sensing
-
-Vector6d leftOffset; 
-Vector6d leftWheelWrench;
-Vector6d rightOffset;
-Vector6d rightWheelWrench;
+// Debug flags default values
 bool debugGlobal = false, logGlobal = true;
-
-/* ******************************************************************************************** */
-/*void computeSpin (double& u_spin) {
-
-	// static const double goal = 10.0;
-	static const double kp = 1.0;
-	static const double ki = 0.05;
-	static const size_t numErrors = 20;
-	static size_t c_ = 0;
-
-	static vector <double > errors;
-	if(errors.empty()) 
-		for(size_t i = 0; i < numErrors; i++) errors.push_back(0);
-
-
-//	if(fabs(goal) < 0.1 && (krang->fts[LEFT]->lastExternal.topLeftCorner<3,1>().norm() < 7)) {
-//		u_spin = 0.0;
-//		return;
-//	}
-
-
-	double state = krang->fts[LEFT]->lastExternal(1);
-	double error = state - spinGoal;
-	errors[c_++ % numErrors] = error;
-	double totalError = 0.0;
-	for(size_t i = 0; i < numErrors; i++) totalError += errors[i];
-	
-	u_spin = kp * error  + ki * totalError;	
-	if(debugGlobal) {
-		cout << "\tft y: " << state << endl;
-		cout << "\tspin goal: " << spinGoal << endl;
-	}
-	
-}*/
-
-/* ******************************************************************************************** */
-/// Computes the wrench on the wheels due to external force from the f/t sensors' data
-/*void getExternalWrench (Vector6d& external) {
-
-	// If the wrench sensed on left FT sensor is not high use it calculate wrench on the wheel
-	if((krang->fts[LEFT]->lastExternal.topLeftCorner<3,1>().norm() > 7) || 
-		 (krang->fts[LEFT]->lastExternal.bottomLeftCorner<3,1>().norm() > 0.4)) {
-		computeWheelWrench(krang->fts[LEFT]->lastExternal, *robot, leftWheelWrench, true);
-	}
-	else leftWheelWrench = Vector6d::Zero();
-
-	// If the wrench sensed on right FT sensor is not high use it calculate wrench on the wheel
-	if((krang->fts[RIGHT]->lastExternal.topLeftCorner<3,1>().norm() > 7) || 
-		 (krang->fts[RIGHT]->lastExternal.bottomLeftCorner<3,1>().norm() > 0.4)) {
-		computeWheelWrench(krang->fts[RIGHT]->lastExternal, *robot, rightWheelWrench, false);
-	}
-	else rightWheelWrench = Vector6d::Zero();
-			
-	// Sum the wheel wrenches from the two f/t sensors
-	// NOTE: In kore library, the FT sensing is returning the negative of the sensed force so we 
-	// have to negate it back to get the sensed force
-	external = -leftWheelWrench - rightWheelWrench;
-	if(debugGlobal) cout << "tangible torque: " << external(4) << " (" << -leftWheelWrench(4) <<
-		", " << -rightWheelWrench(4) << ")" << endl;
-}*/
-
-/* ******************************************************************************************** */
-/// Computes the reference balancing angle from center of mass, total mass and the felt wrenches.
-/// The idea is that we want to set the balancing angle so that the torque due to the external 
-/// force/torques and those due to the mass of the robot cancel each other out. 
-/// Let com_x be the x component of the desired com such that com_x * mass * gravity = external
-/// torque. Now, given that we know com, we can compute its distance from the origin, and then
-/// compute the z component. The atan2(x,z) is the desired angle.
-/*void computeBalAngleRef(const Vector3d& com, double externalTorque, double& refImu) {
-
-	// Compute the x component of the desired com
-	static const double totalMass = 142.66;
-	double com_x = externalTorque / (totalMass * 9.81);
-
-	// Compute the z component of the desired com by first computing the norm (which is fixed)
-	// and then computing the z from x component
-	double normSq = com(0) * com(0) + com(2) * com(2);
-	double com_z = sqrt(normSq - com_x * com_x);
-
-	// Compute the expected balancing angle	
-	refImu = atan2(-com_x, com_z);
-}*/
 
 /* ********************************************************************************************* */
 // The preset arm configurations: forward, thriller, goodJacobian
@@ -296,9 +207,7 @@ void run () {
 	
 	// Initialize the running history
 	const size_t historySize = 60;
-	vector <double> torqueHistory;
-	for(size_t i = 0; i < historySize; i++) torqueHistory.push_back(0.0);
-	
+
 	// Initialize FT offset stuff
 	Vector6d leftFTData, rightFTData, temp;
 	leftFTData << 0,0,0,0,0,0;
@@ -353,68 +262,11 @@ void run () {
 		while(!gotInput) gotInput = getJoystickInput(js_forw, js_spin);
 		if(debug) cout << "js_forw: " << js_forw << ", js_spin: " << js_spin << endl;
 
-		// Get the wrench on the wheel due to external force
-		//getExternalWrench(externalWrench);
-
-		// Compute the offsets of the FT sensor again if commanded
-		/*const size_t numResetFTIters = 30;
-		if(resetLeftFT) {
-
-			// Accumulate data for LEft FT
-			if(debug)	cout << "Resetting left FT" << endl;
-			if(krang->fts[LEFT]->getRaw(temp) && leftFTIter < numResetFTIters)  {	leftFTData += temp;	leftFTIter++; }
-		
-			// If done accumulating data compute the average
-			if(leftFTIter == numResetFTIters) {
-				leftFTData /= numResetFTIters;
-				krang->fts[LEFT]->error(leftFTData, krang->fts[LEFT]->offset, false);
-				leftFTData << 0,0,0,0,0,0; 
-				leftFTIter = 0;
-				resetLeftFT = false;
-			}
-		} 
-		if(resetRightFT) {
-			// Accumulate data for right FT
-			if(debug)	cout << "Resetting right FT" << endl;
-			if(krang->fts[RIGHT]->getRaw(temp) && rightFTIter < numResetFTIters) { rightFTData += temp;	rightFTIter++;}
-		
-			// If done accumulating data compute the average
-			if(rightFTIter == numResetFTIters) {
-				rightFTData /= numResetFTIters;
-				krang->fts[RIGHT]->error(rightFTData, krang->fts[RIGHT]->offset, false);
-				rightFTData << 0,0,0,0,0,0; 
-				rightFTIter = 0; 
-				resetRightFT = false;
-			}
-		} */
-
-
 		// =======================================================================
-		// Compute ref state: (1) joystick, (2) running average of external, (3) ref angle
+		// Compute ref state using joystick
 
 		// Update the reference values for the position and spin
-		// NOTE Don't print refState here, the theta ref is going to be overridden
 		updateReference(js_forw, js_spin, dt, refState);
-		
-		// Perform a running average on the felt torque on the wheel by adding the index 
-		// and averaging the data again
-		/*averagedTorque = 0.0;
-		torqueHistory[c_ % historySize] = externalWrench(4);
-		for(size_t i = 0; i < historySize; i++) averagedTorque += torqueHistory[i];
-		averagedTorque /= historySize;
-
-		if(overwriteFT) {
-			averagedTorque = downGoal;
-			if(debug) cout << "averagedTorque overwritten (downGoal): " << averagedTorque << endl;
-//			if(debug) cout << "\tft x: " << krang->fts[LEFT]->lastExternal(0) << endl;
-//			if(debug) cout << "\tft z: " << krang->fts[LEFT]->lastExternal(2) << endl;
-		}
-		
-		// Compute the balancing angle reference using the center of mass, total mass and felt wrench.
-		if(complyTorque) { 
-			if(debug) cout << "Force-Responsive Balancing ..." << endl;
-			computeBalAngleRef(com, averagedTorque, refState(0));
-		}*/
 		if(debug) cout << "refState: " << refState.transpose() << endl;
 
 		// =======================================================================
@@ -475,9 +327,6 @@ void run () {
 		double u_spin =  -K.bottomLeftCorner<2,1>().dot(error.bottomLeftCorner<2,1>());
 		u_spin = max(-30.0, min(30.0, u_spin));
     	
-		// Override the u_spin to exert a force with the end-effector 
-//		if(spinFT) computeSpin(u_spin);
-
 		// Compute the input for left and right wheels
 		if(joystickControl && ((MODE == 1) || (MODE == 6))) {u_x = 0.0; u_spin = 0.0;}
 		double input [2] = {u_theta + u_x + u_spin, u_theta + u_x - u_spin};
@@ -506,10 +355,6 @@ void run () {
 			controlWaist();
 
 		}
-
-		// Control the grippers 
-		//controlRobotiq();
-		//controlSchunkGrippers();
 
 		// Control the torso
 		double dq [] = {x[4] / 7.0};
@@ -622,22 +467,12 @@ int main(int argc, char* argv[]) {
 
 	// Load the world and the robot
 	dart::utils::DartLoader dl;
-  // world = dl.parseWorld("/etc/kore/scenes/01-World-Robot.urdf");
 	robot = dl.parseSkeleton("/home/munzir/project/krang/09-URDF/Krang/KrangNoKinect.urdf");
 	assert((robot != NULL) && "Could not find the robot urdf");
 	world = std::make_shared<World>();
 	world->addSkeleton(robot);
 
-	// Read the gains from the command line
-/*
-	assert(argc >= 7 && "Where is my gains for th, x and spin?");
-	K << atof(argv[1]), atof(argv[2]), atof(argv[3]), atof(argv[4]), atof(argv[5]), atof(argv[6]);
-	jsFwdAmp = 0.3;
-	jsSpinAmp = 0.4;
-	
-	cout << "K_bal: " << K_bal.transpose() << "\nPress enter: " << endl;
-*/
-
+	//Read Gains from file
 	readGains();
 
 	// Debug options from command line
