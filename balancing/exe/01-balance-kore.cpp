@@ -143,8 +143,8 @@ void controlWheels(bool& debug, Vector6d& error, double& lastUleft, double& last
 }
 
 /* ********************************************************************************************* */
-/// Update Krang Mode based on configuration, state and state error
-void updateMode(Vector6d& error, size_t& mode4iter, Vector6d& state) {
+/// Update Krang Mode based on configuration, state and state error, updates the K matrices used to calculate u/
+void updateKrangMode(Vector6d& error, size_t& mode4iter, Vector6d& state) {
 	size_t mode4iterLimit = 100;
 	// If in ground Lo mode and waist angle increases beyond 150.0 goto groundHi mode
 	if(MODE == 1) {
@@ -189,6 +189,14 @@ void updateMode(Vector6d& error, size_t& mode4iter, Vector6d& state) {
 	else if(MODE == 5) {
 		// error(0) -= 0.005;
 	}
+}
+
+/* ********************************************************************************************* */
+/// Handles the torso commands if we are using joystick
+void controlTorso() {
+	// Control the torso
+	double dq [] = {x[4] / 7.0};
+	somatic_motor_cmd(&daemon_cx, krang->torso, VELOCITY, dq, 1, NULL);
 }
 
 /* ********************************************************************************************* */
@@ -282,9 +290,11 @@ void run () {
 
 		// Get the current state and ask the user if they want to start
 		getState(state, dt, &com);
-		if(debug) cout << "\nstate: " << state.transpose() << endl;
-		if(debug) cout << "com: " << com.transpose() << endl;
-		if(debug) cout << "WAIST ANGLE: " << krang->waist->pos[0] << endl;
+		if(debug) {
+			cout << "\nstate: " << state.transpose() << endl;
+			cout << "com: " << com.transpose() << endl;
+			cout << "WAIST ANGLE: " << krang->waist->pos[0] << endl;
+		}
 
 		// Print the information about the last iteration (after reading effects of it from sensors)
 		// NOTE: Constructor order is NOT the print order
@@ -314,7 +324,7 @@ void run () {
 		error = state - refState;
 		if(debug) cout << "error: " << error.transpose() << ", imu: " << krang->imu / M_PI * 180.0 << endl;
 
-		updateMode(error, mode4iter, state);
+		updateKrangMode(error, mode4iter, state);
 
 		controlWheels(debug, error, lastUleft, lastUright);
 
@@ -327,13 +337,11 @@ void run () {
 			controlArms();
 			// Control the waist
 			controlWaist();
+			// Control Torso
+			controlTorso();
+			// Update Stand/Sit Modes
+			controlStandSit(error, state);
 		}
-
-		// Control the torso
-		double dq [] = {x[4] / 7.0};
-		somatic_motor_cmd(&daemon_cx, krang->torso, VELOCITY, dq, 1, NULL);
-
-		controlStandSit(error, state);
 
 	// Print the mode
 		if(debug) printf("Mode : %d\tdt: %lf\n", MODE, dt);

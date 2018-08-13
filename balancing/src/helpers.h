@@ -61,11 +61,8 @@ extern Somatic__WaistCmd *waistDaemonCmd; ///< Cmds for waist daemon
 extern ach_channel_t js_chan;				///< Read joystick data on this channel
 
 extern bool start;						///< Giving time to the user to get the robot in balancing angle
-extern bool complyTorque;
 extern bool joystickControl;
-extern double spinGoal;
-extern double downGoal;
-	
+
 extern double jsFwdAmp;				///< The gains for joystick forward/reverse input
 extern double jsSpinAmp;				///< The gains for joystick left/right spin input
 
