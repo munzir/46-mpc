@@ -141,6 +141,40 @@ void controlWheels(bool debug, size_t error, double lastUleft, double lastUright
 		somatic_motor_cmd(&daemon_cx, krang->amc, SOMATIC__MOTOR_PARAM__MOTOR_CURRENT, input, 2, NULL);
 	}
 }
+/* ********************************************************************************************* */
+/// Handles the wheel commands if we are started
+void controlStandSit(size_t error) {
+	// ==========================================================================
+	// Quit if button 9 on the joystick is pressed, stand/sit if button 10 is pressed
+	// Quit
+	if(b[8] == 1) break;
+
+	// Stand/Sit if button 10 is pressed and conditions are right
+	else if(b[9] == 1) {
+
+		// If in ground mode and state error is not high stand up
+		if(MODE == 1) {
+			if(state(0) < 0.0 && error(0) > -10.0*M_PI/180.0)	{
+				printf("\n\n\nMode 2\n\n\n");
+				K = K_stand;
+				MODE = 2;
+			}	else {
+				printf("\n\n\nCan't stand up, balancing error is too high!\n\n\n");
+			}
+		}
+
+			// If in balLow mode and waist is not too high, sit down
+		else if(MODE == 2 || MODE == 4) {
+			if((krang->waist->pos[0] - krang->waist->pos[1])/2.0 > 150.0*M_PI/180.0) {
+				printf("\n\n\nMode 3\n\n\n");
+				K = K_sit;
+				MODE = 3;
+			} else {
+				printf("\n\n\nCan't sit down, Waist is too high!\n\n\n");
+			}
+		}
+	}
+}
 
 /* ********************************************************************************************* */
 /// Update Krang Mode based on configuration, state and state error
@@ -251,7 +285,6 @@ void run () {
 		if(debug) cout << "com: " << com.transpose() << endl;
 		if(debug) cout << "WAIST ANGLE: " << krang->waist->pos[0] << endl;
 
-
 		// Print the information about the last iteration (after reading effects of it from sensors)
 		// NOTE: Constructor order is NOT the print order
 		if(logGlobal) {
@@ -278,10 +311,9 @@ void run () {
 		if(debug) cout << "K: " << K.transpose() << endl;
 
 		error = state - refState;
+		if(debug) cout << "error: " << error.transpose() << ", imu: " << krang->imu / M_PI * 180.0 << endl;
 
 		updateMode(error, mode4iter, state);
-
-		if(debug) cout << "error: " << error.transpose() << ", imu: " << krang->imu / M_PI * 180.0 << endl;
 
 		controlWheels(debug, error, lastUleft, lastUright);
 
@@ -290,7 +322,6 @@ void run () {
 
 		if(joystickControl) {
 			if(debug) cout << "Joystick for Arms and Waist..." << endl;
-		
 			// Control the arms if necessary
 			controlArms();
 			// Control the waist
@@ -301,44 +332,9 @@ void run () {
 		double dq [] = {x[4] / 7.0};
 		somatic_motor_cmd(&daemon_cx, krang->torso, VELOCITY, dq, 1, NULL);
 
-		// ==========================================================================
-		// Quit if button 9 on the joystick is pressed, stand/sit if button 10 is pressed
+		controlStandSit(error);
 
-		static bool b9Prev = 0; // To store the value of button 9 in last iteration
-
-		// Quit
-		if(b[8] == 1) break;
-
-		// Stand/Sit if button 10 is presed and conditions are right
-		else if(b9Prev == 0 && b[9] == 1) {
-
-			// If in ground mode and state error is not high stand up
-			if(MODE == 1) {
-				if(state(0) < 0.0 && error(0) > -10.0*M_PI/180.0)	{
-					printf("\n\n\nMode 2\n\n\n");
-					K = K_stand;
-					MODE = 2;	
-				}	else {
-					printf("\n\n\nCan't stand up, balancing error is too high!\n\n\n");
-				}
-			}
-			
-			// If in balLow mode and waist is not too high, sit down
-			else if(MODE == 2 || MODE == 4) {
-				if((krang->waist->pos[0] - krang->waist->pos[1])/2.0 > 150.0*M_PI/180.0) {
-					printf("\n\n\nMode 3\n\n\n");
-					K = K_sit;
-					MODE = 3;	
-				} else {
-					printf("\n\n\nCan't sit down, Waist is too high!\n\n\n");
-				}
-			}
-		}
-	
-		// Store the value of button 10 in the last iteration
-		b9Prev = b[9];
-
-		// Print the mode
+	// Print the mode
 		if(debug) printf("Mode : %d\tdt: %lf\n", MODE, dt);
 	}
 
