@@ -42,10 +42,7 @@ const double distanceBetweenWheels = 27.375; 	///< Distance Between krang's whee
 somatic_d_t daemon_cx;				///< The context of the current daemon
 Somatic__WaistCmd *waistDaemonCmd = somatic_waist_cmd_alloc();
 bool start = false;						///< Giving time to the user to get the robot in balancing angle
-bool complyTorque = false;
 bool joystickControl = false;
-double spinGoal = 0.0;
-double downGoal = 0.0;
 
 
 Krang::Hardware* krang;				///< Interface for the motor and sensors on the hardware
@@ -78,11 +75,12 @@ void getState(Vector6d& state, double dt, Vector3d* com_) {
 	// Read motor encoders, imu and ft and update dart skeleton
 	krang->updateSensors(dt);
 
-	// Calculate the COM	
+	// Calculate the COM Using Skeleton
   	Vector3d com = robot->getCOM() - robot->getPositions().segment(3,3);
   	if(com_ != NULL) *com_ = com;
 
 	// Update the state (note for amc we are reversing the effect of the motion of the upper body)
+	// State are theta, dtheta, x, dx, psi, dpsi
 	state(0) = atan2(com(0), com(2)); // - 0.3 * M_PI / 180.0;;
 	state(1) = krang->imuSpeed;
 	state(2) = (krang->amc->pos[0] + krang->amc->pos[1])/2.0 + krang->imu;
@@ -148,8 +146,6 @@ bool getJoystickInput(double& js_forw, double& js_spin) {
 			somatic_motor_reset(&daemon_cx, krang->arms[RIGHT]);
 		}
 	}
-
-	if((b[4] == 1) && (b[6] == 0) && (b[1] == 1) && (lastb1 == 0)) complyTorque = !complyTorque;
 
 	if((b[4] == 1) && (b[6] == 0) && (b[2] == 1) && (lastb2 == 0)) {
 		if(MODE == 4) {
@@ -234,13 +230,8 @@ void *kbhit(void *) {
 	while(true){ 
 		input=cin.get(); 
 		if(input=='s') start = true; 
-		else if(input=='t') complyTorque = !complyTorque;
 		else if(input=='.') readGains();
-		else if(input=='[') spinGoal -= 5.0;
-		else if(input==']') spinGoal += 5.0;
-		else if(input=='{') downGoal -= 5.0;
-		else if(input=='}') downGoal += 5.0;
-		else if(input=='j') { 
+		else if(input=='j') {
 			joystickControl = !joystickControl;
 			if(joystickControl == true) {
 				somatic_motor_reset(&daemon_cx, krang->arms[LEFT]);
