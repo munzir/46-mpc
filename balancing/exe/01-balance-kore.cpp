@@ -120,7 +120,7 @@ void controlSchunkGrippers () {
 
 /* ********************************************************************************************* */
 /// Handles the wheel commands if we are started
-void controlWheels(bool debug, size_t error, double lastUleft, double lastUright) {
+void controlWheels(bool& debug, Vector6d& error, double& lastUleft, double& lastUright) {
 
 	// Compute the current
 	double u_theta = K.topLeftCorner<2,1>().dot(error.topLeftCorner<2,1>());
@@ -141,44 +141,10 @@ void controlWheels(bool debug, size_t error, double lastUleft, double lastUright
 		somatic_motor_cmd(&daemon_cx, krang->amc, SOMATIC__MOTOR_PARAM__MOTOR_CURRENT, input, 2, NULL);
 	}
 }
-/* ********************************************************************************************* */
-/// Handles the wheel commands if we are started
-void controlStandSit(size_t error) {
-	// ==========================================================================
-	// Quit if button 9 on the joystick is pressed, stand/sit if button 10 is pressed
-	// Quit
-	if(b[8] == 1) break;
-
-	// Stand/Sit if button 10 is pressed and conditions are right
-	else if(b[9] == 1) {
-
-		// If in ground mode and state error is not high stand up
-		if(MODE == 1) {
-			if(state(0) < 0.0 && error(0) > -10.0*M_PI/180.0)	{
-				printf("\n\n\nMode 2\n\n\n");
-				K = K_stand;
-				MODE = 2;
-			}	else {
-				printf("\n\n\nCan't stand up, balancing error is too high!\n\n\n");
-			}
-		}
-
-			// If in balLow mode and waist is not too high, sit down
-		else if(MODE == 2 || MODE == 4) {
-			if((krang->waist->pos[0] - krang->waist->pos[1])/2.0 > 150.0*M_PI/180.0) {
-				printf("\n\n\nMode 3\n\n\n");
-				K = K_sit;
-				MODE = 3;
-			} else {
-				printf("\n\n\nCan't sit down, Waist is too high!\n\n\n");
-			}
-		}
-	}
-}
 
 /* ********************************************************************************************* */
 /// Update Krang Mode based on configuration, state and state error
-void updateMode(size_t& error, size_t& mode4iter, Vector6d& state) {
+void updateMode(Vector6d& error, size_t& mode4iter, Vector6d& state) {
 	size_t mode4iterLimit = 100;
 	// If in ground Lo mode and waist angle increases beyond 150.0 goto groundHi mode
 	if(MODE == 1) {
@@ -222,6 +188,41 @@ void updateMode(size_t& error, size_t& mode4iter, Vector6d& state) {
 		// COM error correction in balHigh mode
 	else if(MODE == 5) {
 		// error(0) -= 0.005;
+	}
+}
+
+/* ********************************************************************************************* */
+/// Handles the wheel commands if we are started
+void controlStandSit(Vector6d& error, Vector6d& state) {
+	// ==========================================================================
+	// Quit if button 9 on the joystick is pressed, stand/sit if button 10 is pressed
+	// Quit
+	if(b[8] == 1) return;
+
+		// Stand/Sit if button 10 is pressed and conditions are right
+	else if(b[9] == 1) {
+
+		// If in ground mode and state error is not high stand up
+		if(MODE == 1) {
+			if(state(0) < 0.0 && error(0) > -10.0*M_PI/180.0)	{
+				printf("\n\n\nMode 2\n\n\n");
+				K = K_stand;
+				MODE = 2;
+			}	else {
+				printf("\n\n\nCan't stand up, balancing error is too high!\n\n\n");
+			}
+		}
+
+			// If in balLow mode and waist is not too high, sit down
+		else if(MODE == 2 || MODE == 4) {
+			if((krang->waist->pos[0] - krang->waist->pos[1])/2.0 > 150.0*M_PI/180.0) {
+				printf("\n\n\nMode 3\n\n\n");
+				K = K_sit;
+				MODE = 3;
+			} else {
+				printf("\n\n\nCan't sit down, Waist is too high!\n\n\n");
+			}
+		}
 	}
 }
 
@@ -332,7 +333,7 @@ void run () {
 		double dq [] = {x[4] / 7.0};
 		somatic_motor_cmd(&daemon_cx, krang->torso, VELOCITY, dq, 1, NULL);
 
-		controlStandSit(error);
+		controlStandSit(error, state);
 
 	// Print the mode
 		if(debug) printf("Mode : %d\tdt: %lf\n", MODE, dt);
