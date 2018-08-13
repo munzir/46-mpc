@@ -51,29 +51,26 @@ typedef Matrix<double, 6, 6> Matrix6d;			///< A typedef for convenience to conta
 /* ******************************************************************************************** */
 // Globals for imu, motors and joystick
 
-somatic_d_t daemon_cx;				///< The context of the current daemon
+extern somatic_d_t daemon_cx;				///< The context of the current daemon
 
-Krang::Hardware* krang;				///< Interface for the motor and sensors on the hardware
-WorldPtr world;			///< the world representation in dart
-SkeletonPtr robot;			///< the robot representation in dart
+extern Krang::Hardware* krang;				///< Interface for the motor and sensors on the hardware
+extern WorldPtr world;			///< the world representation in dart
+extern SkeletonPtr robot;			///< the robot representation in dart
 
-Somatic__WaistCmd *waistDaemonCmd = somatic_waist_cmd_alloc(); ///< Cmds for waist daemon
-ach_channel_t js_chan;				///< Read joystick data on this channel
+extern Somatic__WaistCmd *waistDaemonCmd; ///< Cmds for waist daemon
+extern ach_channel_t js_chan;				///< Read joystick data on this channel
 
-bool start = false;						///< Giving time to the user to get the robot in balancing angle
-bool complyTorque = false;
-bool joystickControl = false;
-bool resetLeftFT = false, resetRightFT = false; 		
-bool overwriteFT = false;			///< To apply force downwards on purpose
-bool spinFT= false;						///< To apply force sideways on purpose
-double spinGoal = 0.0;
-double downGoal = 0.0;
+extern bool start;						///< Giving time to the user to get the robot in balancing angle
+extern bool complyTorque;
+extern bool joystickControl;
+extern double spinGoal;
+extern double downGoal;
 	
-double jsFwdAmp;				///< The gains for joystick forward/reverse input
-double jsSpinAmp;				///< The gains for joystick left/right spin input
+extern double jsFwdAmp;				///< The gains for joystick forward/reverse input
+extern double jsSpinAmp;				///< The gains for joystick left/right spin input
 
-char b [10];						///< Stores the joystick button inputs
-double x [6];						///< Stores the joystick axes inputs
+extern char b [10];						///< Stores the joystick button inputs
+extern double x [6];						///< Stores the joystick axes inputs
 
 /* ******************************************************************************************** */
 // All the freaking gains
