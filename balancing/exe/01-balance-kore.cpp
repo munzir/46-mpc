@@ -118,6 +118,79 @@ void controlSchunkGrippers () {
 		somatic_motor_cmd(&daemon_cx, krang->grippers[RIGHT], SOMATIC__MOTOR_PARAM__MOTOR_CURRENT, dq, 1, NULL);
 }
 
+/* ********************************************************************************************* */
+/// Handles the wheel commands if we are started
+void controlWheels(bool debug, size_t error, double lastUleft, double lastUright) {
+
+	// Compute the current
+	double u_theta = K.topLeftCorner<2,1>().dot(error.topLeftCorner<2,1>());
+	double u_x = K(2)*error(2) + K(3)*error(3);
+	double u_spin =  -K.bottomLeftCorner<2,1>().dot(error.bottomLeftCorner<2,1>());
+	u_spin = max(-30.0, min(30.0, u_spin));
+
+	// Compute the input for left and right wheels
+	if(joystickControl && ((MODE == 1) || (MODE == 6))) {u_x = 0.0; u_spin = 0.0;}
+	double input [2] = {u_theta + u_x + u_spin, u_theta + u_x - u_spin};
+	input[0] = max(-49.0, min(49.0, input[0]));
+	input[1] = max(-49.0, min(49.0, input[1]));
+	if(debug) printf("u_theta: %lf, u_x: %lf, u_spin: %lf\n", u_theta, u_x, u_spin);
+	lastUleft = input[0], lastUright = input[1];
+
+	if(start) {
+		if(debug) cout << "Started..." << endl;
+		somatic_motor_cmd(&daemon_cx, krang->amc, SOMATIC__MOTOR_PARAM__MOTOR_CURRENT, input, 2, NULL);
+	}
+}
+
+/* ********************************************************************************************* */
+/// Update Krang Mode based on configuration, state and state error
+void updateMode(size_t& error, size_t& mode4iter, Vector6d& state) {
+	size_t mode4iterLimit = 100;
+	// If in ground Lo mode and waist angle increases beyond 150.0 goto groundHi mode
+	if(MODE == 1) {
+		if((krang->waist->pos[0]-krang->waist->pos[1])/2.0 < 150.0*M_PI/180.0) {
+			MODE = 6;
+			K = K_groundHi;
+		}
+	}
+		// If in ground Hi mode and waist angle decreases below 150.0 goto groundLo mode
+	else if(MODE == 6) {
+		if((krang->waist->pos[0]-krang->waist->pos[1])/2.0 > 150.0*M_PI/180.0) {
+			MODE = 1;
+			K = K_groundLo;
+		}
+	}
+
+		// If we are in the sit down mode, over write the reference
+	else if(MODE == 3) {
+		static const double limit = ((-103.0 / 180.0) * M_PI);
+		if(krang->imu < limit) {
+			printf("imu (%lf) < limit (%lf): changing to mode 1\n", krang->imu, limit);
+			MODE = 1;
+			K = K_groundLo;
+		}
+		else error(0) = krang->imu - limit;
+	}
+		// if in standing up mode check if the balancing angle is reached and stayed, if so switch to balLow mode
+	else if(MODE == 2) {
+		if(fabs(state(0)) < 0.034) mode4iter++;
+		// Change to mode 4 (balance low) if stood up enough
+		if(mode4iter > mode4iterLimit) {
+			MODE = 4;
+			mode4iter = 0;
+			K = K_balLow;
+		}
+	}
+		// COM error correction in balLow mode
+	else if(MODE == 4) {
+		// error(0) += 0.005;
+	}
+		// COM error correction in balHigh mode
+	else if(MODE == 5) {
+		// error(0) -= 0.005;
+	}
+}
+
 /* ******************************************************************************************** */
 /// The continuous control loop which has 4 state variables, {x, x., psi, psi.}, where
 /// x is for the position along the heading direction and psi is the heading angle. We create
@@ -144,7 +217,7 @@ void run () {
 
 	// Continue processing data until stop received
 	double js_forw = 0.0, js_spin = 0.0, averagedTorque = 0.0, lastUleft = 0.0, lastUright = 0.0;
-	size_t mode4iter = 0, mode4iterLimit = 100;
+	size_t mode4iter = 0;
 	size_t lastMode = MODE; bool lastStart = start;
 
 	while(!somatic_sig_received) {
@@ -203,93 +276,31 @@ void run () {
 
 		// Compute the error term between reference and current, and weight with gains (spin separate)
 		if(debug) cout << "K: " << K.transpose() << endl;
+
 		error = state - refState;
 
-		// If in ground Lo mode and waist angle increases beyond 150.0 goto groundHi mode
-		if(MODE == 1) {
-			if((krang->waist->pos[0]-krang->waist->pos[1])/2.0 < 150.0*M_PI/180.0) {
-				MODE = 6;
-				K = K_groundHi;
-			}
-		}
-		// If in ground Hi mode and waist angle decreases below 150.0 goto groundLo mode
-		else if(MODE == 6) {
-			if((krang->waist->pos[0]-krang->waist->pos[1])/2.0 > 150.0*M_PI/180.0) {
-				MODE = 1;
-				K = K_groundLo;
-			}
-		}
+		updateMode(error, mode4iter, state);
 
-		// If we are in the sit down mode, over write the reference
-		else if(MODE == 3) {
-			static const double limit = ((-103.0 / 180.0) * M_PI);
-			if(krang->imu < limit) {
-				printf("imu (%lf) < limit (%lf): changing to mode 1\n", krang->imu, limit);
-				MODE = 1;
-				K = K_groundLo;
-			}
-			else error(0) = krang->imu - limit;
-		}
-		// if in standing up mode check if the balancing angle is reached and stayed, if so switch to balLow mode
-		else if(MODE == 2) {
-			if(fabs(state(0)) < 0.034) mode4iter++;
-			// Change to mode 4 (balance low) if stood up enough
-			if(mode4iter > mode4iterLimit) {
-				MODE = 4;
-				mode4iter = 0;
-				K = K_balLow;
-			}
-		}
-		// COM error correction in balLow mode
-		else if(MODE == 4) {
-			// error(0) += 0.005;
-		}
-		// COM error correction in balHigh mode
-		else if(MODE == 5) {
-			// error(0) -= 0.005;
-		}
 		if(debug) cout << "error: " << error.transpose() << ", imu: " << krang->imu / M_PI * 180.0 << endl;
 
-		// Compute the current
-		double u_theta = K.topLeftCorner<2,1>().dot(error.topLeftCorner<2,1>());
-		double u_x = K(2)*error(2) + K(3)*error(3);
-		double u_spin =  -K.bottomLeftCorner<2,1>().dot(error.bottomLeftCorner<2,1>());
-		u_spin = max(-30.0, min(30.0, u_spin));
-    	
-		// Compute the input for left and right wheels
-		if(joystickControl && ((MODE == 1) || (MODE == 6))) {u_x = 0.0; u_spin = 0.0;}
-		double input [2] = {u_theta + u_x + u_spin, u_theta + u_x - u_spin};
-		input[0] = max(-49.0, min(49.0, input[0]));
-		input[1] = max(-49.0, min(49.0, input[1]));
-		if(debug) printf("u_theta: %lf, u_x: %lf, u_spin: %lf\n", u_theta, u_x, u_spin);
-		lastUleft = input[0], lastUright = input[1];
-		
-		// Set the motor velocities
-		if(start) {
-			if(debug) cout << "Started..." << endl;
-			somatic_motor_cmd(&daemon_cx, krang->amc, SOMATIC__MOTOR_PARAM__MOTOR_CURRENT, input, 2, NULL);
-		}
-	
+		controlWheels(debug, error, lastUleft, lastUright);
+
 		// =======================================================================
 		// Control the arms, waist torso and robotiq grippers based on the joystick input
 
 		if(joystickControl) {
-		
 			if(debug) cout << "Joystick for Arms and Waist..." << endl;
 		
 			// Control the arms if necessary
 			controlArms();
-
 			// Control the waist
 			controlWaist();
-
 		}
 
 		// Control the torso
 		double dq [] = {x[4] / 7.0};
 		somatic_motor_cmd(&daemon_cx, krang->torso, VELOCITY, dq, 1, NULL);
 
-	
 		// ==========================================================================
 		// Quit if button 9 on the joystick is pressed, stand/sit if button 10 is pressed
 
