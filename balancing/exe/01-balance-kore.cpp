@@ -8,48 +8,10 @@
 
 #include "helpers.h"
 #include "kore/display.hpp"
+#include "utils.h"
 
 using namespace std;
 using namespace Krang;
-
-/* ******************************************************************************************** */
-// For logging purposes
-int Krang::COLOR_RED_BACKGROUND = 11;
-int Krang::COLOR_YELLOW_BACKGROUND = 12;
-int Krang::COLOR_GREEN_BACKGROUND = 13;
-int Krang::COLOR_WHITE_BACKGROUND = 14;
-int Krang::curses_display_row = 30;
-int Krang::curses_display_precision = 15;
-bool Krang::doing_curses = false;
-
-struct LogState {
-	
-	// Read state and sensors
-	double time;
-	Vector3d com;
-	double averagedTorque, torque;
-	double amcLeft, amcRight;
-
-	// Controller stuff
-	Vector6d state, refState;
-	double lastUleft, lastUright;
-
-	/// Constructor
-	LogState (double t, const Vector3d& c, double aTo, double to, double aL, double aR, 
-		const Vector6d& s, const Vector6d& rS, double lUl, double lUr) :
-			time(t), com(c), averagedTorque(aTo), torque(to), amcLeft(aL), amcRight(aR), state(s), 
-			refState(rS), lastUleft(lUl), lastUright(lUr) {}
-
-	/// Print
-	void print () {
-		//       torques         currents        state        refstate       time
-		printf("%lf\t%lf\t  %lf\t%lf\t%lf\t%lf\t  %lf\t%lf\t%lf\t %lf\t%lf\t%lf\t %lf\n", 
-        averagedTorque, torque, lastUleft, lastUright, krang->amc->cur[0], krang->amc->cur[1],  
-				state(0)*180.0/M_PI, state(2)*180.0/M_PI, state(4)*180.0/M_PI, refState(0)*180.0/M_PI, 
-				refState(2)*180.0/M_PI, refState(4)*180.0/M_PI, time);
-	}
-	
-};
 
 /// The vector of states
 vector <LogState*> logStates;
@@ -62,8 +24,8 @@ bool debugGlobal = false, logGlobal = true;
 double presetArmConfs [][7] = {
   {  0.500, -0.600,  0.000, -1.000,  0.000, -1.450,  0.570},
   { -0.500,  0.600,  0.000,  1.000,  0.000,  1.450, -0.480},
-	{  1.130, -1.000,  0.000, -1.570, -0.000,  1.000,  -1.104},
-	{ -1.130,  1.000, -0.000,  1.570,  0.000, -1.000,  -0.958},
+  {  1.130, -1.000,  0.000, -1.570, -0.000,  1.000,  -1.104},
+  { -1.130,  1.000, -0.000,  1.570,  0.000, -1.000,  -0.958},
   {  1.400, -1.000,  0.000, -0.800,  0.000, -0.500,  -1.000}, 
   { -1.400,  1.000,  0.000,  0.800,  0.000,  0.500,  -1.000},
   {  0.000,  0.000,  0.000,  0.000,  0.000,  0.000,  0.000},
@@ -142,34 +104,6 @@ void controlWaist() {
 }
 
 /* ********************************************************************************************* */
-/// Control the Robotiq hands - button 5 or 6 sets left/right, axis 3 sets the direction
-/// TODO: Find a better joystick to command mapping. The results are not very intuitive.
-void controlRobotiq() {
-
-	// Return if x[2] is being used for the L7/R7 motors
-	if(fabs(x[2]) > 0.2) return;
-
-	// Skip some loops
-	static int counter = 0;
-	if(counter++ % 20 != 0) return;
-
-	// For each hand, check if the button is pressed and if so give the command
-	for(size_t i = 0; i < 2; i++) {
-
-		// Turn the axis value between [-1, 1], to [0,255] - if 0, do nothing.
-		int val = fmax(0, fmin(255, ((x[3] + 1.0) / 2.0) * 256));
-
-		// Write the command line command and execute it
-		char buf [256];
-		if((b[4 + i] == 1) && (fabs(x[3]) > 0.05))  {
-			sprintf(buf, "robotiq_cmd b gp%x -c %cgripper-cmd", val, i ? 'r' : 'l');
-			printf("'%s'\n", buf);
-			system(buf);
-		}
-	}
-}
-
-/* ********************************************************************************************* */
 /// Handles the joystick commands for the left/right Schunk grippers
 void controlSchunkGrippers () {
 
@@ -208,16 +142,11 @@ void run () {
 	// Initialize the running history
 	const size_t historySize = 60;
 
-	// Initialize FT offset stuff
-	Vector6d leftFTData, rightFTData, temp;
-	leftFTData << 0,0,0,0,0,0;
-	rightFTData << 0,0,0,0,0,0; 
-	size_t leftFTIter = 0, rightFTIter = 0;
-	
 	// Continue processing data until stop received
 	double js_forw = 0.0, js_spin = 0.0, averagedTorque = 0.0, lastUleft = 0.0, lastUright = 0.0;
 	size_t mode4iter = 0, mode4iterLimit = 100;
-	size_t lastMode = MODE; bool lastStart = start; 
+	size_t lastMode = MODE; bool lastStart = start;
+
 	while(!somatic_sig_received) {
 
 		bool debug = (c_++ % 20 == 0);
@@ -317,7 +246,7 @@ void run () {
 		}
 		// COM error correction in balHigh mode
 		else if(MODE == 5) {
-			// error(0) -= 0.005;	
+			// error(0) -= 0.005;
 		}
 		if(debug) cout << "error: " << error.transpose() << ", imu: " << krang->imu / M_PI * 180.0 << endl;
 
