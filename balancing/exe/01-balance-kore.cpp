@@ -8,6 +8,7 @@
 
 #include "helpers.h"
 #include "kore/display.hpp"
+#include "file_ops.hpp"
 #include "utils.h"
 
 using namespace std;
@@ -407,13 +408,43 @@ void destroy() {
 }
 
 /* ******************************************************************************************** */
+// // Change robot's beta values (parameters)
+SkeletonPtr setParameters(SkeletonPtr robot, Eigen::MatrixXd betaParams, int bodyParams) {
+	Eigen::Vector3d bodyMCOM;
+	double mi;
+	int numBodies = betaParams.cols()/bodyParams;
+	for (int i = 0; i < numBodies; i++) {
+		mi = betaParams(0, i * bodyParams);
+		bodyMCOM(0) = betaParams(0, i * bodyParams + 1);
+		bodyMCOM(1) = betaParams(0, i * bodyParams + 2);
+		bodyMCOM(2) = betaParams(0, i * bodyParams + 3);
+
+		robot->getBodyNode(i)->setMass(mi);
+		robot->getBodyNode(i)->setLocalCOM(bodyMCOM/mi);
+	}
+	return robot;
+}
+
+/* ******************************************************************************************** */
 /// The main thread
 int main(int argc, char* argv[]) {
 
+	Eigen::MatrixXd beta;
 	// Load the world and the robot
 	dart::utils::DartLoader dl;
 	robot = dl.parseSkeleton("/home/munzir/project/krang/09-URDF/Krang/KrangNoKinect.urdf");
 	assert((robot != NULL) && "Could not find the robot urdf");
+	string inputBetaFilename = "../convergedBetaVector104PosesHardwareTrained.txt";
+
+	try {
+		cout << "Reading converged beta ...\n";
+		beta = readInputFileAsMatrix(inputBetaFilename);
+		cout << "|-> Done\n";
+	} catch (exception& e) {
+		cout << e.what() << endl;
+		return EXIT_FAILURE;
+	}
+	robot = setParameters(robot, beta, 4);
 	world = std::make_shared<World>();
 	world->addSkeleton(robot);
 
