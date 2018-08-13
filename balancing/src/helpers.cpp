@@ -37,6 +37,30 @@ const double wheelRadius = 10.5; 							///< Radius of krang wheels in inches
 const double distanceBetweenWheels = 27.375; 	///< Distance Between krang's wheels in inches 
 
 /* ******************************************************************************************** */
+// Initialize global variables
+
+somatic_d_t daemon_cx;				///< The context of the current daemon
+Somatic__WaistCmd *waistDaemonCmd = somatic_waist_cmd_alloc();
+bool start = false;						///< Giving time to the user to get the robot in balancing angle
+bool complyTorque = false;
+bool joystickControl = false;
+double spinGoal = 0.0;
+double downGoal = 0.0;
+
+
+Krang::Hardware* krang;				///< Interface for the motor and sensors on the hardware
+WorldPtr world;			///< the world representation in dart
+SkeletonPtr robot;			///< the robot representation in dart
+
+ach_channel_t js_chan;				///< Read joystick data on this channel
+
+double jsFwdAmp;				///< The gains for joystick forward/reverse input
+double jsSpinAmp;				///< The gains for joystick left/right spin input
+
+char b [10];						///< Stores the joystick button inputs
+double x [6];
+
+/* ******************************************************************************************** */
 // fixer function which removes values from matrix below threshold
 Eigen::MatrixXd fix (const Eigen::MatrixXd& mat) {
 	double threshold = 1e-5;
