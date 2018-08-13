@@ -121,7 +121,7 @@ void controlSchunkGrippers () {
 
 /* ********************************************************************************************* */
 /// Handles the wheel commands if we are started
-void controlWheels(bool& debug, Vector6d& error, double& lastUleft, double& lastUright) {
+void controlWheels(bool debug, Vector6d& error, double& lastUleft, double& lastUright) {
 
 	// Compute the current
 	double u_theta = K.topLeftCorner<2,1>().dot(error.topLeftCorner<2,1>());
