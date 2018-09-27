@@ -202,14 +202,17 @@ void controlTorso() {
 
 /* ********************************************************************************************* */
 /// Handles the wheel commands if we are started
-void controlStandSit(Vector6d& error, Vector6d& state) {
+bool controlStandSit(Vector6d& error, Vector6d& state) {
 	// ==========================================================================
 	// Quit if button 9 on the joystick is pressed, stand/sit if button 10 is pressed
 	// Quit
-	if(b[8] == 1) return;
+
+	static bool b9Prev = 0;
+
+	if(b[8] == 1) return false;
 
 		// Stand/Sit if button 10 is pressed and conditions are right
-	else if(b[9] == 1) {
+	else if(b9Prev == 0 && b[9] == 1) {
 
 		// If in ground mode and state error is not high stand up
 		if(MODE == GROUND_LO) {
@@ -233,6 +236,8 @@ void controlStandSit(Vector6d& error, Vector6d& state) {
 			}
 		}
 	}
+	b9Prev = b[9];
+	return true;
 }
 
 /* ******************************************************************************************** */
@@ -340,10 +345,12 @@ void run () {
 			controlWaist();
 			// Control Torso
 			controlTorso();
-			// Update Stand/Sit Modes
-			controlStandSit(error, state);
 		}
-
+		// Update Stand/Sit Modes
+		if(!controlStandSit(error, state)){
+			break;
+		}
+		
 	// Print the mode
 		if(debug) printf("Mode : %d\tdt: %lf\n", MODE, dt);
 	}
@@ -432,9 +439,9 @@ int main(int argc, char* argv[]) {
 	Eigen::MatrixXd beta;
 	// Load the world and the robot
 	dart::utils::DartLoader dl;
-	robot = dl.parseSkeleton("/home/munzir/project/krang/09-URDF/Krang/KrangNoKinect.urdf");
+	robot = dl.parseSkeleton("/home/munzir/Documents/Software/project/krang/09-URDF/Krang/Krang.urdf");
 	assert((robot != NULL) && "Could not find the robot urdf");
-	string inputBetaFilename = "../convergedBetaVector104PosesHardwareTrained.txt";
+	string inputBetaFilename = "../../../18-OnlineCoM/betaConvergence/bestBetaVector.txt";
 
 	try {
 		cout << "Reading converged beta ...\n";
