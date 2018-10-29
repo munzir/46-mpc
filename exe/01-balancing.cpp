@@ -414,6 +414,24 @@ void run (Eigen::MatrixXd Q, Eigen::MatrixXd R) {
 }
 
 /* ******************************************************************************************** */
+// // Change robot's beta values (parameters)
+SkeletonPtr setParameters(SkeletonPtr robot, Eigen::MatrixXd betaParams, int bodyParams) {
+	Eigen::Vector3d bodyMCOM;
+	double mi;
+	int numBodies = betaParams.cols()/bodyParams;
+	for (int i = 0; i < numBodies; i++) {
+		mi = betaParams(0, i * bodyParams);
+		bodyMCOM(0) = betaParams(0, i * bodyParams + 1);
+		bodyMCOM(1) = betaParams(0, i * bodyParams + 2);
+		bodyMCOM(2) = betaParams(0, i * bodyParams + 3);
+
+		robot->getBodyNode(i)->setMass(mi);
+		robot->getBodyNode(i)->setLocalCOM(bodyMCOM/mi);
+	}
+	return robot;
+}
+
+/* ******************************************************************************************** */
 /// Initialize the motor and daemons
 void init() {
 
@@ -422,6 +440,29 @@ void init() {
 	memset(&dopt, 0, sizeof(dopt));
 	dopt.ident = "01-balance";
 	somatic_d_init(&daemon_cx, &dopt);
+
+	// Load the robot
+	dart::utils::DartLoader dl;
+	robot = dl.parseSkeleton("/home/munzir/Documents/Software/project/krang/09-URDF/Krang/Krang.urdf");
+	assert((robot != NULL) && "Could not find the robot urdf");
+
+    // Read CoM estimation model paramters
+	Eigen::MatrixXd beta;
+	string inputBetaFilename = "/home/munzir/Documents/Software/project/krang/18-OnlineCoM/betaConvergence/bestBetaVector.txt";
+
+	try {
+		cout << "Reading converged beta ...\n";
+		beta = readInputFileAsMatrix(inputBetaFilename);
+		cout << "|-> Done\n";
+	} catch (exception& e) {
+		cout << e.what() << endl;
+		assert();
+	}
+	robot = setParameters(robot, beta, 4);
+
+    // Load dart robot in dart world
+    world = std::make_shared<World>();
+	world->addSkeleton(robot);
 
 	// Initialize the motors and sensors on the hardware and update the kinematics in dart
 	int hwMode = Krang::Hardware::MODE_AMC | Krang::Hardware::MODE_LARM |
@@ -468,47 +509,10 @@ void destroy() {
 }
 
 /* ******************************************************************************************** */
-// // Change robot's beta values (parameters)
-SkeletonPtr setParameters(SkeletonPtr robot, Eigen::MatrixXd betaParams, int bodyParams) {
-	Eigen::Vector3d bodyMCOM;
-	double mi;
-	int numBodies = betaParams.cols()/bodyParams;
-	for (int i = 0; i < numBodies; i++) {
-		mi = betaParams(0, i * bodyParams);
-		bodyMCOM(0) = betaParams(0, i * bodyParams + 1);
-		bodyMCOM(1) = betaParams(0, i * bodyParams + 2);
-		bodyMCOM(2) = betaParams(0, i * bodyParams + 3);
-
-		robot->getBodyNode(i)->setMass(mi);
-		robot->getBodyNode(i)->setLocalCOM(bodyMCOM/mi);
-	}
-	return robot;
-}
-
-/* ******************************************************************************************** */
 /// The main thread
 int main(int argc, char* argv[]) {
 
     auto params = ReadConfigParams("../params.cfg");
-
-	Eigen::MatrixXd beta;
-	// Load the world and the robot
-	dart::utils::DartLoader dl;
-	robot = dl.parseSkeleton("/home/munzir/Documents/Software/project/krang/09-URDF/Krang/Krang.urdf");
-	assert((robot != NULL) && "Could not find the robot urdf");
-	string inputBetaFilename = "../../18-OnlineCoM/betaConvergence/bestBetaVector.txt";
-
-	try {
-		cout << "Reading converged beta ...\n";
-		beta = readInputFileAsMatrix(inputBetaFilename);
-		cout << "|-> Done\n";
-	} catch (exception& e) {
-		cout << e.what() << endl;
-		return EXIT_FAILURE;
-	}
-	robot = setParameters(robot, beta, 4);
-	world = std::make_shared<World>();
-	world->addSkeleton(robot);
 
 	//Read Gains from file
 	readGains();
