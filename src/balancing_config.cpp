@@ -49,13 +49,10 @@
 #include <config4cpp/Configuration.h>
 #include <Eigen/Eigen>
 
-// Function for reading configuration parameters. Location to cfg file is needed at the input.
-// Output is the pointer to the struct that contains all the params.
-// Ownership to the allocated memory is unique and transfered to the caller function
-std::unique_ptr<BalancingConfig> ReadConfigParams(const char* config_file) {
-
-  // Allocate memory for the output of the function
-  std::unique_ptr<BalancingConfig> params (new BalancingConfig);
+// Function for reading configuration parameters. First argument is the location of
+// cfg file from the parameters are to be read. Second argument is the output where
+// the parameters are stored
+void ReadConfigParams(const char* config_file, BalancingConfig* params) {
 
   // Initialize the reader of the cfg file
   config4cpp::Configuration* cfg = config4cpp::Configuration::create();
@@ -135,7 +132,5 @@ std::unique_ptr<BalancingConfig> ReadConfigParams(const char* config_file) {
     assert(false && "Problem reading config parameters");
   }
   std::cout << std::endl;
-
-  return params;
 }
 

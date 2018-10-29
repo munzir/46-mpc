@@ -72,8 +72,9 @@ struct BalancingConfig {
   Eigen::Matrix<double, 2, 1> joystickGainsBalHi;
 };
 
-// The function that reads the configurable parameters from a cfg file into the
-// struct defined above
-std::unique_ptr<BalancingConfig> ReadConfigParams (const char* config_file);
+// Function for reading configuration parameters. First argument is the location of
+// cfg file from the parameters are to be read. Second argument is the output where
+// the parameters are stored
+void ReadConfigParams (const char* config_file, BalancingConfig* params);
 
 #endif // KRANG_BALANCING_CONFIG_H_
