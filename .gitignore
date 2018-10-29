@@ -13,11 +13,10 @@
 # beta vector
 !convergedBetaVector104PosesHardwareTrained.txt
 
-# gains
+# params
+!params.cfg
 !gains_preLQR.txt
 !gains.txt
-!Q.txt
-!R.txt
 
 # src
 !/src/
@@ -29,8 +28,10 @@
 !/src/helpers.h
 !/src/simTab.h
 !/src/utils.h
+!/src/balancing_config.h
+!/src/balancing_config.cpp
 
 # exe
 !/exe/
 /exe/*
-!/exe/01-balance-kore.cpp
+!/exe/01-balancing.cpp

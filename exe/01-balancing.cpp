@@ -1,11 +1,11 @@
 /**
- * @file 01-balance.cpp
+ * @file 01-balancing.cpp
  * @author Munzir Zafar
- * @date July 26, 2013
- * @brief This code implements the balancing with force-compensations along with basic joystick
- * control mainly for the demo on July 31st, 2013 using the newly developed kore library.
+ * @date Oct 29, 2018
+ * @brief A neat and clean version of the original balancing logic.
  */
 
+#include "balancing_config.h"
 #include "helpers.h"
 #include "kore/display.hpp"
 #include "../../18h-Util/lqr.hpp"
@@ -489,39 +489,14 @@ SkeletonPtr setParameters(SkeletonPtr robot, Eigen::MatrixXd betaParams, int bod
 /// The main thread
 int main(int argc, char* argv[]) {
 
-    //Eigen::MatrixXd Q = Eigen::MatrixXd::Zero(4, 4);
-    //Eigen::MatrixXd R = Eigen::MatrixXd::Zero(1, 1);
-    Eigen::MatrixXd Q;
-    Eigen::MatrixXd R;
-
-    string QFilename = "../Q.txt";
-    //string QFilename = "Q.txt";
-    try {
-        cout << "Reading cost Q ...\n";
-        Q = readInputFileAsMatrix(QFilename);
-        cout << "|-> Done\n";
-    } catch (exception& e) {
-        cout << e.what() << endl;
-    }
-    string RFilename = "../R.txt";
-    //string RFilename = "R.txt";
-    try {
-        cout << "Reading cost R ...\n";
-        R = readInputFileAsMatrix(RFilename);
-        cout << "|-> Done\n";
-    } catch (exception& e) {
-        cout << e.what() << endl;
-    }
-
-    cout << "Q matrix: " << Q << endl;
-    cout << "R matrix: " << R << endl;
+    auto params = ReadConfigParams("../params.cfg");
 
 	Eigen::MatrixXd beta;
 	// Load the world and the robot
 	dart::utils::DartLoader dl;
 	robot = dl.parseSkeleton("/home/munzir/Documents/Software/project/krang/09-URDF/Krang/Krang.urdf");
 	assert((robot != NULL) && "Could not find the robot urdf");
-	string inputBetaFilename = "../../../18-OnlineCoM/betaConvergence/bestBetaVector.txt";
+	string inputBetaFilename = "../../18-OnlineCoM/betaConvergence/bestBetaVector.txt";
 
 	try {
 		cout << "Reading converged beta ...\n";
@@ -549,7 +524,7 @@ int main(int argc, char* argv[]) {
 
 	// Initialize, run, destroy
 	init();
-    run(Q, R);
+    run(params->lqrQ, params->lqrR);
 	destroy();
 	return 0;
 }
