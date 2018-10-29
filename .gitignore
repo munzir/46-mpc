@@ -1,4 +1,36 @@
-*/build
-*.swo
-*.swp
-.idea
+# Exclude all files/directories except the ones I want
+/*
+
+# .gitignore
+!.gitignore
+
+# Readme
+!README.md
+
+# CMakelists
+!CMakeLists.txt
+
+# beta vector
+!convergedBetaVector104PosesHardwareTrained.txt
+
+# gains
+!gains_preLQR.txt
+!gains.txt
+!Q.txt
+!R.txt
+
+# src
+!/src/
+/src/*
+!/src/balancing.h
+!/src/file_ops.cpp
+!/src/file_ops.hpp
+!/src/helpers.cpp
+!/src/helpers.h
+!/src/simTab.h
+!/src/utils.h
+
+# exe
+!/exe/
+/exe/*
+!/exe/01-balance-kore.cpp
