@@ -521,7 +521,8 @@ void destroy() {
 /// The main thread
 int main(int argc, char* argv[]) {
 
-  auto params = ReadConfigParams("../params.cfg");
+  BalancingConfig params;
+  ReadConfigParams("../params.cfg", &params);
 
 	// Debug options from command line
 	debugGlobal = 1; logGlobal = 0;
@@ -533,8 +534,8 @@ int main(int argc, char* argv[]) {
 	getchar();
 
 	// Initialize, run, destroy
-	init(*params);
-  run(*params);
+	init(params);
+  run(params);
 	destroy();
 	return 0;
 }
