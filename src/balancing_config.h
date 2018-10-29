@@ -70,6 +70,9 @@ struct BalancingConfig {
   Eigen::Matrix<double, 2, 1> joystickGainsSit;
   Eigen::Matrix<double, 2, 1> joystickGainsBalLo;
   Eigen::Matrix<double, 2, 1> joystickGainsBalHi;
+
+  // Path to urdf file
+  char urdfpath[1024];
 };
 
 // Function for reading configuration parameters. First argument is the location of

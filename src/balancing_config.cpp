@@ -67,6 +67,9 @@ void ReadConfigParams(const char* config_file, BalancingConfig* params) {
     // Parse the cfg file
     cfg->parse(config_file);
 
+    // Read the path to Krang urdf file
+    strcpy(params->urdfpath, cfg->lookupString(scope, "urdfpath"));
+
     // Read the Q matrix for LQR
     params->lqrQ.setZero();
     str = cfg->lookupString(scope, "lqrQ");
@@ -126,6 +129,7 @@ void ReadConfigParams(const char* config_file, BalancingConfig* params) {
       std::cout << joystickGainsStrings[i] << ": ";
       std::cout << (*(joystickGains[i])).transpose() << std::endl;
     }
+
   } catch (const config4cpp::ConfigurationException& ex) {
     std::cerr << ex.c_str() << std::endl;
     cfg->destroy();
