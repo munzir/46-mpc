@@ -443,12 +443,12 @@ void init(BalancingConfig& params) {
 
 	// Load the robot
 	dart::utils::DartLoader dl;
-	robot = dl.parseSkeleton("/home/munzir/Documents/Software/project/krang/09-URDF/Krang/Krang.urdf");
+	robot = dl.parseSkeleton(params.urdfpath);
 	assert((robot != NULL) && "Could not find the robot urdf");
 
     // Read CoM estimation model paramters
 	Eigen::MatrixXd beta;
-	string inputBetaFilename = "/home/munzir/Documents/Software/project/krang/18-OnlineCoM/betaConvergence/bestBetaVector.txt";
+	string inputBetaFilename = params.comParametersPath;
 
 	try {
 		cout << "Reading converged beta ...\n";
