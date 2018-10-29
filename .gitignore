@@ -15,8 +15,6 @@
 
 # params
 !params.cfg
-!gains_preLQR.txt
-!gains.txt
 
 # src
 !/src/
