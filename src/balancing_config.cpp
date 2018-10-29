@@ -42,11 +42,13 @@
 
 #include "balancing_config.h"
 
+#include <assert.h>
 #include <iostream>
 #include <memory>
 
 #include <config4cpp/Configuration.h>
 #include <Eigen/Eigen>
+
 // Function for reading configuration parameters. Location to cfg file is needed at the input.
 // Output is the pointer to the struct that contains all the params.
 // Ownership to the allocated memory is unique and transfered to the caller function
@@ -81,15 +83,56 @@ std::unique_ptr<BalancingConfig> ReadConfigParams(const char* config_file) {
     params->lqrR.setZero();
     str = cfg->lookupString(scope, "lqrR");
     stream.str(str);
-    for(int i = 0; i < 4; i++)
+    for(int i = 0; i < 1; i++)
       stream >> params->lqrR(i, i);
     stream.clear();
     std::cout << "lqrR: " << params->lqrR << std::endl;
 
+    // Read PD Gains
+    const char* pdGainsStrings[] = {
+      "pdGainsGroundLo", "pdGainsGroundHi",
+      "pdGainsStand", "pdGainsSit",
+      "pdGainsBalLo", "pdGainsBalHi"
+    };
+    Eigen::Matrix<double, 6, 1>* pdGains[] = {
+      &params->pdGainsGroundLo, &params->pdGainsGroundHi,
+      &params->pdGainsStand, &params->pdGainsSit,
+      &params->pdGainsBalLo, &params->pdGainsBalHi
+    };
+    for(int i = 0; i<6; i++) {
+      str = cfg->lookupString(scope, pdGainsStrings[i]);
+      stream.str(str);
+      for(int j = 0; j < 6; j++)
+        stream >> (*(pdGains[i]))(j);
+      stream.clear();
+      std::cout << pdGainsStrings[i] << ": ";
+      std::cout << (*(pdGains[i])).transpose() << std::endl;
+    }
+
+    // Read Joystick Gains
+    const char* joystickGainsStrings[] = {
+      "joystickGainsGroundLo", "joystickGainsGroundHi",
+      "joystickGainsStand", "joystickGainsSit",
+      "joystickGainsBalLo", "joystickGainsBalHi"
+    };
+    Eigen::Matrix<double, 2, 1>* joystickGains[] = {
+      &params->joystickGainsGroundLo, &params->joystickGainsGroundHi,
+      &params->joystickGainsStand, &params->joystickGainsSit,
+      &params->joystickGainsBalLo, &params->joystickGainsBalHi
+    };
+    for(int i = 0; i<6; i++) {
+      str = cfg->lookupString(scope, joystickGainsStrings[i]);
+      stream.str(str);
+      for(int j = 0; j < 2; j++)
+        stream >> (*(joystickGains[i]))(j);
+      stream.clear();
+      std::cout << joystickGainsStrings[i] << ": ";
+      std::cout << (*(joystickGains[i])).transpose() << std::endl;
+    }
   } catch (const config4cpp::ConfigurationException& ex) {
     std::cerr << ex.c_str() << std::endl;
     cfg->destroy();
-    assert();
+    assert(false && "Problem reading config parameters");
   }
   std::cout << std::endl;
 

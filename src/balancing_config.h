@@ -54,6 +54,22 @@ struct BalancingConfig {
   // Q and R matrices for LQR
   Eigen::Matrix<double, 4, 4> lqrQ;
   Eigen::Matrix<double, 1, 1> lqrR;
+
+  // PD Gains
+  Eigen::Matrix<double, 6, 1> pdGainsGroundLo;
+  Eigen::Matrix<double, 6, 1> pdGainsGroundHi;
+  Eigen::Matrix<double, 6, 1> pdGainsStand;
+  Eigen::Matrix<double, 6, 1> pdGainsSit;
+  Eigen::Matrix<double, 6, 1> pdGainsBalLo;
+  Eigen::Matrix<double, 6, 1> pdGainsBalHi;
+
+  // Joystick Gains
+  Eigen::Matrix<double, 2, 1> joystickGainsGroundLo;
+  Eigen::Matrix<double, 2, 1> joystickGainsGroundHi;
+  Eigen::Matrix<double, 2, 1> joystickGainsStand;
+  Eigen::Matrix<double, 2, 1> joystickGainsSit;
+  Eigen::Matrix<double, 2, 1> joystickGainsBalLo;
+  Eigen::Matrix<double, 2, 1> joystickGainsBalHi;
 };
 
 // The function that reads the configurable parameters from a cfg file into the

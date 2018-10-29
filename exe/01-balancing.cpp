@@ -251,7 +251,7 @@ bool controlStandSit(Vector6d& error, Vector6d& state) {
 /// The continuous control loop which has 4 state variables, {x, x., psi, psi.}, where
 /// x is for the position along the heading direction and psi is the heading angle. We create
 /// reference x and psi values from the joystick and follow them with pd control.
-void run (Eigen::MatrixXd Q, Eigen::MatrixXd R) {
+void run (BalancingConfig& params) {
 
 	// Send a message; set the event code and the priority
 	somatic_d_event(&daemon_cx, SOMATIC__EVENT__PRIORITIES__NOTICE,
@@ -326,7 +326,7 @@ void run (Eigen::MatrixXd Q, Eigen::MatrixXd R) {
 
         if (c_ == 1) {
             // Call lqr to compute hack ratios
-            lqr(A, B, Q, R, LQR_Gains);
+            lqr(A, B, params.lqrQ, params.lqrR, LQR_Gains);
             LQR_Gains /= (GR * km);
 
             lqrHackRatios = Eigen::MatrixXd::Zero(4, 4);
@@ -337,7 +337,7 @@ void run (Eigen::MatrixXd Q, Eigen::MatrixXd R) {
             }
         }
 
-        lqr(A, B, Q, R, LQR_Gains);
+        lqr(A, B, params.lqrQ, params.lqrR, LQR_Gains);
         LQR_Gains /= (GR * km);
         LQR_Gains = lqrHackRatios * LQR_Gains;
 
@@ -433,7 +433,7 @@ SkeletonPtr setParameters(SkeletonPtr robot, Eigen::MatrixXd betaParams, int bod
 
 /* ******************************************************************************************** */
 /// Initialize the motor and daemons
-void init() {
+void init(BalancingConfig& params) {
 
 	// Initialize the daemon
 	somatic_d_opts_t dopt;
@@ -456,18 +456,27 @@ void init() {
 		cout << "|-> Done\n";
 	} catch (exception& e) {
 		cout << e.what() << endl;
-		assert();
+		assert(false && "Problem loading CoM parameters...");
 	}
 	robot = setParameters(robot, beta, 4);
 
-    // Load dart robot in dart world
-    world = std::make_shared<World>();
+  // Load dart robot in dart world
+  world = std::make_shared<World>();
 	world->addSkeleton(robot);
 
 	// Initialize the motors and sensors on the hardware and update the kinematics in dart
 	int hwMode = Krang::Hardware::MODE_AMC | Krang::Hardware::MODE_LARM |
 		Krang::Hardware::MODE_RARM | Krang::Hardware::MODE_TORSO | Krang::Hardware::MODE_WAIST;
 	krang = new Krang::Hardware((Krang::Hardware::Mode) hwMode, &daemon_cx, robot);
+
+  // Initialize the gains
+  K_groundLo = params.pdGainsGroundLo; J_ground = params.joystickGainsGroundLo;
+  K_groundHi = params.pdGainsGroundHi; J_ground = params.joystickGainsGroundHi;
+  K_stand = params.pdGainsStand;       J_stand = params.joystickGainsStand;
+  K_sit = params.pdGainsSit;           J_sit = params.joystickGainsSit;
+  K_balLow = params.pdGainsBalLo;      J_balLow = params.joystickGainsBalLo;
+  K_balHigh = params.pdGainsBalHi;     J_balHigh = params.joystickGainsBalHi;
+
 
 	// Initialize the joystick channel
 	int r = ach_open(&js_chan, "joystick-data", NULL);
@@ -512,10 +521,7 @@ void destroy() {
 /// The main thread
 int main(int argc, char* argv[]) {
 
-    auto params = ReadConfigParams("../params.cfg");
-
-	//Read Gains from file
-	readGains();
+  auto params = ReadConfigParams("../params.cfg");
 
 	// Debug options from command line
 	debugGlobal = 1; logGlobal = 0;
@@ -527,8 +533,8 @@ int main(int argc, char* argv[]) {
 	getchar();
 
 	// Initialize, run, destroy
-	init();
-    run(params->lqrQ, params->lqrR);
+	init(*params);
+  run(*params);
 	destroy();
 	return 0;
 }
