@@ -70,6 +70,9 @@ void ReadConfigParams(const char* config_file, BalancingConfig* params) {
     // Read the path to Krang urdf file
     strcpy(params->urdfpath, cfg->lookupString(scope, "urdfpath"));
 
+    // Read the path to com estimation model parameters
+    strcpy(params->comParametersPath, cfg->lookupString(scope, "comParametersPath"));
+
     // Read the Q matrix for LQR
     params->lqrQ.setZero();
     str = cfg->lookupString(scope, "lqrQ");
