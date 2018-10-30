@@ -28,6 +28,8 @@
 !/src/utils.h
 !/src/balancing_config.h
 !/src/balancing_config.cpp
+!/src/arms.h
+!/src/arms.cpp
 
 # exe
 !/exe/

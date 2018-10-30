@@ -6,6 +6,7 @@
  */
 
 #include "balancing_config.h"
+#include "arms.h"
 #include "helpers.h"
 #include "kore/display.hpp"
 #include "../../18h-Util/lqr.hpp"
@@ -26,73 +27,6 @@ bool debugGlobal = false, logGlobal = true;
 // LQR hack ratios
 
 Eigen::MatrixXd lqrHackRatios;
-
-/* ********************************************************************************************* */
-// The preset arm configurations: forward, thriller, goodJacobian
-double presetArmConfs [][7] = {
-  {  0.500, -0.600,  0.000, -1.000,  0.000, -1.450,  0.570},
-  { -0.500,  0.600,  0.000,  1.000,  0.000,  1.450, -0.480},
-  {  1.130, -1.000,  0.000, -1.570, -0.000,  1.000,  -1.104},
-  { -1.130,  1.000, -0.000,  1.570,  0.000, -1.000,  -0.958},
-  {  1.400, -1.000,  0.000, -0.800,  0.000, -0.500,  -1.000},
-  { -1.400,  1.000,  0.000,  0.800,  0.000,  0.500,  -1.000},
-  {  0.000,  0.000,  0.000,  0.000,  0.000,  0.000,  0.000},
-  {  0.000,  0.000,  0.000,  0.000,  0.000,  0.000,  0.000},
-};
-
-/* ********************************************************************************************* */
-/// Controls the arms
-void controlArms () {
-
-	// Return if the x[3] is being used for robotiq hands
-	if(fabs(x[3]) > 0.2) return;
-
-	// Check if one of the preset configurations are requested by pressing 9 and
-	// any of the buttons from 1 to 4 at the same time
-	if(((b[4] == 1) && (b[6] == 1)) || ((b[5] == 1) && (b[7] == 1))) {
-
-		// Check if the button is pressed for the arm configuration is pressed, if so send pos commands
-		bool noConfs = true;
-		for(size_t i = 0; i < 4; i++) {
-			if(b[i] == 1) {
-				if((b[4] == 1) && (b[6] == 1))
-					somatic_motor_cmd(&daemon_cx, krang->arms[LEFT], POSITION, presetArmConfs[2*i], 7, NULL);
-				if((b[5] == 1) && (b[7] == 1))  {
-					somatic_motor_cmd(&daemon_cx, krang->arms[RIGHT], POSITION, presetArmConfs[2*i+1], 7, NULL);
-				}
-				noConfs = false;
-				return;
-			}
-		}
-
-		// If nothing is pressed, stop the arms
-		if(noConfs) {
-			double dq [] = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
-			somatic_motor_cmd(&daemon_cx, krang->arms[LEFT], VELOCITY, dq, 7, NULL);
-			somatic_motor_cmd(&daemon_cx, krang->arms[RIGHT], VELOCITY, dq, 7, NULL);
-			return;
-		}
-	}
-
-	// Check the b for each arm and apply velocities accordingly
-	// For left: 4 or 6, for right: 5 or 7, lower arm button is smaller (4 or 5)
-	somatic_motor_t* arm [] = {krang->arms[LEFT], krang->arms[RIGHT]};
-	for(size_t arm_idx = 0; arm_idx < 2; arm_idx++) {
-
-		// Initialize the input
-		double dq [] = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
-
-		// Change the input based on the lower or higher button input
-		bool inputSet = true;
-		size_t lowerButton = 4 + arm_idx, higherButton = 6 + arm_idx;
-		if(b[lowerButton] && !b[higherButton]) memcpy(&dq[4], x, 3*sizeof(double));
-		else if(!b[lowerButton] && b[higherButton]) memcpy(dq, x, 4*sizeof(double));
-		else inputSet = false;
-
-		// Set the input for this arm
-		if(inputSet) somatic_motor_cmd(&daemon_cx, arm[arm_idx], VELOCITY, dq, 7, NULL);
-	}
-}
 
 /* ********************************************************************************************* */
 /// Handles the joystick commands for the waist module
@@ -393,7 +327,7 @@ void run (BalancingConfig& params) {
 		if(joystickControl) {
 			if(debug) cout << "Joystick for Arms and Waist..." << endl;
 			// Control the arms if necessary
-			controlArms();
+			controlArms(daemon_cx, b, x, krang);
 			// Control the waist
 			controlWaist();
 			// Control Torso
@@ -446,10 +380,18 @@ void init(BalancingConfig& params) {
 	robot = dl.parseSkeleton(params.urdfpath);
 	assert((robot != NULL) && "Could not find the robot urdf");
 
-    // Read CoM estimation model paramters
+  // Load dart robot in dart world
+  world = std::make_shared<World>();
+	world->addSkeleton(robot);
+
+	// Initialize the motors and sensors on the hardware and update the kinematics in dart
+	int hwMode = Krang::Hardware::MODE_AMC | Krang::Hardware::MODE_LARM |
+		Krang::Hardware::MODE_RARM | Krang::Hardware::MODE_TORSO | Krang::Hardware::MODE_WAIST;
+	krang = new Krang::Hardware((Krang::Hardware::Mode) hwMode, &daemon_cx, robot);
+
+  // Read CoM estimation model paramters
 	Eigen::MatrixXd beta;
 	string inputBetaFilename = params.comParametersPath;
-
 	try {
 		cout << "Reading converged beta ...\n";
 		beta = readInputFileAsMatrix(inputBetaFilename);
@@ -459,15 +401,6 @@ void init(BalancingConfig& params) {
 		assert(false && "Problem loading CoM parameters...");
 	}
 	robot = setParameters(robot, beta, 4);
-
-  // Load dart robot in dart world
-  world = std::make_shared<World>();
-	world->addSkeleton(robot);
-
-	// Initialize the motors and sensors on the hardware and update the kinematics in dart
-	int hwMode = Krang::Hardware::MODE_AMC | Krang::Hardware::MODE_LARM |
-		Krang::Hardware::MODE_RARM | Krang::Hardware::MODE_TORSO | Krang::Hardware::MODE_WAIST;
-	krang = new Krang::Hardware((Krang::Hardware::Mode) hwMode, &daemon_cx, robot);
 
   // Initialize the gains
   K_groundLo = params.pdGainsGroundLo; J_ground = params.joystickGainsGroundLo;
