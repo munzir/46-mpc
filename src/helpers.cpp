@@ -48,8 +48,6 @@ Krang::Hardware* krang;				///< Interface for the motor and sensors on the hardw
 WorldPtr world;			///< the world representation in dart
 SkeletonPtr robot;			///< the robot representation in dart
 
-ach_channel_t js_chan;				///< Read joystick data on this channel
-
 double jsFwdAmp;				///< The gains for joystick forward/reverse input
 double jsSpinAmp;				///< The gains for joystick left/right spin input
 
@@ -109,21 +107,7 @@ void updateReference (double js_forw, double js_spin, double dt, Vector6d& refSt
 
 /* ******************************************************************************************** */
 /// Returns the values of axes 1 (left up/down) and 2 (right left/right) in the joystick
-bool getJoystickInput(double& js_forw, double& js_spin) {
-
-	// Get the message and check output is OK.
-	int r = 0;
-	Somatic__Joystick *js_msg =
-			SOMATIC_GET_LAST_UNPACK( r, somatic__joystick, NULL, 4096, &js_chan );
-	if(!(ACH_OK == r || ACH_MISSED_FRAME == r) || (js_msg == NULL)) return false;
-
-	// Get the values
-	for(size_t i = 0; i < 10; i++)
-		b[i] = js_msg->buttons->data[i] ? 1 : 0;
-	memcpy(x, js_msg->axes->data, sizeof(x));
-
-	// Free the joystick message
-	somatic__joystick__free_unpacked(js_msg, NULL);
+void joystickEvents(double& js_forw, double& js_spin) {
 
 	// Change the gains with the given joystick input
 	double deltaTH = 0.2, deltaX = 0.02, deltaSpin = 0.02;
@@ -164,11 +148,10 @@ bool getJoystickInput(double& js_forw, double& js_spin) {
 	// Ignore the joystick statements for the arm control
 	if((b[4] == 1) || (b[5] == 1) || (b[6] == 1) || (b[7] == 1)) {
 		js_forw = js_spin = 0.0;
-		return true;
+		return;
 	}
 
 	// Set the values for the axis
-	double* x = &(js_msg->axes->data[0]);
 	if(MODE == GROUND_LO || MODE == GROUND_HI) {
 		js_forw = -J_ground(0) * x[1], js_spin = J_ground(1) * x[2];
 	}
@@ -182,8 +165,6 @@ bool getJoystickInput(double& js_forw, double& js_spin) {
 		js_forw = -x[1] * jsFwdAmp;
 		js_spin = x[2] * jsSpinAmp;;
 	}
-
-	return true;
 }
 
 /* ******************************************************************************************** */
