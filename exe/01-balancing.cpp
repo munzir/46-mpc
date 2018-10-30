@@ -32,6 +32,68 @@ bool debugGlobal = false, logGlobal = true;
 
 Eigen::MatrixXd lqrHackRatios;
 
+/* ************************************************************************************/
+/// Changes desired arm state based on joystick input
+void joyStickArmEvents(const char* b, const double* x, ArmState* arm_state) {
+
+	// Return if the x[3] is being used for robotiq hands
+	if(fabs(x[3]) > 0.2) arm_state->mode = ArmState::kStop;
+
+	// Check if one of the preset configurations are requested by pressing 9 and
+	// any of the buttons from 1 to 4 at the same time
+	if(((b[4] == 1) && (b[6] == 1)) || ((b[5] == 1) && (b[7] == 1))) {
+
+		// Check if the button is pressed for the arm configuration is pressed, if so send pos commands
+		bool noConfs = true;
+		for(size_t i = 0; i < 4; i++) {
+			if(b[i] == 1) {
+        if((b[4] == 1) && (b[6] == 1) && (b[5] == 1) && (b[7] == 1)) {
+          arm_state->mode = ArmState::kMoveBothToPresetPos;
+          arm_state->preset_config_num = i;
+        }
+				else if((b[4] == 1) && (b[6] == 1)) {
+          arm_state->mode = ArmState::kMoveLeftToPresetPos;
+          arm_state->preset_config_num = i;
+        }
+				else if((b[5] == 1) && (b[7] == 1))  {
+          arm_state->mode = ArmState::kMoveRightToPresetPos;
+          arm_state->preset_config_num = i;
+				}
+				noConfs = false;
+			}
+		}
+
+		// If nothing is pressed, stop the arms
+		if(noConfs) {
+      arm_state->mode = ArmState::kStop;
+		}
+	}
+  // If only one of the front buttons is pressed
+  else {
+    if(b[4] && !b[6]) {
+      arm_state->mode = ArmState::kMoveLeftBigSet;
+      for(int i = 0; i < 4; i++)
+        arm_state->command_vals[i] = x[i];
+    } else if(!b[4] && b[6]) {
+      arm_state->mode = ArmState::kMoveLeftSmallSet;
+      for(int i = 4; i < 7; i++)
+        arm_state->command_vals[i] = x[i-4];
+    } else if(b[5] && !b[7]) {
+      arm_state->mode = ArmState::kMoveRightBigSet;
+      for(int i = 0; i < 4; i++)
+        arm_state->command_vals[i] = x[i];
+    } else if(!b[5] && b[7]) {
+      arm_state->mode = ArmState::kMoveRightSmallSet;
+      for(int i = 4; i < 7; i++)
+        arm_state->command_vals[i] = x[i-4];
+    }
+    else {
+      arm_state->mode = ArmState::kStop;
+    }
+  }
+}
+
+
 /* ********************************************************************************************* */
 /// Handles the wheel commands if we are started
 void controlWheels(bool debug, Vector6d& error, double& lastUleft, double& lastUright) {
@@ -187,6 +249,8 @@ void run (BalancingConfig& params) {
     Eigen::VectorXd B_thCOM = Eigen::VectorXd::Zero(3);
     Eigen::VectorXd LQR_Gains = Eigen::VectorXd::Zero(4);
 
+  ArmState arm_state;
+  arm_state.mode = ArmState::kStop;
 	while(!somatic_sig_received) {
 
 		bool debug = (c_++ % 20 == 0);
@@ -292,7 +356,8 @@ void run (BalancingConfig& params) {
 		if(joystickControl) {
 			if(debug) cout << "Joystick for Arms and Waist..." << endl;
 			// Control the arms if necessary
-			controlArms(daemon_cx, b, x, krang);
+			joyStickArmEvents(b, x, &arm_state);
+      controlArms(daemon_cx, arm_state, krang);
 			// Control the waist
 			controlWaist(x, krang);
 			// Control Torso
