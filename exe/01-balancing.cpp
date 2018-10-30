@@ -9,6 +9,7 @@
 #include "arms.h"
 #include "waist.h"
 #include "grippers.h"
+#include "torso.h"
 #include "helpers.h"
 #include "kore/display.hpp"
 #include "../../18h-Util/lqr.hpp"
@@ -101,14 +102,6 @@ void updateKrangMode(Vector6d& error, size_t& mode4iter, Vector6d& state) {
 	else if(MODE == BAL_HI) {
 		// error(0) -= 0.005;
 	}
-}
-
-/* ********************************************************************************************* */
-/// Handles the torso commands if we are using joystick
-void controlTorso() {
-	// Control the torso
-	double dq [] = {x[4] / 7.0};
-	somatic_motor_cmd(&daemon_cx, krang->torso, VELOCITY, dq, 1, NULL);
 }
 
 /* ********************************************************************************************* */
@@ -301,7 +294,7 @@ void run (BalancingConfig& params) {
 			// Control the waist
 			controlWaist(x, krang);
 			// Control Torso
-			controlTorso();
+			controlTorso(daemon_cx, b, x, krang);
 		}
 		// Update Stand/Sit Modes
 		if(!controlStandSit(error, state)){
