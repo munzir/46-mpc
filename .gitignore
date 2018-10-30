@@ -32,6 +32,8 @@
 !/src/arms.cpp
 !/src/waist.h
 !/src/waist.cpp
+!/src/grippers.h
+!/src/grippers.cpp
 
 # exe
 !/exe/

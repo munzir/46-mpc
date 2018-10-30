@@ -8,6 +8,7 @@
 #include "balancing_config.h"
 #include "arms.h"
 #include "waist.h"
+#include "grippers.h"
 #include "helpers.h"
 #include "kore/display.hpp"
 #include "../../18h-Util/lqr.hpp"
@@ -28,21 +29,6 @@ bool debugGlobal = false, logGlobal = true;
 // LQR hack ratios
 
 Eigen::MatrixXd lqrHackRatios;
-
-/* ********************************************************************************************* */
-/// Handles the joystick commands for the left/right Schunk grippers
-void controlSchunkGrippers () {
-
-	// Button 4 with top/down at the right circular thingy indicates a motion for the left gripper
-	double dq [] = {0.0};
-	dq[0] = x[3] * 10.0;
-	if(b[4])
-		somatic_motor_cmd(&daemon_cx, krang->grippers[LEFT], SOMATIC__MOTOR_PARAM__MOTOR_CURRENT, dq, 1, NULL);
-
-	// Button 5 with the same circular thingy for the right gripper
-	if(b[5])
-		somatic_motor_cmd(&daemon_cx, krang->grippers[RIGHT], SOMATIC__MOTOR_PARAM__MOTOR_CURRENT, dq, 1, NULL);
-}
 
 /* ********************************************************************************************* */
 /// Handles the wheel commands if we are started
