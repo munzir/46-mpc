@@ -34,6 +34,8 @@
 !/src/waist.cpp
 !/src/grippers.h
 !/src/grippers.cpp
+!/src/torso.h
+!/src/toros.cpp
 
 # exe
 !/exe/
