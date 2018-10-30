@@ -10,6 +10,7 @@
 #include "waist.h"
 #include "grippers.h"
 #include "torso.h"
+#include "joystick.h"
 #include "helpers.h"
 #include "kore/display.hpp"
 #include "../../18h-Util/lqr.hpp"
@@ -254,7 +255,8 @@ void run (BalancingConfig& params) {
 
 		// Get the joystick input for the js_forw and js_spin axes (to set the gains)
 		bool gotInput = false;
-		while(!gotInput) gotInput = getJoystickInput(js_forw, js_spin);
+		while(!gotInput) gotInput = getJoystickInput(b, x);
+    joystickEvents(js_forw, js_spin);
 		if(debug) cout << "js_forw: " << js_forw << ", js_spin: " << js_spin << endl;
 
 		// =======================================================================
@@ -375,9 +377,7 @@ void init(BalancingConfig& params) {
 
 
 	// Initialize the joystick channel
-	int r = ach_open(&js_chan, "joystick-data", NULL);
-	aa_hard_assert(r == ACH_OK, "Ach failure '%s' on opening Joystick channel (%s, line %d)\n",
-		ach_result_to_string(static_cast<ach_status_t>(r)), __FILE__, __LINE__);
+  openJoystickChannel();
 
 	// Create a thread to wait for user input to begin balancing
 	pthread_t kbhitThread;

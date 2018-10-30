@@ -57,8 +57,6 @@ extern Krang::Hardware* krang;				///< Interface for the motor and sensors on th
 extern WorldPtr world;			///< the world representation in dart
 extern SkeletonPtr robot;			///< the robot representation in dart
 
-extern ach_channel_t js_chan;				///< Read joystick data on this channel
-
 extern bool start;						///< Giving time to the user to get the robot in balancing angle
 extern bool joystickControl;
 
@@ -116,7 +114,7 @@ static const Vector3d s2com (0.0, -0.008, 0.091); // 0.065 robotiq itself, 0.026
 void *kbhit(void *);
 
 /// Returns the values of axes 1 (left up/down) and 2 (right left/right) in the joystick
-bool getJoystickInput(double& js_forw, double& js_spin);
+void joystickEvents(double& js_forw, double& js_spin);
 
 /// Update reference left and right wheel pos/vel from joystick data where dt is last iter. time
 void updateReference (double js_forw, double js_spin, double dt, Vector6d& refState);
