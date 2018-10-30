@@ -81,7 +81,6 @@ struct ArmState {
 
 /* ********************************************************************************************* */
 /// Controls the arms
-void controlArms(somatic_d_t& daemon_cx, const char* b, const double* x,
-                 Krang::Hardware* krang);
+void controlArms(somatic_d_t& daemon_cx, const ArmState& arm_state, Krang::Hardware* krang);
 
 #endif // KRANG_BALANCING_ARMS_H_
