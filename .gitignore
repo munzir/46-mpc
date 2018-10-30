@@ -30,6 +30,8 @@
 !/src/balancing_config.cpp
 !/src/arms.h
 !/src/arms.cpp
+!/src/waist.h
+!/src/waist.cpp
 
 # exe
 !/exe/
