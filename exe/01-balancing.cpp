@@ -7,6 +7,7 @@
 
 #include "balancing_config.h"
 #include "arms.h"
+#include "waist.h"
 #include "helpers.h"
 #include "kore/display.hpp"
 #include "../../18h-Util/lqr.hpp"
@@ -27,23 +28,6 @@ bool debugGlobal = false, logGlobal = true;
 // LQR hack ratios
 
 Eigen::MatrixXd lqrHackRatios;
-
-/* ********************************************************************************************* */
-/// Handles the joystick commands for the waist module
-void controlWaist() {
-
-	// Set the mode we want to send to the waist daemon
-	Somatic__WaistMode waistMode;
-	if(x[5] < -0.9) waistMode = SOMATIC__WAIST_MODE__MOVE_FWD;
-	else if(x[5] > 0.9) waistMode = SOMATIC__WAIST_MODE__MOVE_REV;
-	else waistMode = SOMATIC__WAIST_MODE__STOP;
-
-	// Send message to the krang-waist daemon
-	somatic_waist_cmd_set(waistDaemonCmd, waistMode);
-	int r = SOMATIC_PACK_SEND(krang->waistCmdChan, somatic__waist_cmd, waistDaemonCmd);
-	if(ACH_OK != r) fprintf(stderr, "Couldn't send message: %s\n",
-		ach_result_to_string(static_cast<ach_status_t>(r)));
-}
 
 /* ********************************************************************************************* */
 /// Handles the joystick commands for the left/right Schunk grippers
@@ -329,7 +313,7 @@ void run (BalancingConfig& params) {
 			// Control the arms if necessary
 			controlArms(daemon_cx, b, x, krang);
 			// Control the waist
-			controlWaist();
+			controlWaist(x, krang);
 			// Control Torso
 			controlTorso();
 		}
