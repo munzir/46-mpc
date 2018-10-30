@@ -61,6 +61,25 @@ double presetArmConfs [][7] = {
   {  0.000,  0.000,  0.000,  0.000,  0.000,  0.000,  0.000},
 };
 
+/* ********************************************************************************************* */
+// The struct used by controlArm function to decide the control command to be sent
+struct ArmState {
+  enum ArmMode {
+    kStop,              // sets both arms' joints speeds to zero
+    kMoveLeftBigSet,    // sets left arms' joints 1-4 vel to command_vals[0-3]
+    kMoveLeftSmallSet,  // sets left arms' joints 5-7 vel to command_vals[4-6]
+    kMoveRightBigSet,   //  sets left arms' joints 1-4 vel to command_vals[0-3]
+    kMoveRightSmallSet, //  sets left arms' joints 5-7 vel to command_vals[4-6]
+    kMoveLeftToPresetPos,   // left arms' pos = presetArmConfs[2*preset_config_num]
+    kMoveRightToPresetPos,  // right arms' pos = presetArmConfs[2*preset_config_num+1]
+    kMoveBothToPresetPos    // does both the above
+  } mode;
+
+  int preset_config_num;
+  double command_vals[7];
+};
+
+/* ********************************************************************************************* */
 /// Controls the arms
 void controlArms(somatic_d_t& daemon_cx, const char* b, const double* x,
                  Krang::Hardware* krang);
