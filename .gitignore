@@ -35,7 +35,7 @@
 !/src/grippers.h
 !/src/grippers.cpp
 !/src/torso.h
-!/src/toros.cpp
+!/src/torso.cpp
 
 # exe
 !/exe/
