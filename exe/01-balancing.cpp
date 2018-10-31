@@ -19,9 +19,6 @@
 #include "file_ops.hpp"
 #include "utils.h"
 
-using namespace std;
-using namespace Krang;
-
 /// The vector of states
 vector <LogState*> logStates;
 
@@ -52,12 +49,12 @@ void keyboardEvents() {
   if(char_received) {
 
     if(input=='s') start = true;
-    else if(input=='.') readGains();
+    //else if(input=='.') readGains();
     else if(input=='j') {
       joystickControl = !joystickControl;
       if(joystickControl == true) {
-        somatic_motor_reset(&daemon_cx, krang->arms[LEFT]);
-        somatic_motor_reset(&daemon_cx, krang->arms[RIGHT]);
+        somatic_motor_reset(&daemon_cx, krang->arms[Krang::LEFT]);
+        somatic_motor_reset(&daemon_cx, krang->arms[Krang::RIGHT]);
       }
     }
     else if(input=='1') {
@@ -312,7 +309,7 @@ void run (BalancingConfig& params) {
   struct timespec t_now, t_prev = aa_tm_now();
   double time = 0.0;
   Vector6d externalWrench;
-  Vector3d com;
+  Eigen::Vector3d com;
 
   // Initialize the running history
   const size_t historySize = 60;
@@ -501,7 +498,7 @@ void init(BalancingConfig& params) {
   assert((robot != NULL) && "Could not find the robot urdf");
 
   // Load dart robot in dart world
-  world = std::make_shared<World>();
+  world = std::make_shared<dart::simulation::World>();
   world->addSkeleton(robot);
 
   // Initialize the motors and sensors on the hardware and update the kinematics in dart
@@ -551,10 +548,10 @@ void destroy() {
 
   // To prevent arms from halting if joystick control is not on, change mode of krang
   if(!joystickControl) {
-    somatic_motor_destroy(&daemon_cx, krang->arms[LEFT]);
-    somatic_motor_destroy(&daemon_cx, krang->arms[RIGHT]);
-    krang->arms[LEFT] = NULL;
-    krang->arms[RIGHT] = NULL;
+    somatic_motor_destroy(&daemon_cx, krang->arms[Krang::LEFT]);
+    somatic_motor_destroy(&daemon_cx, krang->arms[Krang::RIGHT]);
+    krang->arms[Krang::LEFT] = NULL;
+    krang->arms[Krang::RIGHT] = NULL;
   }
   delete krang;
 
