@@ -24,7 +24,8 @@ vector <LogState*> logStates;
 
 // Debug flags default values
 bool debugGlobal = false, logGlobal = true;
-
+dart::simulation::WorldPtr world;			///< the world representation in dart
+bool start = false;						///< Giving time to the user to get the robot in balancing angle
 /* ******************************************************************************************** */
 // LQR hack ratios
 

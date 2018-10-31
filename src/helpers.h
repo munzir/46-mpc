@@ -35,7 +35,10 @@
 
 #include <kore.hpp>
 
-extern bool debugGlobal;
+/* ******************************************************************************************** */
+// Constants for the robot kinematics
+const double wheelRadius = 10.5; 							///< Radius of krang wheels in inches
+const double distanceBetweenWheels = 27.375; 	///< Distance Between krang's wheels in inches
 
 /* ******************************************************************************************** */
 typedef Eigen::Matrix<double, 6, 1> Vector6d;			///< A typedef for convenience to contain f/t values
@@ -45,20 +48,18 @@ typedef Eigen::Matrix<double, 6, 6> Matrix6d;			///< A typedef for convenience t
 /* ******************************************************************************************** */
 // Globals for imu, motors and joystick
 
-extern somatic_d_t daemon_cx;				///< The context of the current daemon
+somatic_d_t daemon_cx;				///< The context of the current daemon
 
-extern Krang::Hardware* krang;				///< Interface for the motor and sensors on the hardware
-extern dart::simulation::WorldPtr world;			///< the world representation in dart
-extern dart::dynamics::SkeletonPtr robot;			///< the robot representation in dart
+Krang::Hardware* krang;				///< Interface for the motor and sensors on the hardware
+dart::dynamics::SkeletonPtr robot;			///< the robot representation in dart
 
-extern bool start;						///< Giving time to the user to get the robot in balancing angle
-extern bool joystickControl;
+bool joystickControl = false;
 
-extern double jsFwdAmp;				///< The gains for joystick forward/reverse input
-extern double jsSpinAmp;				///< The gains for joystick left/right spin input
+double jsFwdAmp;				///< The gains for joystick forward/reverse input
+double jsSpinAmp;				///< The gains for joystick left/right spin input
 
-extern char b [10];						///< Stores the joystick button inputs
-extern double x [6];						///< Stores the joystick axes inputs
+char b [10];						///< Stores the joystick button inputs
+double x [6];
 
 
 /* ******************************************************************************************** */
@@ -76,19 +77,19 @@ enum KRANG_MODE {
 /* ******************************************************************************************** */
 // All the freaking gains
 
-extern KRANG_MODE MODE;
-extern Vector6d K_groundLo;
-extern Vector6d K_groundHi;
-extern Eigen::Vector2d J_ground;
-extern Vector6d K_stand;
-extern Eigen::Vector2d J_stand;
-extern Vector6d K_sit;
-extern Eigen::Vector2d J_sit;
-extern Vector6d K_balLow;
-extern Eigen::Vector2d J_balLow;
-extern Vector6d K_balHigh;
-extern Eigen::Vector2d J_balHigh;
-extern Vector6d K;
+KRANG_MODE MODE = GROUND_LO;
+Vector6d K_groundLo;
+Vector6d K_groundHi;
+Eigen::Vector2d J_ground (1.0, 1.0);
+Vector6d K_stand;
+Eigen::Vector2d J_stand;
+Vector6d K_sit;
+Eigen::Vector2d J_sit;
+Vector6d K_balLow;
+Eigen::Vector2d J_balLow;
+Vector6d K_balHigh;
+Eigen::Vector2d J_balHigh;
+Vector6d K = K_groundLo;
 
 /* ******************************************************************************************** */
 // Constants for end-effector wrench estimation

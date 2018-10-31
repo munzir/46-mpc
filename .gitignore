@@ -40,6 +40,10 @@
 !/src/joystick.cpp
 !/src/keyboard.cpp
 !/src/keyboard.h
+!/src/events.h
+!/src/events.cpp
+!/src/control.h
+!/src/control.cpp
 
 # exe
 !/exe/
