@@ -256,41 +256,43 @@ void updateKrangMode(Vector6d& error, size_t& mode4iter, Vector6d& state) {
 
 /* ********************************************************************************************* */
 /// Handles the wheel commands if we are started
-bool controlStandSit(Vector6d& error, Vector6d& state) {
+bool controlStandSit(char* b_, Vector6d& error, Vector6d& state,
+                     BalancingConfig& params, KRANG_MODE& MODE_,
+                     Vector6d& K_) {
   // ==========================================================================
   // Quit if button 9 on the joystick is pressed, stand/sit if button 10 is pressed
   // Quit
 
   static bool b9Prev = 0;
 
-  if(b[8] == 1) return false;
+  if(b_[8] == 1) return false;
 
     // Stand/Sit if button 10 is pressed and conditions are right
-  else if(b9Prev == 0 && b[9] == 1) {
+  else if(b9Prev == 0 && b_[9] == 1) {
 
     // If in ground mode and state error is not high stand up
-    if(MODE == GROUND_LO) {
+    if(MODE_ == GROUND_LO) {
       if(state(0) < 0.0 && error(0) > -10.0*M_PI/180.0) {
         printf("\n\n\nMode 2\n\n\n");
-        K = K_stand;
-        MODE = STAND;
+        K_ = params.pdGainsStand;
+        MODE_ = STAND;
       } else {
         printf("\n\n\nCan't stand up, balancing error is too high!\n\n\n");
       }
     }
 
       // If in balLow mode and waist is not too high, sit down
-    else if(MODE == STAND || MODE == BAL_LO) {
+    else if(MODE_ == STAND || MODE_ == BAL_LO) {
       if((krang->waist->pos[0] - krang->waist->pos[1])/2.0 > 150.0*M_PI/180.0) {
         printf("\n\n\nMode 3\n\n\n");
-        K = K_sit;
-        MODE = SIT;
+        K_ = params.pdGainsSit;
+        MODE_ = SIT;
       } else {
         printf("\n\n\nCan't sit down, Waist is too high!\n\n\n");
       }
     }
   }
-  b9Prev = b[9];
+  b9Prev = b_[9];
   return true;
 }
 
@@ -404,7 +406,7 @@ void run (BalancingConfig& params) {
     updateKrangMode(error, mode4iter, state);
 
     // Stand/Sit events
-    if(!controlStandSit(error, state)){
+    if(!controlStandSit(b, error, state, params, MODE, K)) {
       break;
     }
 
