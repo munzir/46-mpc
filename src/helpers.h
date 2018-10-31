@@ -34,6 +34,7 @@
 #include <initModules.h>
 
 #include <kore.hpp>
+#include "balancing_config.h"
 
 /* ******************************************************************************************** */
 // Constants for the robot kinematics
@@ -101,7 +102,9 @@ static const Eigen::Vector3d s2com (0.0, -0.008, 0.091); // 0.065 robotiq itself
 // Helper functions
 
 /// Returns the values of axes 1 (left up/down) and 2 (right left/right) in the joystick
-void joystickEvents(double& js_forw, double& js_spin);
+void joystickEvents(char* b_, double* x, BalancingConfig& params, double jsFwdAmp_,
+                    double jsSpinAmp_, bool& joystickControl_, KRANG_MODE& MODE_,
+                    Vector6d& K_, double& js_forw, double& js_spin);
 
 /// Update reference left and right wheel pos/vel from joystick data where dt is last iter. time
 void updateReference (double js_forw, double js_spin, double dt, Vector6d& refState);

@@ -375,7 +375,8 @@ void run (BalancingConfig& params) {
 
     // Process keyboard and joystick events
     keyboardEvents();
-    joystickEvents(js_forw, js_spin);
+    joystickEvents(b, x, params, jsFwdAmp, jsSpinAmp, joystickControl, MODE, K,
+                   js_forw, js_spin);
     if(debug) cout << "js_forw: " << js_forw << ", js_spin: " << js_spin << endl;
     if(joystickControl) {
       if(debug) cout << "Joystick for Arms and Waist..." << endl;
