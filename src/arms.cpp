@@ -56,6 +56,44 @@
 /// Controls the arms
 void controlArms(somatic_d_t& daemon_cx, const ArmState& arm_state, Krang::Hardware* krang) {
 
+  static ArmState::ArmMode last_mode = ArmState::kStop;
+
+  // If left arm was on break and needs to be reset
+  if((last_mode == ArmState::kStop ||
+      last_mode == ArmState::kMoveRightBigSet ||
+      last_mode == ArmState::kMoveRightSmallSet ||
+      last_mode == ArmState::kMoveRightToPresetPos) &&
+     (arm_state.mode == ArmState::kMoveLeftBigSet ||
+      arm_state.mode == ArmState::kMoveLeftSmallSet ||
+      arm_state.mode == ArmState::kMoveLeftToPresetPos ||
+      arm_state.mode == ArmState::kMoveBothToPresetPos)) {
+
+    somatic_motor_reset(&daemon_cx, krang->arms[Krang::LEFT]);
+
+    // return to allow delay after reset (assuming that by the time this function is called
+    // again, some time will have passed)
+    last_mode = arm_state.mode;
+    return;
+  }
+
+  // If right arm needs to be reset
+  if((last_mode == ArmState::kStop ||
+      last_mode == ArmState::kMoveLeftBigSet ||
+      last_mode == ArmState::kMoveLeftSmallSet ||
+      last_mode == ArmState::kMoveLeftToPresetPos) &&
+     (arm_state.mode == ArmState::kMoveRightBigSet ||
+      arm_state.mode == ArmState::kMoveRightSmallSet ||
+      arm_state.mode == ArmState::kMoveRightToPresetPos ||
+      arm_state.mode == ArmState::kMoveBothToPresetPos)) {
+
+    somatic_motor_reset(&daemon_cx, krang->arms[Krang::RIGHT]);
+
+    // return to allow delay after reset
+    last_mode = arm_state.mode;
+    return;
+  }
+
+
   // Control the arm based on the desired arm state
   switch (arm_state.mode) {
     case ArmState::kStop: {
@@ -152,4 +190,5 @@ void controlArms(somatic_d_t& daemon_cx, const ArmState& arm_state, Krang::Hardw
     }
   }
 
+  last_mode = arm_state.mode;
 }
