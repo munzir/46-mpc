@@ -70,6 +70,10 @@ void joystickEvents(double& js_forw, double& js_spin) {
 
 	if((b[4] == 1) && (b[6] == 0) && (b[0] == 1) && (lastb0 == 0)) {
 		joystickControl = !joystickControl;
+    if(joystickControl == true) {
+      somatic_motor_reset(&daemon_cx, krang->arms[Krang::LEFT]);
+      somatic_motor_reset(&daemon_cx, krang->arms[Krang::RIGHT]);
+    }
 	}
 
 	if((b[4] == 1) && (b[6] == 0) && (b[2] == 1) && (lastb2 == 0)) {
