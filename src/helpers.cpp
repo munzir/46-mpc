@@ -12,45 +12,6 @@
 #include <sstream>
 
 /* ******************************************************************************************** */
-// Initialize the gains for controller and joystick
-KRANG_MODE MODE = GROUND_LO;
-Vector6d K_groundLo;
-Vector6d K_groundHi;
-Eigen::Vector2d J_ground (1.0, 1.0);
-Vector6d K_stand;
-Eigen::Vector2d J_stand;
-Vector6d K_sit;
-Eigen::Vector2d J_sit;
-Vector6d K_balLow;
-Eigen::Vector2d J_balLow;
-Vector6d K_balHigh;
-Eigen::Vector2d J_balHigh;
-Vector6d K = K_groundLo;
-
-/* ******************************************************************************************** */
-// Constants for the robot kinematics
-const double wheelRadius = 10.5; 							///< Radius of krang wheels in inches
-const double distanceBetweenWheels = 27.375; 	///< Distance Between krang's wheels in inches
-
-/* ******************************************************************************************** */
-// Initialize global variables
-
-somatic_d_t daemon_cx;				///< The context of the current daemon
-bool start = false;						///< Giving time to the user to get the robot in balancing angle
-bool joystickControl = false;
-
-
-Krang::Hardware* krang;				///< Interface for the motor and sensors on the hardware
-dart::simulation::WorldPtr world;			///< the world representation in dart
-dart::dynamics::SkeletonPtr robot;			///< the robot representation in dart
-
-double jsFwdAmp;				///< The gains for joystick forward/reverse input
-double jsSpinAmp;				///< The gains for joystick left/right spin input
-
-char b [10];						///< Stores the joystick button inputs
-double x [6];
-
-/* ******************************************************************************************** */
 /// Get the joint values from the encoders and the imu and compute the center of mass as well
 void getState(Vector6d& state, double dt, Eigen::Vector3d* com_) {
 
@@ -109,10 +70,6 @@ void joystickEvents(double& js_forw, double& js_spin) {
 
 	if((b[4] == 1) && (b[6] == 0) && (b[0] == 1) && (lastb0 == 0)) {
 		joystickControl = !joystickControl;
-		if(joystickControl == true) {
-			somatic_motor_reset(&daemon_cx, krang->arms[Krang::LEFT]);
-			somatic_motor_reset(&daemon_cx, krang->arms[Krang::RIGHT]);
-		}
 	}
 
 	if((b[4] == 1) && (b[6] == 0) && (b[2] == 1) && (lastb2 == 0)) {
