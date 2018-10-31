@@ -34,50 +34,52 @@ Eigen::MatrixXd lqrHackRatios;
 /* ******************************************************************************************** */
 // If a character was entered from the keyboard process it
 
-void keyboardEvents() {
+void keyboardEvents(const BalancingConfig& params, bool& start_,
+                    bool& joystickControl_, somatic_d_t& daemon_cx_,
+                    Krang::Hardware* krang_, Vector6d& K_, KRANG_MODE MODE_) {
 
   char input;
 
   if(kbCharReceived(&input)) {
 
-    if(input=='s') start = true;
+    if(input=='s') start_ = true;
     //else if(input=='.') readGains();
     else if(input=='j') {
-      joystickControl = !joystickControl;
-      if(joystickControl == true) {
-        somatic_motor_reset(&daemon_cx, krang->arms[Krang::LEFT]);
-        somatic_motor_reset(&daemon_cx, krang->arms[Krang::RIGHT]);
+      joystickControl_ = !joystickControl_;
+      if(joystickControl_ == true) {
+        somatic_motor_reset(&daemon_cx_, krang_->arms[Krang::LEFT]);
+        somatic_motor_reset(&daemon_cx_, krang_->arms[Krang::RIGHT]);
       }
     }
     else if(input=='1') {
       printf("Mode 1\n");
-      K = K_groundLo;
-      MODE = GROUND_LO;
+      K_ = params.pdGainsGroundLo;
+      MODE_ = GROUND_LO;
     }
     else if(input=='2') {
       printf("Mode 2\n");
-      K = K_stand;
-      MODE = STAND;
+      K_ = params.pdGainsStand;
+      MODE_ = STAND;
     }
     else if(input=='3') {
       printf("Mode 3\n");
-      K = K_sit;
-      MODE = SIT;
+      K_ = params.pdGainsSit;
+      MODE_ = SIT;
     }
     else if(input=='4') {
       printf("Mode 4\n");
-      K = K_balLow;
-      MODE = BAL_LO;
+      K_ = params.pdGainsBalLo;
+      MODE_ = BAL_LO;
     }
     else if(input=='5') {
       printf("Mode 5\n");
-      K = K_balHigh;
-      MODE = BAL_HI;
+      K_ = params.pdGainsBalHi;
+      MODE_ = BAL_HI;
     }
     else if(input=='6') {
       printf("Mode 6\n");
-      K = K_groundHi;
-      MODE = GROUND_HI;
+      K_ = params.pdGainsGroundHi;
+      MODE_ = GROUND_HI;
     }
   }
 }
@@ -365,7 +367,7 @@ void run (BalancingConfig& params) {
     // Generate events based on keyboard input, joystick input and state
 
     // Process keyboard and joystick events
-    keyboardEvents();
+    keyboardEvents(params, start, joystickControl, daemon_cx, krang, K, MODE);
     joystickEvents(b, x, params, jsFwdAmp, jsSpinAmp, joystickControl, MODE, K,
                    js_forw, js_spin);
     if(debug) cout << "js_forw: " << js_forw << ", js_spin: " << js_spin << endl;
