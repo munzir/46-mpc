@@ -49,13 +49,21 @@
 #include <kore.hpp>
 #include <kore/util.hpp>
 
+
 /* ********************************************************************************************* */
 /// Handles the torso commands if we are using joystick
-void controlTorso(somatic_d_t& daemon_cx, const char* b, const double* x,
+void controlTorso(somatic_d_t& daemon_cx, TorsoState& torso_state,
                   Krang::Hardware* krang) {
-	// Control the torso
-	double dq [] = {x[4] / 7.0};
-	somatic_motor_cmd(&daemon_cx, krang->torso, SOMATIC__MOTOR_PARAM__MOTOR_VELOCITY,
-                    dq, 1, NULL);
+
+	if(torso_state.mode == TorsoState::kStop)
+    somatic_motor_halt(&daemon_cx, krang->torso);
+
+  else {
+
+    // Control the torso
+	  double dq [] =  {torso_state.command_val};
+  	somatic_motor_cmd(&daemon_cx, krang->torso, SOMATIC__MOTOR_PARAM__MOTOR_VELOCITY,
+                      dq, 1, NULL);
+  }
 }
 

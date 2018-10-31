@@ -34,6 +34,19 @@ Eigen::MatrixXd lqrHackRatios;
 
 /* ************************************************************************************/
 /// Changes desired arm state based on joystick input
+void joystickTorsoEvents(const char* b, const double* x, TorsoState* torso_state) {
+
+  if(fabs(x[4]) < 0.1)
+    torso_state->mode = TorsoState::kStop;
+  else {
+    torso_state->mode = TorsoState::kMove;
+    torso_state->command_val = x[4] / 7.0;
+  }
+
+}
+
+/* ************************************************************************************/
+/// Changes desired arm state based on joystick input
 void joyStickArmEvents(const char* b, const double* x, ArmState* arm_state) {
 
 	// Return if the x[3] is being used for robotiq hands
@@ -93,6 +106,18 @@ void joyStickArmEvents(const char* b, const double* x, ArmState* arm_state) {
   }
 }
 
+/* ********************************************************************************************* */
+// Decides what mode waist should be in based on the value of the input argument that is assumed
+// to be one of the axes of the joystick
+Somatic__WaistMode joystickWaistEvents(double x) {
+	// Set the mode we want to send to the waist daemon
+	Somatic__WaistMode waistMode;
+	if(x < -0.9) waistMode = SOMATIC__WAIST_MODE__MOVE_FWD;
+	else if(x > 0.9) waistMode = SOMATIC__WAIST_MODE__MOVE_REV;
+	else waistMode = SOMATIC__WAIST_MODE__STOP;
+
+  return waistMode;
+}
 
 /* ********************************************************************************************* */
 /// Handles the wheel commands if we are started
@@ -251,6 +276,8 @@ void run (BalancingConfig& params) {
 
   ArmState arm_state;
   arm_state.mode = ArmState::kStop;
+  TorsoState torso_state;
+  torso_state.mode = TorsoState::kStop;
 	while(!somatic_sig_received) {
 
 		bool debug = (c_++ % 20 == 0);
@@ -359,9 +386,11 @@ void run (BalancingConfig& params) {
 			joyStickArmEvents(b, x, &arm_state);
       controlArms(daemon_cx, arm_state, krang);
 			// Control the waist
-			controlWaist(x, krang);
+			Somatic__WaistMode waist_mode = joystickWaistEvents(x[5]);
+      controlWaist(waist_mode, krang);
 			// Control Torso
-			controlTorso(daemon_cx, b, x, krang);
+      joystickTorsoEvents(b, x, &torso_state);
+			controlTorso(daemon_cx, torso_state, krang);
 		}
 		// Update Stand/Sit Modes
 		if(!controlStandSit(error, state)){

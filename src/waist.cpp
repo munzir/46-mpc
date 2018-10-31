@@ -49,13 +49,7 @@
 
 /* ********************************************************************************************* */
 /// Handles the joystick commands for the waist module
-void controlWaist(const double* x, Krang::Hardware* krang) {
-
-	// Set the mode we want to send to the waist daemon
-	Somatic__WaistMode waistMode;
-	if(x[5] < -0.9) waistMode = SOMATIC__WAIST_MODE__MOVE_FWD;
-	else if(x[5] > 0.9) waistMode = SOMATIC__WAIST_MODE__MOVE_REV;
-	else waistMode = SOMATIC__WAIST_MODE__STOP;
+void controlWaist(Somatic__WaistMode waistMode, Krang::Hardware* krang) {
 
 	// Send message to the krang-waist daemon
 	somatic_waist_cmd_set(waistDaemonCmd, waistMode);
