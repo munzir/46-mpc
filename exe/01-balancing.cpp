@@ -354,7 +354,7 @@ void run (BalancingConfig& params) {
     time += dt;
 
     // Get the current state and ask the user if they want to start
-    getState(state, dt, &com);
+    getState(krang, robot, state, dt, &com);
     if(debug) {
       cout << "\nstate: " << state.transpose() << endl;
       cout << "com: " << com.transpose() << endl;
