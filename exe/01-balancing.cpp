@@ -200,49 +200,51 @@ void controlWheels(somatic_d_t& daemon_cx_, bool joystickControl_,
 
 /* ********************************************************************************************* */
 /// Update Krang Mode based on configuration, state and state error, updates the K matrices used to calculate u/
-void updateKrangMode(Vector6d& error, size_t& mode4iter, Vector6d& state) {
+void updateKrangMode(const Vector6d& state, const Krang::Hardware* krang_,
+                     const BalancingConfig& params, Vector6d& error,
+                     size_t& mode4iter, KRANG_MODE& MODE_, Vector6d& K_) {
   size_t mode4iterLimit = 100;
   // If in ground Lo mode and waist angle increases beyond 150.0 goto groundHi mode
-  if(MODE == GROUND_LO) {
-    if((krang->waist->pos[0]-krang->waist->pos[1])/2.0 < 150.0*M_PI/180.0) {
-      MODE = GROUND_HI;
-      K = K_groundHi;
+  if(MODE_ == GROUND_LO) {
+    if((krang_->waist->pos[0]-krang_->waist->pos[1])/2.0 < 150.0*M_PI/180.0) {
+      MODE_ = GROUND_HI;
+      K_ = params.pdGainsGroundHi;
     }
   }
     // If in ground Hi mode and waist angle decreases below 150.0 goto groundLo mode
-  else if(MODE == GROUND_HI) {
-    if((krang->waist->pos[0]-krang->waist->pos[1])/2.0 > 150.0*M_PI/180.0) {
-      MODE = GROUND_LO;
-      K = K_groundLo;
+  else if(MODE_ == GROUND_HI) {
+    if((krang_->waist->pos[0]-krang_->waist->pos[1])/2.0 > 150.0*M_PI/180.0) {
+      MODE_ = GROUND_LO;
+      K_ = params.pdGainsGroundLo;
     }
   }
 
     // If we are in the sit down mode, over write the reference
-  else if(MODE == SIT) {
+  else if(MODE_ == SIT) {
     static const double limit = ((-103.0 / 180.0) * M_PI);
-    if(krang->imu < limit) {
-      printf("imu (%lf) < limit (%lf): changing to mode 1\n", krang->imu, limit);
-      MODE = GROUND_LO;
-      K = K_groundLo;
+    if(krang_->imu < limit) {
+      printf("imu (%lf) < limit (%lf): changing to mode 1\n", krang_->imu, limit);
+      MODE_ = GROUND_LO;
+      K_ = params.pdGainsGroundLo;
     }
-    else error(0) = krang->imu - limit;
+    else error(0) = krang_->imu - limit;
   }
     // if in standing up mode check if the balancing angle is reached and stayed, if so switch to balLow mode
-  else if(MODE == STAND) {
+  else if(MODE_ == STAND) {
     if(fabs(state(0)) < 0.034) mode4iter++;
     // Change to mode 4 (balance low) if stood up enough
     if(mode4iter > mode4iterLimit) {
-      MODE = BAL_LO;
+      MODE_ = BAL_LO;
       mode4iter = 0;
-      K = K_balLow;
+      K_ = params.pdGainsBalLo;
     }
   }
     // COM error correction in balLow mode
-  else if(MODE == BAL_LO) {
+  else if(MODE_ == BAL_LO) {
     // error(0) += 0.005;
   }
     // COM error correction in balHigh mode
-  else if(MODE == BAL_HI) {
+  else if(MODE_ == BAL_HI) {
     // error(0) -= 0.005;
   }
 }
@@ -397,7 +399,7 @@ void run (BalancingConfig& params) {
     if(debug) cout << "error: " << error.transpose() << ", imu: " << krang->imu / M_PI * 180.0 << endl;
 
     // Krang mode events
-    updateKrangMode(error, mode4iter, state);
+    updateKrangMode(state, krang, params, error, mode4iter, MODE, K);
 
     // Stand/Sit events
     if(!controlStandSit(b, error, state, params, MODE, K)) {
