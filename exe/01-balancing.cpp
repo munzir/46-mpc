@@ -339,25 +339,15 @@ void run (BalancingConfig& params) {
   arm_state.mode = ArmState::kStop;
   TorsoState torso_state;
   torso_state.mode = TorsoState::kStop;
+  Somatic__WaistMode waist_mode;
   while(!somatic_sig_received) {
 
     bool debug = (c_++ % 20 == 0);
     debugGlobal = debug;
     if(debug) cout << "vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv\n" << endl;
 
-    // Cancel any position built up in previous mode
-    //if(lastMode != MODE) {
-    //  refState(2) = state(2), refState(4) = state(4);
-    //  lastMode = MODE;
-
-    //}
-    //if(lastStart != start) {
-    //  refState(2) = state(2), refState(4) = state(4);
-    //  lastStart = start;
-    //}
-
-    // =======================================================================
-    // Get inputs: time, joint states, joystick and external forces
+    // ========================================================================
+    // Get time, state, joystick (and keybaord) readings
 
     // Get the current time and compute the time difference and update the prev. time
     t_now = aa_tm_now();
@@ -367,14 +357,63 @@ void run (BalancingConfig& params) {
 
     // Get the current state and ask the user if they want to start
     getState(state, dt, &com);
+    if(debug) {
+      cout << "\nstate: " << state.transpose() << endl;
+      cout << "com: " << com.transpose() << endl;
+      cout << "WAIST ANGLE: " << krang->waist->pos[0] << endl;
+    }
 
-    // lqr gains
+    // Get the joystick input
+    bool gotInput = false;
+    while(!gotInput) gotInput = getJoystickInput(b, x);
+
+    // ========================================================================
+    // Generate events based on keyboard input, joystick input and state
+
+    // Process keyboard and joystick events
+    keyboardEvents();
+    joystickEvents(js_forw, js_spin);
+    if(debug) cout << "js_forw: " << js_forw << ", js_spin: " << js_spin << endl;
+    if(joystickControl) {
+      if(debug) cout << "Joystick for Arms and Waist..." << endl;
+      joyStickArmEvents(b, x, &arm_state);
+      waist_mode = joystickWaistEvents(x[5]);
+      joystickTorsoEvents(b, x, &torso_state);
+    }
+
+//  // Cancel any position built up in previous mode
+//  if(lastMode != MODE) {
+//    refState(2) = state(2), refState(4) = state(4);
+//    lastMode = MODE;
+//  }
+//  if(lastStart != start) {
+//    refState(2) = state(2), refState(4) = state(4);
+//    lastStart = start;
+//  }
+
+    // Update the reference values for the position and spin
+    updateReference(js_forw, js_spin, dt, refState);
+    if(debug) cout << "refState: " << refState.transpose() << endl;
+
+    // Calculate state Error
+    error = state - refState;
+    if(debug) cout << "error: " << error.transpose() << ", imu: " << krang->imu / M_PI * 180.0 << endl;
+
+    // Krang mode events
+    updateKrangMode(error, mode4iter, state);
+
+    // Stand/Sit events
+    if(!controlStandSit(error, state)){
+      break;
+    }
+
+    // ========================================================================
+    // Balancing Control
+
+    // linearize dynamics
     computeLinearizedDynamics(robot, A, B, B_thWheel, B_thCOM);
 
-    // Print out A & B matrices
-    if(debug) cout << "A matrix: " << A << endl;
-    if(debug) cout << "B matrix: " << B << endl;
-
+    // lqr hack ratios only on first iteration
     if (c_ == 1) {
       // Call lqr to compute hack ratios
       lqr(A, B, params.lqrQ, params.lqrR, LQR_Gains);
@@ -388,17 +427,28 @@ void run (BalancingConfig& params) {
       }
     }
 
+    // lqr gains
     lqr(A, B, params.lqrQ, params.lqrR, LQR_Gains);
     LQR_Gains /= (GR * km);
     LQR_Gains = lqrHackRatios * LQR_Gains;
-
+    if(MODE == STAND || MODE == BAL_LO || MODE == BAL_HI) {
+        K.head(4) = -LQR_Gains;
+    }
     if(debug) cout << "lqr gains" << LQR_Gains.transpose() << endl;
-    if(debug) {
-      cout << "\nstate: " << state.transpose() << endl;
-      cout << "com: " << com.transpose() << endl;
-      cout << "WAIST ANGLE: " << krang->waist->pos[0] << endl;
+    if(debug) cout << "K: " << K.transpose() << endl;
+
+    // send commands to wheel motors
+    controlWheels(debug, error, lastUleft, lastUright);
+
+    // ========================================================================
+    // Control the rest of the body
+    if(joystickControl) {
+      controlArms(daemon_cx, arm_state, krang);
+      controlWaist(waist_mode, krang);
+      controlTorso(daemon_cx, torso_state, krang);
     }
 
+    // ========================================================================
     // Print the information about the last iteration (after reading effects of it from sensors)
     // NOTE: Constructor order is NOT the print order
     if(logGlobal) {
@@ -406,62 +456,6 @@ void run (BalancingConfig& params) {
                                        externalWrench(4), krang->amc->cur[0],
                                        krang->amc->cur[1], state, refState,
                                        lastUleft, lastUright));
-    }
-
-    // Process keyboard character, if entered
-    keyboardEvents();
-
-    // Get the joystick input for the js_forw and js_spin axes (to set the gains)
-    bool gotInput = false;
-    while(!gotInput) gotInput = getJoystickInput(b, x);
-    joystickEvents(js_forw, js_spin);
-    if(debug) cout << "js_forw: " << js_forw << ", js_spin: " << js_spin << endl;
-
-    // =======================================================================
-    // Compute ref state using joystick
-
-    // Update the reference values for the position and spin
-    updateReference(js_forw, js_spin, dt, refState);
-    if(debug) cout << "refState: " << refState.transpose() << endl;
-
-    // =======================================================================
-    // Apply control: compute error, threshold and send current
-
-    // Compute the error term between reference and current, and weight with gains (spin separate)
-    if(debug) cout << "K: " << K.transpose() << endl;
-
-    error = state - refState;
-    if(debug) cout << "error: " << error.transpose() << ", imu: " << krang->imu / M_PI * 180.0 << endl;
-
-    updateKrangMode(error, mode4iter, state);
-
-    // Dynamic LQR
-    // If in stand, balLo or balHi mode, replace gains from gains.txt with LQR gains
-    if(MODE == STAND || MODE == BAL_LO || MODE == BAL_HI) {
-        // read gains_info.txt to understand the following
-        K.head(4) = -LQR_Gains;
-    }
-
-    controlWheels(debug, error, lastUleft, lastUright);
-
-    // =======================================================================
-    // Control the arms, waist torso and robotiq grippers based on the joystick input
-
-    if(joystickControl) {
-      if(debug) cout << "Joystick for Arms and Waist..." << endl;
-      // Control the arms if necessary
-      joyStickArmEvents(b, x, &arm_state);
-      controlArms(daemon_cx, arm_state, krang);
-      // Control the waist
-      Somatic__WaistMode waist_mode = joystickWaistEvents(x[5]);
-      controlWaist(waist_mode, krang);
-      // Control Torso
-      joystickTorsoEvents(b, x, &torso_state);
-      controlTorso(daemon_cx, torso_state, krang);
-    }
-    // Update Stand/Sit Modes
-    if(!controlStandSit(error, state)){
-      break;
     }
 
     // Print the mode
