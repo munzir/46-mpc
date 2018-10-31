@@ -11,24 +11,20 @@
 #include <fstream>
 #include <sstream>
 
-using namespace Eigen;
-using namespace std;
-using namespace Krang;
-
 /* ******************************************************************************************** */
 // Initialize the gains for controller and joystick
 KRANG_MODE MODE = GROUND_LO;
 Vector6d K_groundLo;
 Vector6d K_groundHi;
-Vector2d J_ground (1.0, 1.0);
+Eigen::Vector2d J_ground (1.0, 1.0);
 Vector6d K_stand;
-Vector2d J_stand;
+Eigen::Vector2d J_stand;
 Vector6d K_sit;
-Vector2d J_sit;
+Eigen::Vector2d J_sit;
 Vector6d K_balLow;
-Vector2d J_balLow;
+Eigen::Vector2d J_balLow;
 Vector6d K_balHigh;
-Vector2d J_balHigh;
+Eigen::Vector2d J_balHigh;
 Vector6d K = K_groundLo;
 
 /* ******************************************************************************************** */
@@ -45,8 +41,8 @@ bool joystickControl = false;
 
 
 Krang::Hardware* krang;				///< Interface for the motor and sensors on the hardware
-WorldPtr world;			///< the world representation in dart
-SkeletonPtr robot;			///< the robot representation in dart
+dart::simulation::WorldPtr world;			///< the world representation in dart
+dart::dynamics::SkeletonPtr robot;			///< the robot representation in dart
 
 double jsFwdAmp;				///< The gains for joystick forward/reverse input
 double jsSpinAmp;				///< The gains for joystick left/right spin input
@@ -55,25 +51,14 @@ char b [10];						///< Stores the joystick button inputs
 double x [6];
 
 /* ******************************************************************************************** */
-// fixer function which removes values from matrix below threshold
-Eigen::MatrixXd fix (const Eigen::MatrixXd& mat) {
-	double threshold = 1e-5;
-	Eigen::MatrixXd mat2 (mat);
-	for(size_t i = 0; i < mat2.rows(); i++)
-		for(size_t j = 0; j < mat2.cols(); j++)
-			if(fabs(mat2(i,j)) < threshold) mat2(i,j) = 0.0;
-	return mat2;
-}
-
-/* ******************************************************************************************** */
 /// Get the joint values from the encoders and the imu and compute the center of mass as well
-void getState(Vector6d& state, double dt, Vector3d* com_) {
+void getState(Vector6d& state, double dt, Eigen::Vector3d* com_) {
 
 	// Read motor encoders, imu and ft and update dart skeleton
 	krang->updateSensors(dt);
 
 	// Calculate the COM Using Skeleton
-  	Vector3d com = robot->getCOM() - robot->getPositions().segment(3,3);
+  	Eigen::Vector3d com = robot->getCOM() - robot->getPositions().segment(3,3);
   	if(com_ != NULL) *com_ = com;
 
 	// Update the state (note for amc we are reversing the effect of the motion of the upper body)
@@ -125,8 +110,8 @@ void joystickEvents(double& js_forw, double& js_spin) {
 	if((b[4] == 1) && (b[6] == 0) && (b[0] == 1) && (lastb0 == 0)) {
 		joystickControl = !joystickControl;
 		if(joystickControl == true) {
-			somatic_motor_reset(&daemon_cx, krang->arms[LEFT]);
-			somatic_motor_reset(&daemon_cx, krang->arms[RIGHT]);
+			somatic_motor_reset(&daemon_cx, krang->arms[Krang::LEFT]);
+			somatic_motor_reset(&daemon_cx, krang->arms[Krang::RIGHT]);
 		}
 	}
 
@@ -166,98 +151,3 @@ void joystickEvents(double& js_forw, double& js_spin) {
 		js_spin = x[2] * jsSpinAmp;;
 	}
 }
-
-/* ******************************************************************************************** */
-/// Read file for gains
-void readGains () {
-
-	Vector6d* kgains [] = {&K_groundLo, &K_stand, &K_sit, &K_balLow, &K_balHigh, &K_groundHi};
-	Vector2d* jgains [] = {&J_ground, &J_stand, &J_sit, &J_balLow, &J_balHigh, &J_ground};
-	ifstream file ("../gains.txt");
-	assert(file.is_open());
-	char line [1024];
-	for(size_t k_idx = 0; k_idx < 6; k_idx++) {
-		*kgains[k_idx] = Vector6d::Zero();
-		*jgains[k_idx] = Vector2d::Zero();
-		file.getline(line, 1024);
-		std::stringstream stream(line, std::stringstream::in);
-		size_t i = 0;
-		double newDouble;
-		while ((i < 6) && (stream >> newDouble)) (*kgains[k_idx])(i++) = newDouble;
-		while (stream >> newDouble) (*jgains[k_idx])(i++ - 6) = newDouble;
-	}
-	file.close();
-
-	pv(K_groundLo);
-	pv(K_groundHi);
-	pv(J_ground);
-	pv(K_stand);
-	pv(J_stand);
-	pv(K_sit);
-	pv(J_sit);
-	pv(K_balLow);
-	pv(J_balLow);
-	pv(K_balHigh);
-	pv(J_balHigh);
-
-	K = K_groundLo;
-}
-
-/* ********************************************************************************************* */
-/// Computes the imu value from the imu readings
-void getImu (ach_channel_t* imuChan, double& _imu, double& _imuSpeed, double dt,
-		filter_kalman_t* kf) {
-
-	// ======================================================================
-	// Get the readings
-
-	// Get the value
-	int r;
-	struct timespec currTime;
-	clock_gettime(CLOCK_MONOTONIC, &currTime);
-	struct timespec abstime = aa_tm_add(aa_tm_sec2timespec(1.0/30.0), currTime);
-	Somatic__Vector *imu_msg = SOMATIC_WAIT_LAST_UNPACK(r, somatic__vector,
-														NULL, IMU_CHANNEL_SIZE, imuChan, &abstime );
-	assert((imu_msg != NULL) && "Imu message is faulty!");
-
-	// Get the imu position and velocity value from the readings (note imu mounted at 45 deg).
-	static const double mountAngle = -.7853981634;
-	double newX = imu_msg->data[0] * cos(mountAngle) - imu_msg->data[1] * sin(mountAngle);
-	_imu = atan2(newX, imu_msg->data[2]);
-	_imuSpeed = imu_msg->data[3] * sin(mountAngle) + imu_msg->data[4] * cos(mountAngle);
-
-	// Free the unpacked message
-	somatic__vector__free_unpacked( imu_msg, NULL);
-
-	// ======================================================================
-	// Filter the readings
-
-	// Skip if a filter is not provided
-	if(kf == NULL) return;
-
-	// Setup the data
-	kf->z[0] = _imu, kf->z[1] = _imuSpeed;
-
-	// Setup the time-dependent process matrix
-	kf->A[0] = kf->A[3] = 1.0;
-	kf->A[2] = dt;
-
-	// Setup the process noise matrix
-	static const double k1 = 2.0;
-	static const double k1b = 5.0;
-	kf->R[0] = (dt*dt*dt*dt) * k1 * (1.0 / 4.0);
-	kf->R[1] = (dt*dt*dt) * k1 * (1.0 / 2.0);
-	kf->R[2] = (dt*dt*dt) * k1 * (1.0 / 2.0);
-	kf->R[3] = (dt*dt) * k1b;
-
-	// First make a prediction of what the reading should have been, then correct it
-	filter_kalman_predict(kf);
-	filter_kalman_correct(kf);
-
-	// Set the values
-	_imu = kf->x[0], _imuSpeed = kf->x[1];
-}
-
-
-
-
