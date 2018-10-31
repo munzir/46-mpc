@@ -38,6 +38,8 @@
 !/src/torso.cpp
 !/src/joystick.h
 !/src/joystick.cpp
+!/src/keyboard.cpp
+!/src/keyboard.h
 
 # exe
 !/exe/

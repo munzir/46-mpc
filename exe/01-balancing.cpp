@@ -11,6 +11,7 @@
 #include "grippers.h"
 #include "torso.h"
 #include "joystick.h"
+#include "keyboard.h"
 #include "helpers.h"
 #include "kore/display.hpp"
 #include "../../18h-Util/lqr.hpp"
@@ -31,6 +32,66 @@ bool debugGlobal = false, logGlobal = true;
 // LQR hack ratios
 
 Eigen::MatrixXd lqrHackRatios;
+
+/* ******************************************************************************************** */
+// If a character was entered from the keyboard process it
+void keyboardEvents() {
+
+  char input;
+  bool char_received = false;
+
+  pthread_mutex_lock(&kb_mutex);
+  if(kb_char_received) {
+    char_received = true;
+    input = kb_char_input;
+
+    kb_char_received = false;
+  }
+  pthread_mutex_unlock(&kb_mutex);
+
+  if(char_received) {
+
+		if(input=='s') start = true;
+		else if(input=='.') readGains();
+		else if(input=='j') {
+			joystickControl = !joystickControl;
+			if(joystickControl == true) {
+				somatic_motor_reset(&daemon_cx, krang->arms[LEFT]);
+				somatic_motor_reset(&daemon_cx, krang->arms[RIGHT]);
+			}
+		}
+		else if(input=='1') {
+			printf("Mode 1\n");
+			K = K_groundLo;
+			MODE = GROUND_LO;
+		}
+		else if(input=='2') {
+			printf("Mode 2\n");
+			K = K_stand;
+			MODE = STAND;
+		}
+		else if(input=='3') {
+			printf("Mode 3\n");
+			K = K_sit;
+			MODE = SIT;
+		}
+		else if(input=='4') {
+			printf("Mode 4\n");
+			K = K_balLow;
+			MODE = BAL_LO;
+		}
+		else if(input=='5') {
+			printf("Mode 5\n");
+			K = K_balHigh;
+			MODE = BAL_HI;
+		}
+		else if(input=='6') {
+			printf("Mode 6\n");
+			K = K_groundHi;
+			MODE = GROUND_HI;
+		}
+  }
+}
 
 /* ************************************************************************************/
 /// Changes desired arm state based on joystick input
@@ -344,6 +405,9 @@ void run (BalancingConfig& params) {
 				krang->amc->cur[1], state, refState, lastUleft, lastUright));
 		}
 
+    // Process keyboard character, if entered
+    keyboardEvents();
+
 		// Get the joystick input for the js_forw and js_spin axes (to set the gains)
 		bool gotInput = false;
 		while(!gotInput) gotInput = getJoystickInput(b, x);
@@ -474,6 +538,7 @@ void init(BalancingConfig& params) {
   openJoystickChannel();
 
 	// Create a thread to wait for user input to begin balancing
+  pthread_mutex_init(&kb_mutex, NULL);
 	pthread_t kbhitThread;
 	pthread_create(&kbhitThread, NULL, &kbhit, NULL);
 }

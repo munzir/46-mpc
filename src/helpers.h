@@ -110,9 +110,6 @@ static const Vector3d s2com (0.0, -0.008, 0.091); // 0.065 robotiq itself, 0.026
 /* ******************************************************************************************** */
 // Helper functions
 
-/// Sets a global variable ('start') true if the user presses 's'
-void *kbhit(void *);
-
 /// Returns the values of axes 1 (left up/down) and 2 (right left/right) in the joystick
 void joystickEvents(double& js_forw, double& js_spin);
 

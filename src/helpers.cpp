@@ -204,54 +204,6 @@ void readGains () {
 }
 
 /* ********************************************************************************************* */
-/// Sets a global variable ('start') true if the user presses 's'
-void *kbhit(void *) {
-	char input;
-	while(true){
-		input=cin.get();
-		if(input=='s') start = true;
-		else if(input=='.') readGains();
-		else if(input=='j') {
-			joystickControl = !joystickControl;
-			if(joystickControl == true) {
-				somatic_motor_reset(&daemon_cx, krang->arms[LEFT]);
-				somatic_motor_reset(&daemon_cx, krang->arms[RIGHT]);
-			}
-		}
-		else if(input=='1') {
-			printf("Mode 1\n");
-			K = K_groundLo;
-			MODE = GROUND_LO;
-		}
-		else if(input=='2') {
-			printf("Mode 2\n");
-			K = K_stand;
-			MODE = STAND;
-		}
-		else if(input=='3') {
-			printf("Mode 3\n");
-			K = K_sit;
-			MODE = SIT;
-		}
-		else if(input=='4') {
-			printf("Mode 4\n");
-			K = K_balLow;
-			MODE = BAL_LO;
-		}
-		else if(input=='5') {
-			printf("Mode 5\n");
-			K = K_balHigh;
-			MODE = BAL_HI;
-		}
-		else if(input=='6') {
-			printf("Mode 6\n");
-			K = K_groundHi;
-			MODE = GROUND_HI;
-		}
-	}
-}
-
-/* ********************************************************************************************* */
 /// Computes the imu value from the imu readings
 void getImu (ach_channel_t* imuChan, double& _imu, double& _imuSpeed, double dt,
 		filter_kalman_t* kf) {
