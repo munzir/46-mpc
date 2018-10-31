@@ -6,7 +6,7 @@
  */
 
 #include "helpers.h"
-
+#include "balancing_config.h"
 #include <iostream>
 #include <fstream>
 #include <sstream>
@@ -55,62 +55,67 @@ void updateReference (double js_forw, double js_spin, double dt, Vector6d& refSt
 
 /* ******************************************************************************************** */
 /// Returns the values of axes 1 (left up/down) and 2 (right left/right) in the joystick
-void joystickEvents(double& js_forw, double& js_spin) {
+void joystickEvents(char* b_, double* x, BalancingConfig& params, double jsFwdAmp_,
+                    double jsSpinAmp_, bool& joystickControl_, KRANG_MODE& MODE_,
+                    Vector6d& K_, double& js_forw, double& js_spin) {
 
   // Change the gains with the given joystick input
   double deltaTH = 0.2, deltaX = 0.02, deltaSpin = 0.02;
-  if(!joystickControl) {
+  if(!joystickControl_) {
     for(size_t i = 0; i < 4; i++) {
-      if(((b[5] == 0) && (b[7] == 0)) && (b[i] == 1)) K(i % 2) += ((i < 2) ? deltaTH : -deltaTH);
-      else if((b[5] == 1) && (b[i] == 1)) K((i % 2) + 2) += ((i < 2) ? deltaX : -deltaX);
-      else if((b[7] == 1) && (b[i] == 1)) K((i % 2) + 4) += ((i < 2) ? deltaSpin : -deltaSpin);
+      if(((b_[5] == 0) && (b_[7] == 0)) && (b_[i] == 1)) K_(i % 2) += ((i < 2) ? deltaTH : -deltaTH);
+      else if((b_[5] == 1) && (b_[i] == 1)) K_((i % 2) + 2) += ((i < 2) ? deltaX : -deltaX);
+      else if((b_[7] == 1) && (b_[i] == 1)) K_((i % 2) + 4) += ((i < 2) ? deltaSpin : -deltaSpin);
     }
   }
 
   // Update joystick and force-compensation controls
-  static int lastb0 = b[0], lastb1 = b[1], lastb2 = b[2];
+  static int lastb0 = b_[0], lastb1 = b_[1], lastb2 = b_[2];
 
-  if((b[4] == 1) && (b[6] == 0) && (b[0] == 1) && (lastb0 == 0)) {
-    joystickControl = !joystickControl;
-    if(joystickControl == true) {
+  if((b_[4] == 1) && (b_[6] == 0) && (b_[0] == 1) && (lastb0 == 0)) {
+    joystickControl_ = !joystickControl_;
+    if(joystickControl_ == true) {
       somatic_motor_reset(&daemon_cx, krang->arms[Krang::LEFT]);
       somatic_motor_reset(&daemon_cx, krang->arms[Krang::RIGHT]);
     }
   }
 
-  if((b[4] == 1) && (b[6] == 0) && (b[2] == 1) && (lastb2 == 0)) {
-    if(MODE == BAL_LO) {
+  if((b_[4] == 1) && (b_[6] == 0) && (b_[2] == 1) && (lastb2 == 0)) {
+    if(MODE_ == BAL_LO) {
       printf("Mode 5\n");
-      K = K_balHigh;
-      MODE = BAL_HI;
+      K_ = params.pdGainsBalHi;
+      MODE_ = BAL_HI;
     }
-    else if (MODE == BAL_HI) {
+    else if (MODE_ == BAL_HI) {
       printf("Mode 4\n");
-      K = K_balLow;
-      MODE = BAL_LO;
+      K_ = params.pdGainsBalLo;
+      MODE_ = BAL_LO;
     }
   }
 
-  lastb0 = b[0], lastb1 = b[1], lastb2 = b[2];
+  lastb0 = b_[0], lastb1 = b_[1], lastb2 = b_[2];
 
   // Ignore the joystick statements for the arm control
-  if((b[4] == 1) || (b[5] == 1) || (b[6] == 1) || (b[7] == 1)) {
+  if((b_[4] == 1) || (b_[5] == 1) || (b_[6] == 1) || (b_[7] == 1)) {
     js_forw = js_spin = 0.0;
     return;
   }
 
   // Set the values for the axis
-  if(MODE == GROUND_LO || MODE == GROUND_HI) {
-    js_forw = -J_ground(0) * x[1], js_spin = J_ground(1) * x[2];
+  if(MODE_ == GROUND_LO || MODE_ == GROUND_HI) {
+    js_forw = -params.joystickGainsGroundLo(0) * x[1];
+    js_spin = params.joystickGainsGroundLo(1) * x[2];
   }
-  else if(MODE == BAL_LO) {
-    js_forw = -J_balLow(0) * x[1], js_spin = J_balLow(1) * x[2];
+  else if(MODE_ == BAL_LO) {
+    js_forw = -params.joystickGainsBalLo(0) * x[1];
+    js_spin = params.joystickGainsBalLo(1) * x[2];
   }
-  else if(MODE == BAL_HI) {
-    js_forw = -J_balHigh(0) * x[1], js_spin = J_balHigh(1) * x[2];
+  else if(MODE_ == BAL_HI) {
+    js_forw = -params.joystickGainsBalHi(0) * x[1];
+    js_spin = params.joystickGainsBalHi(1) * x[2];
   }
   else {
-    js_forw = -x[1] * jsFwdAmp;
-    js_spin = x[2] * jsSpinAmp;;
+    js_forw = -x[1] * jsFwdAmp_;
+    js_spin = x[2] * jsSpinAmp_;
   }
 }
