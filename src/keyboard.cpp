@@ -71,3 +71,21 @@ void *kbhit(void *) {
     }
   }
 }
+
+/* ********************************************************************************************* */
+// The function to be called by other threads to read the character input, if received
+bool kbCharReceived(char* input) {
+
+  bool char_received = false;
+
+  pthread_mutex_lock(&kb_mutex);
+  if(kb_char_received) {
+    char_received = true;
+    *input = kb_char_input;
+
+    kb_char_received = false; // to let kbhit thread know that we have read the input
+  }
+  pthread_mutex_unlock(&kb_mutex);
+
+  return char_received;
+}
