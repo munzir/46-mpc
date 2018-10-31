@@ -467,7 +467,7 @@ void run (BalancingConfig& params) {
 
 /* ******************************************************************************************** */
 // // Change robot's beta values (parameters)
-SkeletonPtr setParameters(SkeletonPtr robot, Eigen::MatrixXd betaParams, int bodyParams) {
+SkeletonPtr setParameters(SkeletonPtr robot_, Eigen::MatrixXd betaParams, int bodyParams) {
   Eigen::Vector3d bodyMCOM;
   double mi;
   int numBodies = betaParams.cols()/bodyParams;
@@ -477,10 +477,10 @@ SkeletonPtr setParameters(SkeletonPtr robot, Eigen::MatrixXd betaParams, int bod
     bodyMCOM(1) = betaParams(0, i * bodyParams + 2);
     bodyMCOM(2) = betaParams(0, i * bodyParams + 3);
 
-    robot->getBodyNode(i)->setMass(mi);
-    robot->getBodyNode(i)->setLocalCOM(bodyMCOM/mi);
+    robot_->getBodyNode(i)->setMass(mi);
+    robot_->getBodyNode(i)->setLocalCOM(bodyMCOM/mi);
   }
-  return robot;
+  return robot_;
 }
 
 /* ******************************************************************************************** */
