@@ -51,45 +51,45 @@ void keyboardEvents() {
 
   if(char_received) {
 
-		if(input=='s') start = true;
-		else if(input=='.') readGains();
-		else if(input=='j') {
-			joystickControl = !joystickControl;
-			if(joystickControl == true) {
-				somatic_motor_reset(&daemon_cx, krang->arms[LEFT]);
-				somatic_motor_reset(&daemon_cx, krang->arms[RIGHT]);
-			}
-		}
-		else if(input=='1') {
-			printf("Mode 1\n");
-			K = K_groundLo;
-			MODE = GROUND_LO;
-		}
-		else if(input=='2') {
-			printf("Mode 2\n");
-			K = K_stand;
-			MODE = STAND;
-		}
-		else if(input=='3') {
-			printf("Mode 3\n");
-			K = K_sit;
-			MODE = SIT;
-		}
-		else if(input=='4') {
-			printf("Mode 4\n");
-			K = K_balLow;
-			MODE = BAL_LO;
-		}
-		else if(input=='5') {
-			printf("Mode 5\n");
-			K = K_balHigh;
-			MODE = BAL_HI;
-		}
-		else if(input=='6') {
-			printf("Mode 6\n");
-			K = K_groundHi;
-			MODE = GROUND_HI;
-		}
+    if(input=='s') start = true;
+    else if(input=='.') readGains();
+    else if(input=='j') {
+      joystickControl = !joystickControl;
+      if(joystickControl == true) {
+        somatic_motor_reset(&daemon_cx, krang->arms[LEFT]);
+        somatic_motor_reset(&daemon_cx, krang->arms[RIGHT]);
+      }
+    }
+    else if(input=='1') {
+      printf("Mode 1\n");
+      K = K_groundLo;
+      MODE = GROUND_LO;
+    }
+    else if(input=='2') {
+      printf("Mode 2\n");
+      K = K_stand;
+      MODE = STAND;
+    }
+    else if(input=='3') {
+      printf("Mode 3\n");
+      K = K_sit;
+      MODE = SIT;
+    }
+    else if(input=='4') {
+      printf("Mode 4\n");
+      K = K_balLow;
+      MODE = BAL_LO;
+    }
+    else if(input=='5') {
+      printf("Mode 5\n");
+      K = K_balHigh;
+      MODE = BAL_HI;
+    }
+    else if(input=='6') {
+      printf("Mode 6\n");
+      K = K_groundHi;
+      MODE = GROUND_HI;
+    }
   }
 }
 
@@ -110,38 +110,38 @@ void joystickTorsoEvents(const char* b, const double* x, TorsoState* torso_state
 /// Changes desired arm state based on joystick input
 void joyStickArmEvents(const char* b, const double* x, ArmState* arm_state) {
 
-	// Return if the x[3] is being used for robotiq hands
-	if(fabs(x[3]) > 0.2) arm_state->mode = ArmState::kStop;
+  // Return if the x[3] is being used for robotiq hands
+  if(fabs(x[3]) > 0.2) arm_state->mode = ArmState::kStop;
 
-	// Check if one of the preset configurations are requested by pressing 9 and
-	// any of the buttons from 1 to 4 at the same time
-	if(((b[4] == 1) && (b[6] == 1)) || ((b[5] == 1) && (b[7] == 1))) {
+  // Check if one of the preset configurations are requested by pressing 9 and
+  // any of the buttons from 1 to 4 at the same time
+  if(((b[4] == 1) && (b[6] == 1)) || ((b[5] == 1) && (b[7] == 1))) {
 
-		// Check if the button is pressed for the arm configuration is pressed, if so send pos commands
-		bool noConfs = true;
-		for(size_t i = 0; i < 4; i++) {
-			if(b[i] == 1) {
+    // Check if the button is pressed for the arm configuration is pressed, if so send pos commands
+    bool noConfs = true;
+    for(size_t i = 0; i < 4; i++) {
+      if(b[i] == 1) {
         if((b[4] == 1) && (b[6] == 1) && (b[5] == 1) && (b[7] == 1)) {
           arm_state->mode = ArmState::kMoveBothToPresetPos;
           arm_state->preset_config_num = i;
         }
-				else if((b[4] == 1) && (b[6] == 1)) {
+        else if((b[4] == 1) && (b[6] == 1)) {
           arm_state->mode = ArmState::kMoveLeftToPresetPos;
           arm_state->preset_config_num = i;
         }
-				else if((b[5] == 1) && (b[7] == 1))  {
+        else if((b[5] == 1) && (b[7] == 1))  {
           arm_state->mode = ArmState::kMoveRightToPresetPos;
           arm_state->preset_config_num = i;
-				}
-				noConfs = false;
-			}
-		}
+        }
+        noConfs = false;
+      }
+    }
 
-		// If nothing is pressed, stop the arms
-		if(noConfs) {
+    // If nothing is pressed, stop the arms
+    if(noConfs) {
       arm_state->mode = ArmState::kStop;
-		}
-	}
+    }
+  }
   // If only one of the front buttons is pressed
   else {
     if(b[4] && !b[6]) {
@@ -171,11 +171,11 @@ void joyStickArmEvents(const char* b, const double* x, ArmState* arm_state) {
 // Decides what mode waist should be in based on the value of the input argument that is assumed
 // to be one of the axes of the joystick
 Somatic__WaistMode joystickWaistEvents(double x) {
-	// Set the mode we want to send to the waist daemon
-	Somatic__WaistMode waistMode;
-	if(x < -0.9) waistMode = SOMATIC__WAIST_MODE__MOVE_FWD;
-	else if(x > 0.9) waistMode = SOMATIC__WAIST_MODE__MOVE_REV;
-	else waistMode = SOMATIC__WAIST_MODE__STOP;
+  // Set the mode we want to send to the waist daemon
+  Somatic__WaistMode waistMode;
+  if(x < -0.9) waistMode = SOMATIC__WAIST_MODE__MOVE_FWD;
+  else if(x > 0.9) waistMode = SOMATIC__WAIST_MODE__MOVE_REV;
+  else waistMode = SOMATIC__WAIST_MODE__STOP;
 
   return waistMode;
 }
@@ -184,113 +184,113 @@ Somatic__WaistMode joystickWaistEvents(double x) {
 /// Handles the wheel commands if we are started
 void controlWheels(bool debug, Vector6d& error, double& lastUleft, double& lastUright) {
 
-	// Compute the current
-	double u_theta = K.topLeftCorner<2,1>().dot(error.topLeftCorner<2,1>());
-	double u_x = K(2)*error(2) + K(3)*error(3);
-	double u_spin =  -K.bottomLeftCorner<2,1>().dot(error.bottomLeftCorner<2,1>());
-	u_spin = max(-30.0, min(30.0, u_spin));
+  // Compute the current
+  double u_theta = K.topLeftCorner<2,1>().dot(error.topLeftCorner<2,1>());
+  double u_x = K(2)*error(2) + K(3)*error(3);
+  double u_spin =  -K.bottomLeftCorner<2,1>().dot(error.bottomLeftCorner<2,1>());
+  u_spin = max(-30.0, min(30.0, u_spin));
 
-	// Compute the input for left and right wheels
-	if(joystickControl && ((MODE == GROUND_LO) || (MODE == GROUND_HI))) {u_x = 0.0; u_spin = 0.0;}
-	double input [2] = {u_theta + u_x + u_spin, u_theta + u_x - u_spin};
-	input[0] = max(-49.0, min(49.0, input[0]));
-	input[1] = max(-49.0, min(49.0, input[1]));
-	if(debug) printf("u_theta: %lf, u_x: %lf, u_spin: %lf\n", u_theta, u_x, u_spin);
-	lastUleft = input[0], lastUright = input[1];
+  // Compute the input for left and right wheels
+  if(joystickControl && ((MODE == GROUND_LO) || (MODE == GROUND_HI))) {u_x = 0.0; u_spin = 0.0;}
+  double input [2] = {u_theta + u_x + u_spin, u_theta + u_x - u_spin};
+  input[0] = max(-49.0, min(49.0, input[0]));
+  input[1] = max(-49.0, min(49.0, input[1]));
+  if(debug) printf("u_theta: %lf, u_x: %lf, u_spin: %lf\n", u_theta, u_x, u_spin);
+  lastUleft = input[0], lastUright = input[1];
 
-	if(start) {
-		if(debug) cout << "Started..." << endl;
-		somatic_motor_cmd(&daemon_cx, krang->amc, SOMATIC__MOTOR_PARAM__MOTOR_CURRENT, input, 2, NULL);
-	}
+  if(start) {
+    if(debug) cout << "Started..." << endl;
+    somatic_motor_cmd(&daemon_cx, krang->amc, SOMATIC__MOTOR_PARAM__MOTOR_CURRENT, input, 2, NULL);
+  }
 }
 
 /* ********************************************************************************************* */
 /// Update Krang Mode based on configuration, state and state error, updates the K matrices used to calculate u/
 void updateKrangMode(Vector6d& error, size_t& mode4iter, Vector6d& state) {
-	size_t mode4iterLimit = 100;
-	// If in ground Lo mode and waist angle increases beyond 150.0 goto groundHi mode
-	if(MODE == GROUND_LO) {
-		if((krang->waist->pos[0]-krang->waist->pos[1])/2.0 < 150.0*M_PI/180.0) {
-			MODE = GROUND_HI;
-			K = K_groundHi;
-		}
-	}
-		// If in ground Hi mode and waist angle decreases below 150.0 goto groundLo mode
-	else if(MODE == GROUND_HI) {
-		if((krang->waist->pos[0]-krang->waist->pos[1])/2.0 > 150.0*M_PI/180.0) {
-			MODE = GROUND_LO;
-			K = K_groundLo;
-		}
-	}
+  size_t mode4iterLimit = 100;
+  // If in ground Lo mode and waist angle increases beyond 150.0 goto groundHi mode
+  if(MODE == GROUND_LO) {
+    if((krang->waist->pos[0]-krang->waist->pos[1])/2.0 < 150.0*M_PI/180.0) {
+      MODE = GROUND_HI;
+      K = K_groundHi;
+    }
+  }
+    // If in ground Hi mode and waist angle decreases below 150.0 goto groundLo mode
+  else if(MODE == GROUND_HI) {
+    if((krang->waist->pos[0]-krang->waist->pos[1])/2.0 > 150.0*M_PI/180.0) {
+      MODE = GROUND_LO;
+      K = K_groundLo;
+    }
+  }
 
-		// If we are in the sit down mode, over write the reference
-	else if(MODE == SIT) {
-		static const double limit = ((-103.0 / 180.0) * M_PI);
-		if(krang->imu < limit) {
-			printf("imu (%lf) < limit (%lf): changing to mode 1\n", krang->imu, limit);
-			MODE = GROUND_LO;
-			K = K_groundLo;
-		}
-		else error(0) = krang->imu - limit;
-	}
-		// if in standing up mode check if the balancing angle is reached and stayed, if so switch to balLow mode
-	else if(MODE == STAND) {
-		if(fabs(state(0)) < 0.034) mode4iter++;
-		// Change to mode 4 (balance low) if stood up enough
-		if(mode4iter > mode4iterLimit) {
-			MODE = BAL_LO;
-			mode4iter = 0;
-			K = K_balLow;
-		}
-	}
-		// COM error correction in balLow mode
-	else if(MODE == BAL_LO) {
-		// error(0) += 0.005;
-	}
-		// COM error correction in balHigh mode
-	else if(MODE == BAL_HI) {
-		// error(0) -= 0.005;
-	}
+    // If we are in the sit down mode, over write the reference
+  else if(MODE == SIT) {
+    static const double limit = ((-103.0 / 180.0) * M_PI);
+    if(krang->imu < limit) {
+      printf("imu (%lf) < limit (%lf): changing to mode 1\n", krang->imu, limit);
+      MODE = GROUND_LO;
+      K = K_groundLo;
+    }
+    else error(0) = krang->imu - limit;
+  }
+    // if in standing up mode check if the balancing angle is reached and stayed, if so switch to balLow mode
+  else if(MODE == STAND) {
+    if(fabs(state(0)) < 0.034) mode4iter++;
+    // Change to mode 4 (balance low) if stood up enough
+    if(mode4iter > mode4iterLimit) {
+      MODE = BAL_LO;
+      mode4iter = 0;
+      K = K_balLow;
+    }
+  }
+    // COM error correction in balLow mode
+  else if(MODE == BAL_LO) {
+    // error(0) += 0.005;
+  }
+    // COM error correction in balHigh mode
+  else if(MODE == BAL_HI) {
+    // error(0) -= 0.005;
+  }
 }
 
 /* ********************************************************************************************* */
 /// Handles the wheel commands if we are started
 bool controlStandSit(Vector6d& error, Vector6d& state) {
-	// ==========================================================================
-	// Quit if button 9 on the joystick is pressed, stand/sit if button 10 is pressed
-	// Quit
+  // ==========================================================================
+  // Quit if button 9 on the joystick is pressed, stand/sit if button 10 is pressed
+  // Quit
 
-	static bool b9Prev = 0;
+  static bool b9Prev = 0;
 
-	if(b[8] == 1) return false;
+  if(b[8] == 1) return false;
 
-		// Stand/Sit if button 10 is pressed and conditions are right
-	else if(b9Prev == 0 && b[9] == 1) {
+    // Stand/Sit if button 10 is pressed and conditions are right
+  else if(b9Prev == 0 && b[9] == 1) {
 
-		// If in ground mode and state error is not high stand up
-		if(MODE == GROUND_LO) {
-			if(state(0) < 0.0 && error(0) > -10.0*M_PI/180.0)	{
-				printf("\n\n\nMode 2\n\n\n");
-				K = K_stand;
-				MODE = STAND;
-			}	else {
-				printf("\n\n\nCan't stand up, balancing error is too high!\n\n\n");
-			}
-		}
+    // If in ground mode and state error is not high stand up
+    if(MODE == GROUND_LO) {
+      if(state(0) < 0.0 && error(0) > -10.0*M_PI/180.0) {
+        printf("\n\n\nMode 2\n\n\n");
+        K = K_stand;
+        MODE = STAND;
+      } else {
+        printf("\n\n\nCan't stand up, balancing error is too high!\n\n\n");
+      }
+    }
 
-			// If in balLow mode and waist is not too high, sit down
-		else if(MODE == STAND || MODE == BAL_LO) {
-			if((krang->waist->pos[0] - krang->waist->pos[1])/2.0 > 150.0*M_PI/180.0) {
-				printf("\n\n\nMode 3\n\n\n");
-				K = K_sit;
-				MODE = SIT;
-			} else {
-				printf("\n\n\nCan't sit down, Waist is too high!\n\n\n");
-			}
-		}
-	}
-	b9Prev = b[9];
-	return true;
+      // If in balLow mode and waist is not too high, sit down
+    else if(MODE == STAND || MODE == BAL_LO) {
+      if((krang->waist->pos[0] - krang->waist->pos[1])/2.0 > 150.0*M_PI/180.0) {
+        printf("\n\n\nMode 3\n\n\n");
+        K = K_sit;
+        MODE = SIT;
+      } else {
+        printf("\n\n\nCan't sit down, Waist is too high!\n\n\n");
+      }
+    }
+  }
+  b9Prev = b[9];
+  return true;
 }
 
 /* ******************************************************************************************** */
@@ -299,231 +299,234 @@ bool controlStandSit(Vector6d& error, Vector6d& state) {
 /// reference x and psi values from the joystick and follow them with pd control.
 void run (BalancingConfig& params) {
 
-	// Send a message; set the event code and the priority
-	somatic_d_event(&daemon_cx, SOMATIC__EVENT__PRIORITIES__NOTICE,
-			SOMATIC__EVENT__CODES__PROC_RUNNING, NULL, NULL);
+  // Send a message; set the event code and the priority
+  somatic_d_event(&daemon_cx, SOMATIC__EVENT__PRIORITIES__NOTICE,
+      SOMATIC__EVENT__CODES__PROC_RUNNING, NULL, NULL);
 
-	// Initially the reference position and velocities are zero (don't move!) (and error!)
-	// Initializing here helps to print logs of the previous state
-	Vector6d refState = Vector6d::Zero(), state = Vector6d::Zero(), error = Vector6d::Zero();
+  // Initially the reference position and velocities are zero (don't move!) (and error!)
+  // Initializing here helps to print logs of the previous state
+  Vector6d refState = Vector6d::Zero(), state = Vector6d::Zero(), error = Vector6d::Zero();
 
-	// Read the FT sensor wrenches, shift them on the wheel axis and display
-	size_t c_ = 0;
-	struct timespec t_now, t_prev = aa_tm_now();
-	double time = 0.0;
-	Vector6d externalWrench;
-	Vector3d com;
+  // Read the FT sensor wrenches, shift them on the wheel axis and display
+  size_t c_ = 0;
+  struct timespec t_now, t_prev = aa_tm_now();
+  double time = 0.0;
+  Vector6d externalWrench;
+  Vector3d com;
 
-	// Initialize the running history
-	const size_t historySize = 60;
+  // Initialize the running history
+  const size_t historySize = 60;
 
-    // Torque to current conversion
-    // Motor Constant
-    // TODO: Copy comments from repo 28 mpc branch
-    double km = 12.0 * 0.00706;
+  // Torque to current conversion
+  // Motor Constant
+  // TODO: Copy comments from repo 28 mpc branch
+  double km = 12.0 * 0.00706;
 
-    // Gear Ratio
-    double GR = 15;
+  // Gear Ratio
+  double GR = 15;
 
-	// Continue processing data until stop received
-	double js_forw = 0.0, js_spin = 0.0, averagedTorque = 0.0, lastUleft = 0.0, lastUright = 0.0;
-	size_t mode4iter = 0;
-	KRANG_MODE lastMode = MODE; bool lastStart = start;
-    Eigen::MatrixXd A = Eigen::MatrixXd::Zero(4,4);
-    Eigen::MatrixXd B = Eigen::MatrixXd::Zero(4,1);
-    Eigen::VectorXd B_thWheel = Eigen::VectorXd::Zero(3);
-    Eigen::VectorXd B_thCOM = Eigen::VectorXd::Zero(3);
-    Eigen::VectorXd LQR_Gains = Eigen::VectorXd::Zero(4);
+  // Continue processing data until stop received
+  double js_forw = 0.0, js_spin = 0.0, averagedTorque = 0.0, lastUleft = 0.0, lastUright = 0.0;
+  size_t mode4iter = 0;
+  KRANG_MODE lastMode = MODE; bool lastStart = start;
+  Eigen::MatrixXd A = Eigen::MatrixXd::Zero(4,4);
+  Eigen::MatrixXd B = Eigen::MatrixXd::Zero(4,1);
+  Eigen::VectorXd B_thWheel = Eigen::VectorXd::Zero(3);
+  Eigen::VectorXd B_thCOM = Eigen::VectorXd::Zero(3);
+  Eigen::VectorXd LQR_Gains = Eigen::VectorXd::Zero(4);
 
   ArmState arm_state;
   arm_state.mode = ArmState::kStop;
   TorsoState torso_state;
   torso_state.mode = TorsoState::kStop;
-	while(!somatic_sig_received) {
+  while(!somatic_sig_received) {
 
-		bool debug = (c_++ % 20 == 0);
-		debugGlobal = debug;
-		if(debug) cout << "vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv\n" << endl;
+    bool debug = (c_++ % 20 == 0);
+    debugGlobal = debug;
+    if(debug) cout << "vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv\n" << endl;
 
-		// Cancel any position built up in previous mode
-		//if(lastMode != MODE) {
-		//	refState(2) = state(2), refState(4) = state(4);
-		//	lastMode = MODE;
-		//}
-		//if(lastStart != start) {
-		//	refState(2) = state(2), refState(4) = state(4);
-		//	lastStart = start;
-		//}
+    // Cancel any position built up in previous mode
+    //if(lastMode != MODE) {
+    //  refState(2) = state(2), refState(4) = state(4);
+    //  lastMode = MODE;
 
-		// =======================================================================
-		// Get inputs: time, joint states, joystick and external forces
+    //}
+    //if(lastStart != start) {
+    //  refState(2) = state(2), refState(4) = state(4);
+    //  lastStart = start;
+    //}
 
-		// Get the current time and compute the time difference and update the prev. time
-		t_now = aa_tm_now();
-		double dt = (double)aa_tm_timespec2sec(aa_tm_sub(t_now, t_prev));
-		t_prev = t_now;
-		time += dt;
+    // =======================================================================
+    // Get inputs: time, joint states, joystick and external forces
 
-		// Get the current state and ask the user if they want to start
-		getState(state, dt, &com);
+    // Get the current time and compute the time difference and update the prev. time
+    t_now = aa_tm_now();
+    double dt = (double)aa_tm_timespec2sec(aa_tm_sub(t_now, t_prev));
+    t_prev = t_now;
+    time += dt;
 
-        // lqr gains
-        computeLinearizedDynamics(robot, A, B, B_thWheel, B_thCOM);
+    // Get the current state and ask the user if they want to start
+    getState(state, dt, &com);
 
-        // Print out A & B matrices
-        if(debug) cout << "A matrix: " << A << endl;
-        if(debug) cout << "B matrix: " << B << endl;
+    // lqr gains
+    computeLinearizedDynamics(robot, A, B, B_thWheel, B_thCOM);
 
-        if (c_ == 1) {
-            // Call lqr to compute hack ratios
-            lqr(A, B, params.lqrQ, params.lqrR, LQR_Gains);
-            LQR_Gains /= (GR * km);
+    // Print out A & B matrices
+    if(debug) cout << "A matrix: " << A << endl;
+    if(debug) cout << "B matrix: " << B << endl;
 
-            lqrHackRatios = Eigen::MatrixXd::Zero(4, 4);
-            for (int i = 0; i < lqrHackRatios.cols(); i++) {
+    if (c_ == 1) {
+      // Call lqr to compute hack ratios
+      lqr(A, B, params.lqrQ, params.lqrR, LQR_Gains);
+      LQR_Gains /= (GR * km);
 
-                lqrHackRatios(i, i) = K_stand(i) / -LQR_Gains(i);
+      lqrHackRatios = Eigen::MatrixXd::Zero(4, 4);
+      for (int i = 0; i < lqrHackRatios.cols(); i++) {
 
-            }
-        }
+        lqrHackRatios(i, i) = K_stand(i) / -LQR_Gains(i);
 
-        lqr(A, B, params.lqrQ, params.lqrR, LQR_Gains);
-        LQR_Gains /= (GR * km);
-        LQR_Gains = lqrHackRatios * LQR_Gains;
+      }
+    }
 
-        if(debug) cout << "lqr gains" << LQR_Gains.transpose() << endl;
-		if(debug) {
-			cout << "\nstate: " << state.transpose() << endl;
-			cout << "com: " << com.transpose() << endl;
-			cout << "WAIST ANGLE: " << krang->waist->pos[0] << endl;
-		}
+    lqr(A, B, params.lqrQ, params.lqrR, LQR_Gains);
+    LQR_Gains /= (GR * km);
+    LQR_Gains = lqrHackRatios * LQR_Gains;
 
-		// Print the information about the last iteration (after reading effects of it from sensors)
-		// NOTE: Constructor order is NOT the print order
-		if(logGlobal) {
-			logStates.push_back(new LogState(time, com, averagedTorque, externalWrench(4), krang->amc->cur[0],
-				krang->amc->cur[1], state, refState, lastUleft, lastUright));
-		}
+    if(debug) cout << "lqr gains" << LQR_Gains.transpose() << endl;
+    if(debug) {
+      cout << "\nstate: " << state.transpose() << endl;
+      cout << "com: " << com.transpose() << endl;
+      cout << "WAIST ANGLE: " << krang->waist->pos[0] << endl;
+    }
+
+    // Print the information about the last iteration (after reading effects of it from sensors)
+    // NOTE: Constructor order is NOT the print order
+    if(logGlobal) {
+      logStates.push_back(new LogState(time, com, averagedTorque,
+                                       externalWrench(4), krang->amc->cur[0],
+                                       krang->amc->cur[1], state, refState,
+                                       lastUleft, lastUright));
+    }
 
     // Process keyboard character, if entered
     keyboardEvents();
 
-		// Get the joystick input for the js_forw and js_spin axes (to set the gains)
-		bool gotInput = false;
-		while(!gotInput) gotInput = getJoystickInput(b, x);
+    // Get the joystick input for the js_forw and js_spin axes (to set the gains)
+    bool gotInput = false;
+    while(!gotInput) gotInput = getJoystickInput(b, x);
     joystickEvents(js_forw, js_spin);
-		if(debug) cout << "js_forw: " << js_forw << ", js_spin: " << js_spin << endl;
+    if(debug) cout << "js_forw: " << js_forw << ", js_spin: " << js_spin << endl;
 
-		// =======================================================================
-		// Compute ref state using joystick
+    // =======================================================================
+    // Compute ref state using joystick
 
-		// Update the reference values for the position and spin
-		updateReference(js_forw, js_spin, dt, refState);
-		if(debug) cout << "refState: " << refState.transpose() << endl;
+    // Update the reference values for the position and spin
+    updateReference(js_forw, js_spin, dt, refState);
+    if(debug) cout << "refState: " << refState.transpose() << endl;
 
-		// =======================================================================
-		// Apply control: compute error, threshold and send current
+    // =======================================================================
+    // Apply control: compute error, threshold and send current
 
-		// Compute the error term between reference and current, and weight with gains (spin separate)
-		if(debug) cout << "K: " << K.transpose() << endl;
+    // Compute the error term between reference and current, and weight with gains (spin separate)
+    if(debug) cout << "K: " << K.transpose() << endl;
 
-		error = state - refState;
-		if(debug) cout << "error: " << error.transpose() << ", imu: " << krang->imu / M_PI * 180.0 << endl;
+    error = state - refState;
+    if(debug) cout << "error: " << error.transpose() << ", imu: " << krang->imu / M_PI * 180.0 << endl;
 
-		updateKrangMode(error, mode4iter, state);
+    updateKrangMode(error, mode4iter, state);
 
-        // Dynamic LQR
-        // If in stand, balLo or balHi mode, replace gains from gains.txt with LQR gains
-        if(MODE == STAND || MODE == BAL_LO || MODE == BAL_HI) {
-            // read gains_info.txt to understand the following
-            K.head(4) = -LQR_Gains;
-        }
+    // Dynamic LQR
+    // If in stand, balLo or balHi mode, replace gains from gains.txt with LQR gains
+    if(MODE == STAND || MODE == BAL_LO || MODE == BAL_HI) {
+        // read gains_info.txt to understand the following
+        K.head(4) = -LQR_Gains;
+    }
 
-		controlWheels(debug, error, lastUleft, lastUright);
+    controlWheels(debug, error, lastUleft, lastUright);
 
-		// =======================================================================
-		// Control the arms, waist torso and robotiq grippers based on the joystick input
+    // =======================================================================
+    // Control the arms, waist torso and robotiq grippers based on the joystick input
 
-		if(joystickControl) {
-			if(debug) cout << "Joystick for Arms and Waist..." << endl;
-			// Control the arms if necessary
-			joyStickArmEvents(b, x, &arm_state);
+    if(joystickControl) {
+      if(debug) cout << "Joystick for Arms and Waist..." << endl;
+      // Control the arms if necessary
+      joyStickArmEvents(b, x, &arm_state);
       controlArms(daemon_cx, arm_state, krang);
-			// Control the waist
-			Somatic__WaistMode waist_mode = joystickWaistEvents(x[5]);
+      // Control the waist
+      Somatic__WaistMode waist_mode = joystickWaistEvents(x[5]);
       controlWaist(waist_mode, krang);
-			// Control Torso
+      // Control Torso
       joystickTorsoEvents(b, x, &torso_state);
-			controlTorso(daemon_cx, torso_state, krang);
-		}
-		// Update Stand/Sit Modes
-		if(!controlStandSit(error, state)){
-			break;
-		}
+      controlTorso(daemon_cx, torso_state, krang);
+    }
+    // Update Stand/Sit Modes
+    if(!controlStandSit(error, state)){
+      break;
+    }
 
-	// Print the mode
-		if(debug) printf("Mode : %d\tdt: %lf\n", MODE, dt);
-	}
+    // Print the mode
+    if(debug) printf("Mode : %d\tdt: %lf\n", MODE, dt);
+  }
 
-	// Send the stoppig event
-	somatic_d_event(&daemon_cx, SOMATIC__EVENT__PRIORITIES__NOTICE,
-					 SOMATIC__EVENT__CODES__PROC_STOPPING, NULL, NULL);
+  // Send the stoppig event
+  somatic_d_event(&daemon_cx, SOMATIC__EVENT__PRIORITIES__NOTICE,
+           SOMATIC__EVENT__CODES__PROC_STOPPING, NULL, NULL);
 }
 
 /* ******************************************************************************************** */
 // // Change robot's beta values (parameters)
 SkeletonPtr setParameters(SkeletonPtr robot, Eigen::MatrixXd betaParams, int bodyParams) {
-	Eigen::Vector3d bodyMCOM;
-	double mi;
-	int numBodies = betaParams.cols()/bodyParams;
-	for (int i = 0; i < numBodies; i++) {
-		mi = betaParams(0, i * bodyParams);
-		bodyMCOM(0) = betaParams(0, i * bodyParams + 1);
-		bodyMCOM(1) = betaParams(0, i * bodyParams + 2);
-		bodyMCOM(2) = betaParams(0, i * bodyParams + 3);
+  Eigen::Vector3d bodyMCOM;
+  double mi;
+  int numBodies = betaParams.cols()/bodyParams;
+  for (int i = 0; i < numBodies; i++) {
+    mi = betaParams(0, i * bodyParams);
+    bodyMCOM(0) = betaParams(0, i * bodyParams + 1);
+    bodyMCOM(1) = betaParams(0, i * bodyParams + 2);
+    bodyMCOM(2) = betaParams(0, i * bodyParams + 3);
 
-		robot->getBodyNode(i)->setMass(mi);
-		robot->getBodyNode(i)->setLocalCOM(bodyMCOM/mi);
-	}
-	return robot;
+    robot->getBodyNode(i)->setMass(mi);
+    robot->getBodyNode(i)->setLocalCOM(bodyMCOM/mi);
+  }
+  return robot;
 }
 
 /* ******************************************************************************************** */
 /// Initialize the motor and daemons
 void init(BalancingConfig& params) {
 
-	// Initialize the daemon
-	somatic_d_opts_t dopt;
-	memset(&dopt, 0, sizeof(dopt));
-	dopt.ident = "01-balance";
-	somatic_d_init(&daemon_cx, &dopt);
+  // Initialize the daemon
+  somatic_d_opts_t dopt;
+  memset(&dopt, 0, sizeof(dopt));
+  dopt.ident = "01-balance";
+  somatic_d_init(&daemon_cx, &dopt);
 
-	// Load the robot
-	dart::utils::DartLoader dl;
-	robot = dl.parseSkeleton(params.urdfpath);
-	assert((robot != NULL) && "Could not find the robot urdf");
+  // Load the robot
+  dart::utils::DartLoader dl;
+  robot = dl.parseSkeleton(params.urdfpath);
+  assert((robot != NULL) && "Could not find the robot urdf");
 
   // Load dart robot in dart world
   world = std::make_shared<World>();
-	world->addSkeleton(robot);
+  world->addSkeleton(robot);
 
-	// Initialize the motors and sensors on the hardware and update the kinematics in dart
-	int hwMode = Krang::Hardware::MODE_AMC | Krang::Hardware::MODE_LARM |
-		Krang::Hardware::MODE_RARM | Krang::Hardware::MODE_TORSO | Krang::Hardware::MODE_WAIST;
-	krang = new Krang::Hardware((Krang::Hardware::Mode) hwMode, &daemon_cx, robot);
+  // Initialize the motors and sensors on the hardware and update the kinematics in dart
+  int hwMode = Krang::Hardware::MODE_AMC | Krang::Hardware::MODE_LARM |
+    Krang::Hardware::MODE_RARM | Krang::Hardware::MODE_TORSO | Krang::Hardware::MODE_WAIST;
+  krang = new Krang::Hardware((Krang::Hardware::Mode) hwMode, &daemon_cx, robot);
 
   // Read CoM estimation model paramters
-	Eigen::MatrixXd beta;
-	string inputBetaFilename = params.comParametersPath;
-	try {
-		cout << "Reading converged beta ...\n";
-		beta = readInputFileAsMatrix(inputBetaFilename);
-		cout << "|-> Done\n";
-	} catch (exception& e) {
-		cout << e.what() << endl;
-		assert(false && "Problem loading CoM parameters...");
-	}
-	robot = setParameters(robot, beta, 4);
+  Eigen::MatrixXd beta;
+  string inputBetaFilename = params.comParametersPath;
+  try {
+    cout << "Reading converged beta ...\n";
+    beta = readInputFileAsMatrix(inputBetaFilename);
+    cout << "|-> Done\n";
+  } catch (exception& e) {
+    cout << e.what() << endl;
+    assert(false && "Problem loading CoM parameters...");
+  }
+  robot = setParameters(robot, beta, 4);
 
   // Initialize the gains
   K_groundLo = params.pdGainsGroundLo; J_ground = params.joystickGainsGroundLo;
@@ -534,42 +537,42 @@ void init(BalancingConfig& params) {
   K_balHigh = params.pdGainsBalHi;     J_balHigh = params.joystickGainsBalHi;
 
 
-	// Initialize the joystick channel
+  // Initialize the joystick channel
   openJoystickChannel();
 
-	// Create a thread to wait for user input to begin balancing
+  // Create a thread to wait for user input to begin balancing
   pthread_mutex_init(&kb_mutex, NULL);
-	pthread_t kbhitThread;
-	pthread_create(&kbhitThread, NULL, &kbhit, NULL);
+  pthread_t kbhitThread;
+  pthread_create(&kbhitThread, NULL, &kbhit, NULL);
 }
 
 /* ******************************************************************************************** */
 /// Send zero velocity to the motors and kill daemon. Also clean up daemon structs.
 void destroy() {
 
-	cout << "destroying" << endl;
+  cout << "destroying" << endl;
 
-	// ===========================
-	// Stop motors, close motor/sensor channels and destroy motor objects
+  // ===========================
+  // Stop motors, close motor/sensor channels and destroy motor objects
 
-	// To prevent arms from halting if joystick control is not on, change mode of krang
-	if(!joystickControl) {
-		somatic_motor_destroy(&daemon_cx, krang->arms[LEFT]);
-		somatic_motor_destroy(&daemon_cx, krang->arms[RIGHT]);
-	  krang->arms[LEFT] = NULL;
-	  krang->arms[RIGHT] = NULL;
-	}
-	delete krang;
+  // To prevent arms from halting if joystick control is not on, change mode of krang
+  if(!joystickControl) {
+    somatic_motor_destroy(&daemon_cx, krang->arms[LEFT]);
+    somatic_motor_destroy(&daemon_cx, krang->arms[RIGHT]);
+    krang->arms[LEFT] = NULL;
+    krang->arms[RIGHT] = NULL;
+  }
+  delete krang;
 
-	// Destroy the daemon resources
-	somatic_d_destroy(&daemon_cx);
+  // Destroy the daemon resources
+  somatic_d_destroy(&daemon_cx);
 
-	// Print the data
-	printf("log states size: %lu\n", logStates.size());
-	for(size_t i = 0; i < logStates.size(); i++) {
-		logStates[i]->print();
-		delete logStates[i];
-	}
+  // Print the data
+  printf("log states size: %lu\n", logStates.size());
+  for(size_t i = 0; i < logStates.size(); i++) {
+    logStates[i]->print();
+    delete logStates[i];
+  }
 }
 
 /* ******************************************************************************************** */
@@ -579,18 +582,18 @@ int main(int argc, char* argv[]) {
   BalancingConfig params;
   ReadConfigParams("../params.cfg", &params);
 
-	// Debug options from command line
-	debugGlobal = 1; logGlobal = 0;
-	if(argc == 8) {
-		if(argv[7][0]=='l') { debugGlobal = 0; logGlobal = 1;}
-		else if(argv[7][0] == 'd') {debugGlobal = 1; logGlobal = 0; }
-	}
+  // Debug options from command line
+  debugGlobal = 1; logGlobal = 0;
+  if(argc == 8) {
+    if(argv[7][0]=='l') { debugGlobal = 0; logGlobal = 1;}
+    else if(argv[7][0] == 'd') {debugGlobal = 1; logGlobal = 0; }
+  }
 
-	getchar();
+  getchar();
 
-	// Initialize, run, destroy
-	init(params);
+  // Initialize, run, destroy
+  init(params);
   run(params);
-	destroy();
-	return 0;
+  destroy();
+  return 0;
 }
