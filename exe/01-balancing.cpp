@@ -180,16 +180,19 @@ Somatic__WaistMode joystickWaistEvents(double x) {
 
 /* ********************************************************************************************* */
 /// Handles the wheel commands if we are started
-void controlWheels(bool debug, Vector6d& error, double& lastUleft, double& lastUright) {
+void controlWheels(somatic_d_t& daemon_cx_, bool joystickControl_,
+                   KRANG_MODE MODE_,  Vector6d& K_, Vector6d& error, bool debug,
+                   double& lastUleft, double& lastUright,
+                   Krang::Hardware* krang_) {
 
   // Compute the current
-  double u_theta = K.topLeftCorner<2,1>().dot(error.topLeftCorner<2,1>());
-  double u_x = K(2)*error(2) + K(3)*error(3);
-  double u_spin =  -K.bottomLeftCorner<2,1>().dot(error.bottomLeftCorner<2,1>());
+  double u_theta = K_.topLeftCorner<2,1>().dot(error.topLeftCorner<2,1>());
+  double u_x = K_(2)*error(2) + K_(3)*error(3);
+  double u_spin =  -K_.bottomLeftCorner<2,1>().dot(error.bottomLeftCorner<2,1>());
   u_spin = max(-30.0, min(30.0, u_spin));
 
   // Compute the input for left and right wheels
-  if(joystickControl && ((MODE == GROUND_LO) || (MODE == GROUND_HI))) {u_x = 0.0; u_spin = 0.0;}
+  if(joystickControl_ && ((MODE_ == GROUND_LO) || (MODE_ == GROUND_HI))) {u_x = 0.0; u_spin = 0.0;}
   double input [2] = {u_theta + u_x + u_spin, u_theta + u_x - u_spin};
   input[0] = max(-49.0, min(49.0, input[0]));
   input[1] = max(-49.0, min(49.0, input[1]));
@@ -198,7 +201,7 @@ void controlWheels(bool debug, Vector6d& error, double& lastUleft, double& lastU
 
   if(start) {
     if(debug) cout << "Started..." << endl;
-    somatic_motor_cmd(&daemon_cx, krang->amc, SOMATIC__MOTOR_PARAM__MOTOR_CURRENT, input, 2, NULL);
+    somatic_motor_cmd(&daemon_cx_, krang_->amc, SOMATIC__MOTOR_PARAM__MOTOR_CURRENT, input, 2, NULL);
   }
 }
 
@@ -436,7 +439,8 @@ void run (BalancingConfig& params) {
     if(debug) cout << "K: " << K.transpose() << endl;
 
     // send commands to wheel motors
-    controlWheels(debug, error, lastUleft, lastUright);
+    controlWheels(daemon_cx, joystickControl, MODE, K, error, debug,
+                  lastUleft, lastUright, krang);
 
     // ========================================================================
     // Control the rest of the body
