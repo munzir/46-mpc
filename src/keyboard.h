@@ -50,6 +50,10 @@ pthread_mutex_t kb_mutex;
 char kb_char_input;
 bool kb_char_received = false;
 
+// Thread that reads keyboard input
 void *kbhit(void *);
+
+// For other threads to read the character input
+bool kbCharReceived(char* input);
 
 #endif // KRANG_BALANCING_KEYBOARD_H_

@@ -33,21 +33,12 @@ Eigen::MatrixXd lqrHackRatios;
 
 /* ******************************************************************************************** */
 // If a character was entered from the keyboard process it
+
 void keyboardEvents() {
 
   char input;
-  bool char_received = false;
 
-  pthread_mutex_lock(&kb_mutex);
-  if(kb_char_received) {
-    char_received = true;
-    input = kb_char_input;
-
-    kb_char_received = false;
-  }
-  pthread_mutex_unlock(&kb_mutex);
-
-  if(char_received) {
+  if(kbCharReceived(&input)) {
 
     if(input=='s') start = true;
     //else if(input=='.') readGains();
