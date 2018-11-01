@@ -58,6 +58,19 @@ void controlArms(somatic_d_t& daemon_cx, const ArmState& arm_state, Krang::Hardw
 
   static ArmState::ArmMode last_mode = ArmState::kStop;
 
+  // The preset arm configurations: forward, thriller, goodJacobian
+  static double presetArmConfs [][7] = {
+    {  0.500, -0.600,  0.000, -1.000,  0.000, -1.450,  0.570},
+    { -0.500,  0.600,  0.000,  1.000,  0.000,  1.450, -0.480},
+    {  1.130, -1.000,  0.000, -1.570, -0.000,  1.000,  -1.104},
+    { -1.130,  1.000, -0.000,  1.570,  0.000, -1.000,  -0.958},
+    {  1.400, -1.000,  0.000, -0.800,  0.000, -0.500,  -1.000},
+    { -1.400,  1.000,  0.000,  0.800,  0.000,  0.500,  -1.000},
+    {  0.000,  0.000,  0.000,  0.000,  0.000,  0.000,  0.000},
+    {  0.000,  0.000,  0.000,  0.000,  0.000,  0.000,  0.000},
+  };
+
+
   // If left arm was on break and needs to be reset
   if((last_mode == ArmState::kStop ||
       last_mode == ArmState::kMoveRightBigSet ||
