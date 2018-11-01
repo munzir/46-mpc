@@ -48,44 +48,47 @@
 /* ********************************************************************************************* */
 /// Sits waiting for keyboard character input. Then raises a global flag to let other
 // threads know
-void *kbhit(void *) {
+void *kbhit(void *arg) {
+
+  struct kbShared *kb_shared = (struct kbShared *)arg;
+
   char input;
   bool other_thread_has_read_char_received = false;
 	while(true){
 		input = std::cin.get();
 
-    pthread_mutex_lock(&kb_mutex);
-      kb_char_input = input;
-      kb_char_received = true; // this is a global that lets other threads know that
+    pthread_mutex_lock(&kb_shared->kb_mutex);
+      kb_shared->kb_char_input = input;
+      kb_shared->kb_char_received = true; // this is a global that lets other threads know that
                                // a chracter is received by this thread
       other_thread_has_read_char_received = false;
-    pthread_mutex_unlock(&kb_mutex);
+    pthread_mutex_unlock(&kb_shared->kb_mutex);
 
     // Wait for kb_char_received to go false, indicating that the character was
     // read by the other thread
     while(!other_thread_has_read_char_received) {
-      pthread_mutex_lock(&kb_mutex);
-        if(kb_char_received == false)
+      pthread_mutex_lock(&kb_shared->kb_mutex);
+        if(kb_shared->kb_char_received == false)
           other_thread_has_read_char_received = true;
-      pthread_mutex_unlock(&kb_mutex);
+      pthread_mutex_unlock(&kb_shared->kb_mutex);
     }
   }
 }
 
 /* ********************************************************************************************* */
 // The function to be called by other threads to read the character input, if received
-bool kbCharReceived(char* input) {
+bool kbCharReceived(kbShared& kb_shared, char* input) {
 
   bool char_received = false;
 
-  pthread_mutex_lock(&kb_mutex);
-  if(kb_char_received) {
+  pthread_mutex_lock(&kb_shared.kb_mutex);
+  if(kb_shared.kb_char_received) {
     char_received = true;
-    *input = kb_char_input;
+    *input = kb_shared.kb_char_input;
 
-    kb_char_received = false; // to let kbhit thread know that we have read the input
+    kb_shared.kb_char_received = false; // to let kbhit thread know that we have read the input
   }
-  pthread_mutex_unlock(&kb_mutex);
+  pthread_mutex_unlock(&kb_shared.kb_mutex);
 
   return char_received;
 }
