@@ -133,6 +133,9 @@ void run (BalancingConfig& params) {
   TorsoState torso_state;
   torso_state.mode = TorsoState::kStop;
   Somatic__WaistMode waist_mode;
+
+  const char MODE_string[][16] = {"Ground Lo", "Stand", "Sit", "Bal Lo", "Bal Hi"};
+
   while(!somatic_sig_received) {
 
     bool debug = (c_++ % 20 == 0);
@@ -254,7 +257,7 @@ void run (BalancingConfig& params) {
     }
 
     // Print the mode
-    if(debug) printf("Mode : %d\tdt: %lf\n", MODE, dt);
+    if(debug) printf("Mode : %s\tdt: %lf\n", MODE_string[MODE], dt);
   }
 
   // Send the stoppig event
