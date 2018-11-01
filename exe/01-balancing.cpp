@@ -306,7 +306,7 @@ void init(BalancingConfig& params) {
   K_sit = params.pdGainsSit;           J_sit = params.joystickGainsSit;
   K_balLow = params.pdGainsBalLo;      J_balLow = params.joystickGainsBalLo;
   K_balHigh = params.pdGainsBalHi;     J_balHigh = params.joystickGainsBalHi;
-
+  K = K_groundLo;
 
   // Initialize the joystick channel
   openJoystickChannel();
