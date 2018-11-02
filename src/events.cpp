@@ -103,9 +103,8 @@ void keyboardEvents(kbShared& kb_shared, const BalancingConfig& params, bool& st
 /// Returns the values of axes 1 (left up/down) and 2 (right left/right) in the joystick
 void joystickEvents(somatic_d_t& daemon_cx_, Krang::Hardware* krang_,
                     char* b_, double* x_, BalancingConfig& params,
-                    double jsFwdAmp_, double jsSpinAmp_, bool& joystickControl_,
-                    KRANG_MODE& MODE_, Eigen::Matrix<double, 6, 1>& K_,
-                    double& js_forw, double& js_spin) {
+                    bool& joystickControl_, KRANG_MODE& MODE_,
+                    Eigen::Matrix<double, 6, 1>& K_, double& js_forw, double& js_spin) {
 
   // Change the gains with the given joystick input
   double deltaTH = 0.2, deltaX = 0.02, deltaSpin = 0.02;
@@ -145,23 +144,11 @@ void joystickEvents(somatic_d_t& daemon_cx_, Krang::Hardware* krang_,
     return;
   }
 
-  // Set the values for the axis
-  if(MODE_ == GROUND_LO || MODE_ == GROUND_HI) {
-    js_forw = -params.joystickGainsGroundLo(0) * x_[1];
-    js_spin = params.joystickGainsGroundLo(1) * x_[2];
-  }
-  else if(MODE_ == BAL_LO) {
-    js_forw = -params.joystickGainsBalLo(0) * x_[1];
-    js_spin = params.joystickGainsBalLo(1) * x_[2];
-  }
-  else if(MODE_ == BAL_HI) {
-    js_forw = -params.joystickGainsBalHi(0) * x_[1];
-    js_spin = params.joystickGainsBalHi(1) * x_[2];
-  }
   else {
-    js_forw = -x_[1] * jsFwdAmp_;
-    js_spin = x_[2] * jsSpinAmp_;
+    js_forw = -x_[1];
+    js_spin = x_[2];
   }
+
 }
 
 /* ************************************************************************************/

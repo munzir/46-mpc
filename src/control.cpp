@@ -50,6 +50,8 @@
 #include <kore.hpp>
 #include <somatic.h>
 
+#include "balancing_config.h"
+
 /* ******************************************************************************************** */
 /// Get the joint values from the encoders and the imu and compute the center of mass as well
 void getState(Krang::Hardware* krang_, dart::dynamics::SkeletonPtr robot_,
@@ -77,15 +79,36 @@ void getState(Krang::Hardware* krang_, dart::dynamics::SkeletonPtr robot_,
 
 /* ******************************************************************************************** */
 /// Update reference left and right wheel pos/vel from joystick data where dt is last iter. time
-void updateReference (double js_forw, double js_spin, double dt,
-                      Eigen::Matrix<double, 6, 1>& refState) {
+void updateReference (const BalancingConfig& params, const KRANG_MODE& MODE_,
+                      const double& js_forw, const double& js_spin,
+                      const double& jsFwdAmp_, const double& jsSpinAmp_,
+                      const double& dt, Eigen::Matrix<double, 6, 1>& refState) {
+
+  double forw, spin;
+  // Set the values for the axis
+  if(MODE_ == GROUND_LO || MODE_ == GROUND_HI) {
+    forw = params.joystickGainsGroundLo(0) * js_forw;
+    spin = params.joystickGainsGroundLo(1) * js_spin;
+  }
+  else if(MODE_ == BAL_LO) {
+    forw = params.joystickGainsBalLo(0) * js_forw;
+    spin = params.joystickGainsBalLo(1) * js_spin;
+  }
+  else if(MODE_ == BAL_HI) {
+    forw = params.joystickGainsBalHi(0) * js_forw;
+    spin = params.joystickGainsBalHi(1) * js_spin;
+  }
+  else {
+    forw = js_forw * jsFwdAmp_;
+    spin = js_spin * jsSpinAmp_;
+  }
 
   // First, set the balancing angle and velocity to zeroes
   refState(0) = refState(1) = 0.0;
 
   // Set the distance and heading velocities using the joystick input
-  refState(3) = js_forw;
-  refState(5) = js_spin;
+  refState(3) = forw;
+  refState(5) = spin;
 
   // Integrate the reference positions with the current reference velocities
   refState(2) += dt * refState(3);
@@ -139,3 +162,31 @@ dart::dynamics::SkeletonPtr setParameters(dart::dynamics::SkeletonPtr robot_,
   return robot_;
 }
 
+/* ******************************************************************************************** */
+void BalancingController(const BalancingConfig& params, bool joystickControl,
+                         KRANG_MODE& MODE, double* control_input) {
+
+  Eigen::Matrix<double, 6, 1> K;
+
+  switch (MODE) {
+    case GROUND_LO: {
+      K = params.pdGainsGroundLo;
+      break;
+    }
+    case GROUND_HI: {
+      break;
+    }
+    case STAND: {
+      break;
+    }
+    case BAL_LO: {
+      break;
+    }
+    case BAL_HI: {
+      break;
+    }
+    case SIT: {
+      break;
+    }
+  }
+}
