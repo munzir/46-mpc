@@ -65,10 +65,6 @@ void keyboardEvents(kbShared& kb_shared, const BalancingConfig& params, bool& st
     //else if(input=='.') readGains();
     else if(input=='j') {
       joystickControl_ = !joystickControl_;
-      if(joystickControl_ == true) {
-        somatic_motor_reset(&daemon_cx_, krang_->arms[Krang::LEFT]);
-        somatic_motor_reset(&daemon_cx_, krang_->arms[Krang::RIGHT]);
-      }
     }
     else if(input=='1') {
       printf("Mode 1\n");
@@ -126,10 +122,6 @@ void joystickEvents(somatic_d_t& daemon_cx_, Krang::Hardware* krang_,
 
   if((b_[4] == 1) && (b_[6] == 0) && (b_[0] == 1) && (lastb0 == 0)) {
     joystickControl_ = !joystickControl_;
-    if(joystickControl_ == true) {
-      somatic_motor_reset(&daemon_cx_, krang_->arms[Krang::LEFT]);
-      somatic_motor_reset(&daemon_cx_, krang_->arms[Krang::RIGHT]);
-    }
   }
 
   if((b_[4] == 1) && (b_[6] == 0) && (b_[2] == 1) && (lastb2 == 0)) {
@@ -188,9 +180,6 @@ void joystickTorsoEvents(const char* b, const double* x, TorsoState* torso_state
 /* ************************************************************************************/
 /// Changes desired arm state based on joystick input
 void joyStickArmEvents(const char* b, const double* x, ArmState* arm_state) {
-
-  // Return if the x[3] is being used for robotiq hands
-  if(fabs(x[3]) > 0.2) arm_state->mode = ArmState::kStop;
 
   // Check if one of the preset configurations are requested by pressing 9 and
   // any of the buttons from 1 to 4 at the same time
