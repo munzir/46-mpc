@@ -59,10 +59,9 @@ void keyboardEvents(kbShared& kb_shared, const BalancingConfig& params, bool& st
                     KRANG_MODE& MODE_);
 
 void joystickEvents(somatic_d_t& daemon_cx_, Krang::Hardware* krang_,
-                    char* b_, double* x, BalancingConfig& params,
-                    double jsFwdAmp_, double jsSpinAmp_, bool& joystickControl_,
-                    KRANG_MODE& MODE_, Eigen::Matrix<double, 6, 1>& K_,
-                    double& js_forw, double& js_spin);
+                    char* b_, double* x_, BalancingConfig& params,
+                    bool& joystickControl_, KRANG_MODE& MODE_,
+                    Eigen::Matrix<double, 6, 1>& K_, double& js_forw, double& js_spin);
 
 void joystickTorsoEvents(const char* b, const double* x, TorsoState* torso_state);
 

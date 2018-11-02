@@ -48,6 +48,8 @@
 #include <kore.hpp>
 #include <somatic.h>
 
+#include "balancing_config.h"
+
 /* ******************************************************************************************** */
 // Krang Mode Enum
 enum KRANG_MODE {
@@ -69,8 +71,10 @@ void getState(Krang::Hardware* krang_, dart::dynamics::SkeletonPtr robot_,
 /* ************************************************************************** */
 /// Update reference left and right wheel pos/vel from joystick data where dt
 //  is last iter. time
-void updateReference (double js_forw, double js_spin, double dt,
-                      Eigen::Matrix<double, 6, 1>& refState);
+void updateReference (const BalancingConfig& params, const KRANG_MODE& MODE_,
+                      const double& js_forw, const double& js_spin,
+                      const double& jsFwdAmp_, const double& jsSpinAmp_,
+                      const double& dt, Eigen::Matrix<double, 6, 1>& refState);
 
 /* ************************************************************************** */
 /// Handles the wheel commands if we are started

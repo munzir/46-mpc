@@ -168,8 +168,8 @@ void run (BalancingConfig& params) {
 
     // Process keyboard and joystick events
     keyboardEvents(kb_shared, params, start, joystickControl, daemon_cx, krang, K, MODE);
-    joystickEvents(daemon_cx, krang, b, x, params, jsFwdAmp, jsSpinAmp, joystickControl,
-                   MODE, K, js_forw, js_spin);
+    joystickEvents(daemon_cx, krang, b, x, params, joystickControl, MODE, K,
+                   js_forw, js_spin);
     if(debug) cout << "js_forw: " << js_forw << ", js_spin: " << js_spin << endl;
     if(joystickControl) {
       if(debug) cout << "Joystick for Arms and Waist..." << endl;
@@ -189,7 +189,8 @@ void run (BalancingConfig& params) {
 //  }
 
     // Update the reference values for the position and spin
-    updateReference(js_forw, js_spin, dt, refState);
+    updateReference (params, MODE, js_forw, js_spin, jsFwdAmp, jsSpinAmp, dt,
+                     refState);
     if(debug) cout << "refState: " << refState.transpose() << endl;
 
     // Calculate state Error
