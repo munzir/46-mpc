@@ -78,11 +78,10 @@ void updateReference (const BalancingConfig& params, const KRANG_MODE& MODE_,
 
 /* ************************************************************************** */
 /// Handles the wheel commands if we are started
-void controlWheels(somatic_d_t& daemon_cx_, bool start_, bool joystickControl_,
-                   KRANG_MODE MODE_,  Eigen::Matrix<double, 6, 1>& K_,
-                   Eigen::Matrix<double, 6, 1>& error, bool debug,
-                   double& lastUleft, double& lastUright,
-                   Krang::Hardware* krang_);
+void BalanceControl(somatic_d_t& daemon_cx_, bool start_, bool joystickControl_,
+                    KRANG_MODE MODE_,  Eigen::Matrix<double, 6, 1>& K_,
+                    Eigen::Matrix<double, 6, 1>& error, bool debug,
+                    double * control_input);
 
 /* ************************************************************************** */
 // // Change robot's beta values (parameters)

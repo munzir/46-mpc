@@ -178,6 +178,11 @@ void run (BalancingConfig& params) {
       joystickTorsoEvents(b, x, &torso_state);
     }
 
+    // Stand/Sit events
+    if (!controlStandSit(b, krang, state, error, params, MODE, K)) {
+      break;
+    }
+
 //  // Cancel any position built up in previous mode
 //  if(lastMode != MODE) {
 //    refState(2) = state(2), refState(4) = state(4);
@@ -200,10 +205,6 @@ void run (BalancingConfig& params) {
     // Krang mode events
     updateKrangMode(state, krang, params, error, mode4iter, MODE, K);
 
-    // Stand/Sit events
-    if (!controlStandSit(b, krang, state, error, params, MODE, K)) {
-      break;
-    }
 
     // ========================================================================
     // Balancing Control
@@ -236,8 +237,16 @@ void run (BalancingConfig& params) {
     if(debug) cout << "K: " << K.transpose() << endl;
 
     // send commands to wheel motors
-    controlWheels(daemon_cx, start, joystickControl, MODE, K, error, debug,
-                  lastUleft, lastUright, krang);
+    double control_input[2];
+    BalanceControl(daemon_cx, start, joystickControl, MODE, K, error, debug,
+                   &control_input[0]);
+    lastUleft = control_input[0], lastUright = control_input[1];
+    if(start) {
+      if(debug) std::cout << "Started..." << std::endl;
+      somatic_motor_cmd(&daemon_cx, krang->amc, SOMATIC__MOTOR_PARAM__MOTOR_CURRENT,
+                        control_input, 2, NULL);
+    }
+
 
     // ========================================================================
     // Control the rest of the body
