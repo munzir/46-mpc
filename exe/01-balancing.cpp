@@ -21,6 +21,14 @@
 #include "utils.h"
 #include <dart/utils/urdf/urdf.hpp>
 
+// Torque to current conversion
+// Motor Constant
+// TODO: Copy comments from repo 28 mpc branch
+double km = 12.0 * 0.00706;
+
+// Gear Ratio
+double GR = 15;
+
 kbShared kb_shared;
 
 /// The vector of states
@@ -33,7 +41,7 @@ bool start = false;						///< Giving time to the user to get the robot in balanc
 /* ******************************************************************************************** */
 // LQR hack ratios
 
-Eigen::MatrixXd lqrHackRatios;
+Eigen::Matrix<double, 4, 4> lqrHackRatios;
 
 /* ******************************************************************************************** */
 // Constants for the robot kinematics
@@ -110,13 +118,6 @@ void run (BalancingConfig& params) {
   // Initialize the running history
   const size_t historySize = 60;
 
-  // Torque to current conversion
-  // Motor Constant
-  // TODO: Copy comments from repo 28 mpc branch
-  double km = 12.0 * 0.00706;
-
-  // Gear Ratio
-  double GR = 15;
 
   // Continue processing data until stop received
   double js_forw = 0.0, js_spin = 0.0, averagedTorque = 0.0, lastUleft = 0.0, lastUright = 0.0;
@@ -211,22 +212,6 @@ void run (BalancingConfig& params) {
 
     // linearize dynamics
     computeLinearizedDynamics(robot, A, B, B_thWheel, B_thCOM);
-
-    // lqr hack ratios only on first iteration
-    if (c_ == 1) {
-      // Call lqr to compute hack ratios
-      lqr(A, B, params.lqrQ, params.lqrR, LQR_Gains);
-      LQR_Gains /= (GR * km);
-
-      lqrHackRatios = Eigen::MatrixXd::Zero(4, 4);
-      for (int i = 0; i < lqrHackRatios.cols(); i++) {
-
-        lqrHackRatios(i, i) = K_stand(i) / -LQR_Gains(i);
-
-      }
-    }
-
-    // lqr gains
     lqr(A, B, params.lqrQ, params.lqrR, LQR_Gains);
     LQR_Gains /= (GR * km);
     LQR_Gains = lqrHackRatios * LQR_Gains;
@@ -297,6 +282,19 @@ void init(BalancingConfig& params) {
   int hwMode = Krang::Hardware::MODE_AMC | Krang::Hardware::MODE_LARM |
     Krang::Hardware::MODE_RARM | Krang::Hardware::MODE_TORSO | Krang::Hardware::MODE_WAIST;
   krang = new Krang::Hardware((Krang::Hardware::Mode) hwMode, &daemon_cx, robot);
+
+  // lqrHackRatios
+  Eigen::MatrixXd A = Eigen::MatrixXd::Zero(4,4);
+  Eigen::MatrixXd B = Eigen::MatrixXd::Zero(4,1);
+  Eigen::VectorXd B_thWheel = Eigen::VectorXd::Zero(3);
+  Eigen::VectorXd B_thCOM = Eigen::VectorXd::Zero(3);
+  Eigen::VectorXd LQR_Gains = Eigen::VectorXd::Zero(4);
+  computeLinearizedDynamics(robot, A, B, B_thWheel, B_thCOM);
+  lqr(A, B, params.lqrQ, params.lqrR, LQR_Gains);
+  LQR_Gains /= (GR * km);
+  for (int i = 0; i < lqrHackRatios.cols(); i++) {
+    lqrHackRatios(i, i) = params.pdGainsStand(i) / -LQR_Gains(i);
+  }
 
   // Read CoM estimation model paramters
   Eigen::MatrixXd beta;
