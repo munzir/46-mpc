@@ -238,8 +238,7 @@ void run (BalancingConfig& params) {
 
     // send commands to wheel motors
     double control_input[2];
-    BalanceControl(daemon_cx, start, joystickControl, MODE, K, error, debug,
-                   &control_input[0]);
+    BalanceControl(joystickControl, MODE, K, error, debug, &control_input[0]);
     lastUleft = control_input[0], lastUright = control_input[1];
     if(start) {
       if(debug) std::cout << "Started..." << std::endl;
