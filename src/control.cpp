@@ -117,11 +117,10 @@ void updateReference (const BalancingConfig& params, const KRANG_MODE& MODE_,
 
 /* ********************************************************************************************* */
 /// Handles the wheel commands if we are started
-void controlWheels(somatic_d_t& daemon_cx_, bool start_, bool joystickControl_,
-                   KRANG_MODE MODE_,  Eigen::Matrix<double, 6, 1>& K_,
-                   Eigen::Matrix<double, 6, 1>& error, bool debug,
-                   double& lastUleft, double& lastUright,
-                   Krang::Hardware* krang_) {
+void BalanceControl(somatic_d_t& daemon_cx_, bool start_, bool joystickControl_,
+                    KRANG_MODE MODE_,  Eigen::Matrix<double, 6, 1>& K_,
+                    Eigen::Matrix<double, 6, 1>& error, bool debug,
+                    double * control_input) {
 
   // Compute the current
   double u_theta = K_.topLeftCorner<2,1>().dot(error.topLeftCorner<2,1>());
@@ -131,16 +130,9 @@ void controlWheels(somatic_d_t& daemon_cx_, bool start_, bool joystickControl_,
 
   // Compute the input for left and right wheels
   if(joystickControl_ && ((MODE_ == GROUND_LO) || (MODE_ == GROUND_HI))) {u_x = 0.0; u_spin = 0.0;}
-  double input [2] = {u_theta + u_x + u_spin, u_theta + u_x - u_spin};
-  input[0] = std::max(-49.0, std::min(49.0, input[0]));
-  input[1] = std::max(-49.0, std::min(49.0, input[1]));
+  control_input[0] = std::max(-49.0, std::min(49.0, u_theta + u_x + u_spin));
+  control_input[1] = std::max(-49.0, std::min(49.0, u_theta + u_x - u_spin));
   if(debug) printf("u_theta: %lf, u_x: %lf, u_spin: %lf\n", u_theta, u_x, u_spin);
-  lastUleft = input[0], lastUright = input[1];
-
-  if(start_) {
-    if(debug) std::cout << "Started..." << std::endl;
-    somatic_motor_cmd(&daemon_cx_, krang_->amc, SOMATIC__MOTOR_PARAM__MOTOR_CURRENT, input, 2, NULL);
-  }
 }
 
 /* ******************************************************************************************** */
@@ -163,14 +155,103 @@ dart::dynamics::SkeletonPtr setParameters(dart::dynamics::SkeletonPtr robot_,
 }
 
 /* ******************************************************************************************** */
-void BalancingController(const BalancingConfig& params, bool joystickControl,
-                         KRANG_MODE& MODE, double* control_input) {
+void BalancingController(const Krang::Hardware* krang,
+                         const Eigen::Matrix<double, 6, 1>& state,
+                         const double& dt,
+                         const BalancingConfig& params,
+                         const bool joystickControl,
+                         const double& js_forw, const double& js_spin,
+                         const bool& debug,
+                         KRANG_MODE& MODE,
+                         Eigen::Matrix<double, 6, 1>& refState,
+                         Eigen::Matrix<double, 6, 1>& error,
+                         double* control_input) {
 
   Eigen::Matrix<double, 6, 1> K;
 
   switch (MODE) {
     case GROUND_LO: {
       K = params.pdGainsGroundLo;
+
+      // Update Reference
+      double forw, spin;
+      // Set the values for the axis
+      if(MODE == GROUND_LO || MODE == GROUND_HI) {
+        forw = params.joystickGainsGroundLo(0) * js_forw;
+        spin = params.joystickGainsGroundLo(1) * js_spin;
+      }
+      else if(MODE == BAL_LO) {
+        forw = params.joystickGainsBalLo(0) * js_forw;
+        spin = params.joystickGainsBalLo(1) * js_spin;
+      }
+      else if(MODE == BAL_HI) {
+        forw = params.joystickGainsBalHi(0) * js_forw;
+        spin = params.joystickGainsBalHi(1) * js_spin;
+      }
+      else {
+        forw = 0.0;
+        spin = 0.0;
+      }
+
+      // First, set the balancing angle and velocity to zeroes
+      refState(0) = refState(1) = 0.0;
+
+      // Set the distance and heading velocities using the joystick input
+      refState(3) = forw;
+      refState(5) = spin;
+
+      // Integrate the reference positions with the current reference velocities
+      refState(2) += dt * refState(3);
+      refState(4) += dt * refState(5);
+
+      if(debug) std::cout << "refState: " << refState.transpose() << std::endl;
+
+      // Calculate state Error
+      error = state - refState;
+      if(debug) {
+        std::cout << "error: " << error.transpose();
+        std::cout << ", imu: " << krang->imu / M_PI * 180.0 << std::endl;
+      }
+
+      static int mode4iter = 0;
+      size_t mode4iterLimit = 100;
+      // If in ground Lo mode and waist angle increases beyond 150.0 goto groundHi mode
+      if(MODE == GROUND_LO) {
+        if((krang->waist->pos[0]-krang->waist->pos[1])/2.0 < 150.0*M_PI/180.0) {
+          MODE = GROUND_HI;
+          K = params.pdGainsGroundHi;
+        }
+      }
+      // If in ground Hi mode and waist angle decreases below 150.0 goto groundLo mode
+      else if(MODE == GROUND_HI) {
+        if((krang->waist->pos[0]-krang->waist->pos[1])/2.0 > 150.0*M_PI/180.0) {
+          MODE = GROUND_LO;
+          K = params.pdGainsGroundLo;
+        }
+      }
+
+      // If we are in the sit down mode, over write the reference
+      else if(MODE == SIT) {
+        static const double limit = ((-103.0 / 180.0) * M_PI);
+        if(krang->imu < limit) {
+          printf("imu (%lf) < limit (%lf): changing to mode 1\n", krang->imu, limit);
+          MODE = GROUND_LO;
+          K = params.pdGainsGroundLo;
+        }
+        else error(0) = krang->imu - limit;
+      }
+      // if in standing up mode check if the balancing angle is reached and stayed,
+      // if so switch to balLow mode
+      else if(MODE == STAND) {
+        if(fabs(state(0)) < 0.034) mode4iter++;
+        // Change to mode 4 (balance low) if stood up enough
+        if(mode4iter > mode4iterLimit) {
+          MODE = BAL_LO;
+          mode4iter = 0;
+          K = params.pdGainsBalLo;
+        }
+      }
+
       break;
     }
     case GROUND_HI: {
