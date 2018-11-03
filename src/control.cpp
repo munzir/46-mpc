@@ -117,10 +117,9 @@ void updateReference (const BalancingConfig& params, const KRANG_MODE& MODE_,
 
 /* ********************************************************************************************* */
 /// Handles the wheel commands if we are started
-void BalanceControl(somatic_d_t& daemon_cx_, bool start_, bool joystickControl_,
-                    KRANG_MODE MODE_,  Eigen::Matrix<double, 6, 1>& K_,
-                    Eigen::Matrix<double, 6, 1>& error, bool debug,
-                    double * control_input) {
+void BalanceControl(bool joystickControl_, KRANG_MODE MODE_,
+                    Eigen::Matrix<double, 6, 1>& K_, Eigen::Matrix<double, 6, 1>& error,
+                    bool debug, double * control_input) {
 
   // Compute the current
   double u_theta = K_.topLeftCorner<2,1>().dot(error.topLeftCorner<2,1>());
