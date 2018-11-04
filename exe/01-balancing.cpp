@@ -165,12 +165,13 @@ void run (BalancingConfig& params) {
     while(!gotInput) gotInput = getJoystickInput(b, x);
 
     // ========================================================================
-    // Generate events based on keyboard input, joystick input and state
+    // Generate events based on keyboard input and joystick input
 
     // Process keyboard and joystick events
-    keyboardEvents(kb_shared, params, start, joystickControl, daemon_cx, krang, K, MODE);
-    joystickEvents(daemon_cx, krang, b, x, params, joystickControl, MODE, K,
-                   js_forw, js_spin);
+    keyboardEvents(kb_shared, params, start, joystickControl, daemon_cx, krang,
+                   K, MODE);
+    joystickBalancingEvents(daemon_cx, krang, b, x, params, joystickControl,
+                            state, error, MODE, K, js_forw, js_spin);
     if(debug) cout << "js_forw: " << js_forw << ", js_spin: " << js_spin << endl;
     if(joystickControl) {
       if(debug) cout << "Joystick for Arms and Waist..." << endl;
@@ -179,8 +180,8 @@ void run (BalancingConfig& params) {
       joystickTorsoEvents(b, x, &torso_state);
     }
 
-    // Stand/Sit events
-    if (!controlStandSit(b, krang, state, error, params, MODE, K)) {
+    // Kill Event
+    if (!joystickKillEvent(b)) {
       break;
     }
 
@@ -194,43 +195,22 @@ void run (BalancingConfig& params) {
 //    lastStart = start;
 //  }
 
-    // Update the reference values for the position and spin
-    updateReference (params, MODE, js_forw, js_spin, jsFwdAmp, jsSpinAmp, dt,
-                     refState);
-    if(debug) cout << "refState: " << refState.transpose() << endl;
-
-    // Calculate state Error
-    error = state - refState;
-    if(debug) cout << "error: " << error.transpose() << ", imu: " << krang->imu / M_PI * 180.0 << endl;
-
-    // Krang mode events
-    updateKrangMode(state, krang, params, error, mode4iter, MODE, K);
-
-
     // ========================================================================
     // Balancing Control
-
-    // linearize dynamics
-    computeLinearizedDynamics(robot, A, B, B_thWheel, B_thCOM);
-    lqr(A, B, params.lqrQ, params.lqrR, LQR_Gains);
-    LQR_Gains /= (GR * km);
-    LQR_Gains = lqrHackRatios * LQR_Gains;
-    if(MODE == STAND || MODE == BAL_LO || MODE == BAL_HI) {
-        K.head(4) = -LQR_Gains;
-    }
-    if(debug) cout << "lqr gains" << LQR_Gains.transpose() << endl;
-    if(debug) cout << "K: " << K.transpose() << endl;
-
-    // send commands to wheel motors
     double control_input[2];
-    BalanceControl(joystickControl, MODE, K, error, debug, &control_input[0]);
+    BalancingController(krang, state, dt, params, lqrHackRatios, joystickControl,
+                        js_forw, js_spin, debug, MODE, refState, error,
+                        &control_input[0]);
     lastUleft = control_input[0], lastUright = control_input[1];
     if(start) {
-      if(debug) std::cout << "Started..." << std::endl;
+      if(debug) {
+        std::cout << "Started...";
+        if(joystickControl) std::cout << "but joystick for arms is enabled ..";
+        std::cout << std::endl;
+      }
       somatic_motor_cmd(&daemon_cx, krang->amc, SOMATIC__MOTOR_PARAM__MOTOR_CURRENT,
                         control_input, 2, NULL);
     }
-
 
     // ========================================================================
     // Control the rest of the body
@@ -241,7 +221,8 @@ void run (BalancingConfig& params) {
     }
 
     // ========================================================================
-    // Print the information about the last iteration (after reading effects of it from sensors)
+    // Print the information about the last iteration
+    // (after reading effects of it from sensors)
     // NOTE: Constructor order is NOT the print order
     if(logGlobal) {
       logStates.push_back(new LogState(time, com, averagedTorque,

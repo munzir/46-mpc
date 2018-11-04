@@ -87,4 +87,33 @@ void BalanceControl(bool joystickControl_, KRANG_MODE MODE_,
 dart::dynamics::SkeletonPtr setParameters(dart::dynamics::SkeletonPtr robot_,
                                           Eigen::MatrixXd betaParams, int bodyParams);
 
+/* ************************************************************************** */
+void UpdateReference(const double& forw, const double& spin, const double& dt,
+                     Eigen::Matrix<double, 6, 1>& refState);
+
+/* ************************************************************************** */
+void ComputeCurrent(const Eigen::Matrix<double, 6, 1>& K,
+                    const Eigen::Matrix<double, 6, 1>& error,
+                    double* u_theta, double* u_x, double* u_spin,
+                    double* control_input);
+
+/* ************************************************************************** */
+Eigen::MatrixXd ComputeLqrGains(
+    const Krang::Hardware* krang,
+    const BalancingConfig& params,
+    const Eigen::Matrix<double, 4, 4>& lqrHackRatios);
+
+/* ************************************************************************** */
+void BalancingController(const Krang::Hardware* krang,
+                         const Eigen::Matrix<double, 6, 1>& state,
+                         const double& dt,
+                         const BalancingConfig& params,
+                         const Eigen::Matrix<double, 4, 4> lqrHackRatios,
+                         const bool joystickControl,
+                         const double& js_forw, const double& js_spin,
+                         const bool& debug,
+                         KRANG_MODE& MODE,
+                         Eigen::Matrix<double, 6, 1>& refState,
+                         Eigen::Matrix<double, 6, 1>& error,
+                         double* control_input);
 #endif // KRANG_BALANCING_CONTROL_H_

@@ -101,28 +101,51 @@ void keyboardEvents(kbShared& kb_shared, const BalancingConfig& params, bool& st
 
 /* ******************************************************************************************** */
 /// Returns the values of axes 1 (left up/down) and 2 (right left/right) in the joystick
-void joystickEvents(somatic_d_t& daemon_cx_, Krang::Hardware* krang_,
-                    char* b_, double* x_, BalancingConfig& params,
-                    bool& joystickControl_, KRANG_MODE& MODE_,
-                    Eigen::Matrix<double, 6, 1>& K_, double& js_forw, double& js_spin) {
+void joystickBalancingEvents(somatic_d_t& daemon_cx_, Krang::Hardware* krang_,
+                             char* b_, double* x_, BalancingConfig& params,
+                             bool& joystickControl_,
+                             const Eigen::Matrix<double, 6, 1>& state,
+                             const Eigen::Matrix<double, 6, 1>& error,
+                             KRANG_MODE& MODE_, Eigen::Matrix<double, 6, 1>& K_,
+                             double& js_forw, double& js_spin) {
 
-  // Change the gains with the given joystick input
-  double deltaTH = 0.2, deltaX = 0.02, deltaSpin = 0.02;
-  if(!joystickControl_) {
-    for(size_t i = 0; i < 4; i++) {
-      if(((b_[5] == 0) && (b_[7] == 0)) && (b_[i] == 1)) K_(i % 2) += ((i < 2) ? deltaTH : -deltaTH);
-      else if((b_[5] == 1) && (b_[i] == 1)) K_((i % 2) + 2) += ((i < 2) ? deltaX : -deltaX);
-      else if((b_[7] == 1) && (b_[i] == 1)) K_((i % 2) + 4) += ((i < 2) ? deltaSpin : -deltaSpin);
-    }
-  }
-
-  // Update joystick and force-compensation controls
-  static int lastb0 = b_[0], lastb1 = b_[1], lastb2 = b_[2];
-
+  // joystickControl flag toggle. activates arm control via joystick if set
+  static int lastb0 = b_[0];
   if((b_[4] == 1) && (b_[6] == 0) && (b_[0] == 1) && (lastb0 == 0)) {
     joystickControl_ = !joystickControl_;
   }
+  lastb0 = b_[0];
 
+  // Change the gains with the given joystick input
+  if(!joystickControl_) {
+    const double deltaTH = 0.2;
+    const double deltaX = 0.02;
+    const double deltaSpin = 0.02;
+    Eigen::Matrix<double, 6, 1>* gains[] = {&params.pdGainsGroundLo,
+        &params.pdGainsStand, &params.pdGainsSit, &params.pdGainsBalLo,
+        &params.pdGainsBalHi, &params.pdGainsGroundHi};
+    if(b_[5] == 0 && b_[7] == 0) {
+      if     (b_[0] == 1) (*(gains[MODE_]))(0) += deltaTH;
+      else if(b_[1] == 1) (*(gains[MODE_]))(1) += deltaTH;
+      else if(b_[2] == 1) (*(gains[MODE_]))(0) -= deltaTH;
+      else if(b_[3] == 1) (*(gains[MODE_]))(1) -= deltaTH;
+    }
+    else if(b_[5] == 1 && b_[7] == 0) {
+      if     (b_[0] == 1) (*(gains[MODE_]))(2) += deltaX;
+      else if(b_[1] == 1) (*(gains[MODE_]))(3) += deltaX;
+      else if(b_[2] == 1) (*(gains[MODE_]))(2) -= deltaX;
+      else if(b_[3] == 1) (*(gains[MODE_]))(3) -= deltaX;
+    }
+    else if(b_[5] == 0 && b_[7] == 1) {
+      if     (b_[0] == 1) (*(gains[MODE_]))(4) += deltaSpin;
+      else if(b_[1] == 1) (*(gains[MODE_]))(5) += deltaSpin;
+      else if(b_[2] == 1) (*(gains[MODE_]))(4) -= deltaSpin;
+      else if(b_[3] == 1) (*(gains[MODE_]))(5) -= deltaSpin;
+    }
+  }
+
+  // Gain Change
+  static int lastb2 = b_[2];
   if((b_[4] == 1) && (b_[6] == 0) && (b_[2] == 1) && (lastb2 == 0)) {
     if(MODE_ == BAL_LO) {
       printf("Mode 5\n");
@@ -135,8 +158,7 @@ void joystickEvents(somatic_d_t& daemon_cx_, Krang::Hardware* krang_,
       MODE_ = BAL_LO;
     }
   }
-
-  lastb0 = b_[0], lastb1 = b_[1], lastb2 = b_[2];
+  lastb2 = b_[2];
 
   // Ignore the joystick statements for the arm control
   if((b_[4] == 1) || (b_[5] == 1) || (b_[6] == 1) || (b_[7] == 1)) {
@@ -149,6 +171,31 @@ void joystickEvents(somatic_d_t& daemon_cx_, Krang::Hardware* krang_,
     js_spin = x_[2];
   }
 
+  // Stand/Sit if button 10 is pressed and conditions are right
+  static bool b9Prev = 0;
+  if(b9Prev == 0 && b_[9] == 1) {
+
+    // If in ground mode and state error is not high stand up
+    if(MODE_ == GROUND_LO) {
+      if(state(0) < 0.0 && error(0) > -10.0*M_PI/180.0) {
+        MODE_ = STAND;
+        std::cout << "[MODE] STAND" << std::endl;
+      } else {
+        std::cout << "[ERR ] Can't stand up!! Bal error too high" << std::endl;
+      }
+    }
+
+    // If in balLow mode and waist is not too high, sit down
+    else if(MODE_ == STAND || MODE_ == BAL_LO) {
+      if((krang_->waist->pos[0] - krang_->waist->pos[1])/2.0 > 150.0*M_PI/180.0) {
+        MODE_ = SIT;
+        std::cout << "[MODE] SIT " << std::endl;
+      } else {
+        std::cout << "[ERR ] Can't sit down, Waist is too high! " << std::endl;
+      }
+    }
+  }
+  b9Prev = b_[9];
 }
 
 /* ************************************************************************************/
@@ -168,11 +215,9 @@ void joystickTorsoEvents(const char* b, const double* x, TorsoState* torso_state
 /// Changes desired arm state based on joystick input
 void joyStickArmEvents(const char* b, const double* x, ArmState* arm_state) {
 
-  // Check if one of the preset configurations are requested by pressing 9 and
-  // any of the buttons from 1 to 4 at the same time
+  // Go To Preset Positions
   if(((b[4] == 1) && (b[6] == 1)) || ((b[5] == 1) && (b[7] == 1))) {
 
-    // Check if the button is pressed for the arm configuration is pressed, if so send pos commands
     bool noConfs = true;
     for(size_t i = 0; i < 4; i++) {
       if(b[i] == 1) {
@@ -222,7 +267,7 @@ void joyStickArmEvents(const char* b, const double* x, ArmState* arm_state) {
   }
 }
 
-/* ********************************************************************************************* */
+/* **************************************************************************** */
 // Decides what mode waist should be in based on the value of the input argument that is assumed
 // to be one of the axes of the joystick
 Somatic__WaistMode joystickWaistEvents(double x) {
@@ -231,102 +276,15 @@ Somatic__WaistMode joystickWaistEvents(double x) {
   if(x < -0.9) waistMode = SOMATIC__WAIST_MODE__MOVE_FWD;
   else if(x > 0.9) waistMode = SOMATIC__WAIST_MODE__MOVE_REV;
   else waistMode = SOMATIC__WAIST_MODE__STOP;
-
   return waistMode;
 }
 
-/* ********************************************************************************************* */
-/// Update Krang Mode based on configuration, state and state error, updates the K matrices used to calculate u/
-void updateKrangMode(const Eigen::Matrix<double, 6, 1>& state,
-                     const Krang::Hardware* krang_, const BalancingConfig& params,
-                     Eigen::Matrix<double, 6, 1>& error,
-                     size_t& mode4iter, KRANG_MODE& MODE_,
-                     Eigen::Matrix<double, 6, 1>& K_) {
-  size_t mode4iterLimit = 100;
-  // If in ground Lo mode and waist angle increases beyond 150.0 goto groundHi mode
-  if(MODE_ == GROUND_LO) {
-    if((krang_->waist->pos[0]-krang_->waist->pos[1])/2.0 < 150.0*M_PI/180.0) {
-      MODE_ = GROUND_HI;
-      K_ = params.pdGainsGroundHi;
-    }
-  }
-    // If in ground Hi mode and waist angle decreases below 150.0 goto groundLo mode
-  else if(MODE_ == GROUND_HI) {
-    if((krang_->waist->pos[0]-krang_->waist->pos[1])/2.0 > 150.0*M_PI/180.0) {
-      MODE_ = GROUND_LO;
-      K_ = params.pdGainsGroundLo;
-    }
-  }
-
-    // If we are in the sit down mode, over write the reference
-  else if(MODE_ == SIT) {
-    static const double limit = ((-103.0 / 180.0) * M_PI);
-    if(krang_->imu < limit) {
-      printf("imu (%lf) < limit (%lf): changing to mode 1\n", krang_->imu, limit);
-      MODE_ = GROUND_LO;
-      K_ = params.pdGainsGroundLo;
-    }
-    else error(0) = krang_->imu - limit;
-  }
-    // if in standing up mode check if the balancing angle is reached and stayed, if so switch to balLow mode
-  else if(MODE_ == STAND) {
-    if(fabs(state(0)) < 0.034) mode4iter++;
-    // Change to mode 4 (balance low) if stood up enough
-    if(mode4iter > mode4iterLimit) {
-      MODE_ = BAL_LO;
-      mode4iter = 0;
-      K_ = params.pdGainsBalLo;
-    }
-  }
-    // COM error correction in balLow mode
-  else if(MODE_ == BAL_LO) {
-    // error(0) += 0.005;
-  }
-    // COM error correction in balHigh mode
-  else if(MODE_ == BAL_HI) {
-    // error(0) -= 0.005;
-  }
-}
-
-/* ********************************************************************************************* */
-/// Handles the wheel commands if we are started
-bool controlStandSit(char* b_, Krang::Hardware* krang_,
-                     Eigen::Matrix<double, 6, 1>& state,
-                     Eigen::Matrix<double, 6, 1>& error, BalancingConfig& params,
-                     KRANG_MODE& MODE_, Eigen::Matrix<double, 6, 1>& K_) {
+/* ****************************************************************************** */
+/// Kill Event
+bool joystickKillEvent(char* b_) {
   // ==========================================================================
-  // Quit if button 9 on the joystick is pressed, stand/sit if button 10 is pressed
-  // Quit
-
-  static bool b9Prev = 0;
+  // Quit if button 9 on the joystick is pressed
 
   if(b_[8] == 1) return false;
-
-    // Stand/Sit if button 10 is pressed and conditions are right
-  else if(b9Prev == 0 && b_[9] == 1) {
-
-    // If in ground mode and state error is not high stand up
-    if(MODE_ == GROUND_LO) {
-      if(state(0) < 0.0 && error(0) > -10.0*M_PI/180.0) {
-        printf("\n\n\nMode 2\n\n\n");
-        K_ = params.pdGainsStand;
-        MODE_ = STAND;
-      } else {
-        printf("\n\n\nCan't stand up, balancing error is too high!\n\n\n");
-      }
-    }
-
-      // If in balLow mode and waist is not too high, sit down
-    else if(MODE_ == STAND || MODE_ == BAL_LO) {
-      if((krang_->waist->pos[0] - krang_->waist->pos[1])/2.0 > 150.0*M_PI/180.0) {
-        printf("\n\n\nMode 3\n\n\n");
-        K_ = params.pdGainsSit;
-        MODE_ = SIT;
-      } else {
-        printf("\n\n\nCan't sit down, Waist is too high!\n\n\n");
-      }
-    }
-  }
-  b9Prev = b_[9];
   return true;
 }
