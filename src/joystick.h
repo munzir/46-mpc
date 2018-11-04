@@ -47,6 +47,50 @@
 #include <somatic.h>
 #include <ach.h>
 
+struct JoystickState {
+    enum FingerButtons {
+        L1,
+        L2,
+        R1,
+        R2,
+        L1L2,
+        R1R2,
+        L1R1,
+        L1R2,
+        L2R1,
+        L2R2,
+        L1L2R1,
+        L1L2R2,
+        L1R1R2,
+        L2R1R2,
+        L1L2R1R2,
+        L1L2R1R2_FREE
+    } fingerMode;
+
+    enum RightThumb {
+        B1_PRESS, B1_HOLD, B1_RELEASE,
+        B2_PRESS, B2_HOLD, B2_RELEASE,
+        B3_PRESS, B3_HOLD, B3_RELEASE,
+        B4_PRESS, B4_HOLD, B4_RELEASE,
+        B10_PRESS, B10_HOLD, B10_RELEASE,
+        RIGHT_THUMB_HORZ_PRESS, RIGHT_THUMB_HORZ_HOLD, RIGHT_THUMB_HORZ_RELEASE,
+        RIGHT_THUMB_VERT_PRESS, RIGHT_THUMB_VERT_HOLD, RIGHT_THUMB_VERT_RELEASE,
+        RIGHT_THUMB_FREE
+    } rightMode;
+
+    enum LeftThumb {
+        B9_PRESS, B9_HOLD, B9_RELEASE,
+        LEFT_THUMB_HORZ_PRESS, LEFT_THUMB_HORZ_HOLD, LEFT_THUMB_HORZ_RELEASE,
+        LEFT_THUMB_VERT_PRESS, LEFT_THUMB_VERT_HOLD, LEFT_THUMB_VERT_RELEASE,
+        CURSOR_HORZ_PRESS, CURSOR_HORZ_HOLD, CURSOR_HORZ_RELEASE,
+        CURSOR_VERT_PRESS, CURSOR_VERT_HOLD, CURSOR_VERT_RELEASE,
+        LEFT_THUMB_FREE
+    } leftMode;
+
+    double thumbValue[2];
+};
+
+
 ach_channel_t js_chan;				///< Read joystick data on this channel
 
 /* ******************************************************************************************** */
@@ -55,6 +99,12 @@ void openJoystickChannel();
 
 /* ******************************************************************************************** */
 /// Returns the values of axes 1 (left up/down) and 2 (right left/right) in the joystick
-bool getJoystickInput(char* b, double* x);
+bool getJoystickInput(char* b, double* x, JoystickState* joystick_state);
+
+/* ******************************************************************************************** */
+// Maps the data read from ach channels to JoystickState
+void MapToJoystickState(char* b,
+                        double* x,
+                        JoystickState* joystick_state);
 
 #endif // KRANG_BALANCING_JOYSTICK_H_
