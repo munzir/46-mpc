@@ -69,20 +69,6 @@ void getState(Krang::Hardware* krang_, dart::dynamics::SkeletonPtr robot_,
               Eigen::Matrix<double, 6, 1>& state, double dt, Eigen::Vector3d* com_);
 
 /* ************************************************************************** */
-/// Update reference left and right wheel pos/vel from joystick data where dt
-//  is last iter. time
-void updateReference (const BalancingConfig& params, const KRANG_MODE& MODE_,
-                      const double& js_forw, const double& js_spin,
-                      const double& jsFwdAmp_, const double& jsSpinAmp_,
-                      const double& dt, Eigen::Matrix<double, 6, 1>& refState);
-
-/* ************************************************************************** */
-/// Handles the wheel commands if we are started
-void BalanceControl(bool joystickControl_, KRANG_MODE MODE_,
-                    Eigen::Matrix<double, 6, 1>& K_, Eigen::Matrix<double, 6, 1>& error,
-                    bool debug, double * control_input);
-
-/* ************************************************************************** */
 // // Change robot's beta values (parameters)
 dart::dynamics::SkeletonPtr setParameters(dart::dynamics::SkeletonPtr robot_,
                                           Eigen::MatrixXd betaParams, int bodyParams);
