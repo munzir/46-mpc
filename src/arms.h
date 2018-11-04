@@ -52,7 +52,7 @@
 // The struct used by controlArm function to decide the control command to be sent
 struct ArmState {
   enum ArmMode {
-    kStop,              // sets both arms' joints speeds to zero
+    kStop,              // both arms' halted
     kMoveLeftBigSet,    // sets left arms' joints 1-4 vel to command_vals[0-3]
     kMoveLeftSmallSet,  // sets left arms' joints 5-7 vel to command_vals[4-6]
     kMoveRightBigSet,   //  sets left arms' joints 1-4 vel to command_vals[0-3]

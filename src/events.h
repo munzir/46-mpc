@@ -58,10 +58,13 @@ void keyboardEvents(kbShared& kb_shared, const BalancingConfig& params, bool& st
                     Krang::Hardware* krang_, Eigen::Matrix<double, 6, 1>& K_,
                     KRANG_MODE& MODE_);
 
-void joystickEvents(somatic_d_t& daemon_cx_, Krang::Hardware* krang_,
-                    char* b_, double* x_, BalancingConfig& params,
-                    bool& joystickControl_, KRANG_MODE& MODE_,
-                    Eigen::Matrix<double, 6, 1>& K_, double& js_forw, double& js_spin);
+void joystickBalancingEvents(somatic_d_t& daemon_cx_, Krang::Hardware* krang_,
+                             char* b_, double* x_, BalancingConfig& params,
+                             bool& joystickControl_,
+                             const Eigen::Matrix<double, 6, 1>& state,
+                             const Eigen::Matrix<double, 6, 1>& error,
+                             KRANG_MODE& MODE_, Eigen::Matrix<double, 6, 1>& K_,
+                             double& js_forw, double& js_spin);
 
 void joystickTorsoEvents(const char* b, const double* x, TorsoState* torso_state);
 
@@ -69,15 +72,6 @@ void joyStickArmEvents(const char* b, const double* x, ArmState* arm_state);
 
 Somatic__WaistMode joystickWaistEvents(double x);
 
-void updateKrangMode(const Eigen::Matrix<double, 6, 1>& state,
-                     const Krang::Hardware* krang_, const BalancingConfig& params,
-                     Eigen::Matrix<double, 6, 1>& error,
-                     size_t& mode4iter, KRANG_MODE& MODE_,
-                     Eigen::Matrix<double, 6, 1>& K_);
-
-bool controlStandSit(char* b_, Krang::Hardware* krang_,
-                     Eigen::Matrix<double, 6, 1>& state,
-                     Eigen::Matrix<double, 6, 1>& error, BalancingConfig& params,
-                     KRANG_MODE& MODE_, Eigen::Matrix<double, 6, 1>& K_);
+bool joystickKillEvent(char* b_);
 
 #endif // KRANG_BALANCING_EVENTS_H_

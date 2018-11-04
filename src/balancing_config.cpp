@@ -73,24 +73,6 @@ void ReadConfigParams(const char* config_file, BalancingConfig* params) {
     // Read the path to com estimation model parameters
     strcpy(params->comParametersPath, cfg->lookupString(scope, "comParametersPath"));
 
-    // Read the Q matrix for LQR
-    params->lqrQ.setZero();
-    str = cfg->lookupString(scope, "lqrQ");
-    stream.str(str);
-    for(int i = 0; i < 4; i++)
-      stream >> params->lqrQ(i, i);
-    stream.clear();
-    std::cout << "lqrQ: " << params->lqrQ << std::endl;
-
-    // Read the R matrix for LQR
-    params->lqrR.setZero();
-    str = cfg->lookupString(scope, "lqrR");
-    stream.str(str);
-    for(int i = 0; i < 1; i++)
-      stream >> params->lqrR(i, i);
-    stream.clear();
-    std::cout << "lqrR: " << params->lqrR << std::endl;
-
     // Read PD Gains
     const char* pdGainsStrings[] = {
       "pdGainsGroundLo", "pdGainsGroundHi",
@@ -132,6 +114,28 @@ void ReadConfigParams(const char* config_file, BalancingConfig* params) {
       std::cout << joystickGainsStrings[i] << ": ";
       std::cout << (*(joystickGains[i])).transpose() << std::endl;
     }
+
+    // Dynamic LQR?
+    params->dynamicLQR = cfg->lookupBoolean(scope, "dynamicLQR");
+    std::cout << "dynamicLQR: " << (params->dynamicLQR? "true":"false") << std::endl;
+    // Read the Q matrix for LQR
+    params->lqrQ.setZero();
+    str = cfg->lookupString(scope, "lqrQ");
+    stream.str(str);
+    for(int i = 0; i < 4; i++)
+      stream >> params->lqrQ(i, i);
+    stream.clear();
+    std::cout << "lqrQ: " << params->lqrQ << std::endl;
+
+    // Read the R matrix for LQR
+    params->lqrR.setZero();
+    str = cfg->lookupString(scope, "lqrR");
+    stream.str(str);
+    for(int i = 0; i < 1; i++)
+      stream >> params->lqrR(i, i);
+    stream.clear();
+    std::cout << "lqrR: " << params->lqrR << std::endl;
+
 
   } catch (const config4cpp::ConfigurationException& ex) {
     std::cerr << ex.c_str() << std::endl;
