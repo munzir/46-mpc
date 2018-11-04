@@ -44,6 +44,7 @@
 !/src/events.cpp
 !/src/control.h
 !/src/control.cpp
+!/exe/02-joystick_testing.cpp
 
 # exe
 !/exe/
