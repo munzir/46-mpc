@@ -87,6 +87,10 @@ struct JoystickState {
         LEFT_THUMB_FREE
     } leftMode;
 
+    enum {
+      LEFT,
+      RIGHT
+    };
     double thumbValue[2];
 };
 
@@ -99,7 +103,7 @@ void openJoystickChannel();
 
 /* ******************************************************************************************** */
 /// Returns the values of axes 1 (left up/down) and 2 (right left/right) in the joystick
-bool getJoystickInput(char* b, double* x, JoystickState* joystick_state);
+bool getJoystickInput(char* b, double* x, JoystickState* joystick_state = NULL);
 
 /* ******************************************************************************************** */
 // Maps the data read from ach channels to JoystickState

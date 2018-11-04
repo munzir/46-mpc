@@ -54,8 +54,8 @@ enum BUTTONS {
   THREE,
   FOUR,
   L1,
-  L2,
   R1,
+  L2,
   R2,
   NINE,
   TEN
@@ -82,7 +82,7 @@ void openJoystickChannel() {
 
 /* ******************************************************************************************** */
 /// Returns the values of axes 1 (left up/down) and 2 (right left/right) in the joystick
-bool getJoystickInput(char* b, double* x, JoystickState* joystick_state=NULL) {
+bool getJoystickInput(char* b, double* x, JoystickState* joystick_state) {
 
   // Get the message and check output is OK.
   int r = 0;
@@ -118,6 +118,40 @@ void MapToJoystickState(char* b, double* x,
   // convert analog values to boolean data - 0/1
   for (int i=0; i < 6; i++) {
     bool_x[i] = (fabs(x[i]) > 0.001);
+  }
+
+  // thumbValues to be zero if thumb axes are not active
+  joystick_state->thumbValue[JoystickState::LEFT] = 0.0;
+  joystick_state->thumbValue[JoystickState::RIGHT] = 0.0;
+
+  // for one horz/vert pair, only one direction can be active at a time
+  // prioritize the one with a higher value
+  if(bool_x[LEFT_THUMB_HORZ] == 1 && bool_x[LEFT_THUMB_VERT] == 1) {
+    if(fabs(x[LEFT_THUMB_HORZ]) >= fabs(x[LEFT_THUMB_VERT])) {
+      bool_x[LEFT_THUMB_HORZ] = 1;
+      bool_x[LEFT_THUMB_VERT] = 0;
+    } else {
+      bool_x[LEFT_THUMB_HORZ] = 0;
+      bool_x[LEFT_THUMB_VERT] = 1;
+    }
+  }
+  if(bool_x[RIGHT_THUMB_HORZ] == 1 && bool_x[RIGHT_THUMB_VERT] == 1) {
+    if(fabs(x[RIGHT_THUMB_HORZ]) >= fabs(x[RIGHT_THUMB_VERT])) {
+      bool_x[RIGHT_THUMB_HORZ] = 1;
+      bool_x[RIGHT_THUMB_VERT] = 0;
+    } else {
+      bool_x[RIGHT_THUMB_HORZ] = 0;
+      bool_x[RIGHT_THUMB_VERT] = 1;
+    }
+  }
+  if(bool_x[CURSOR_HORZ] == 1 && bool_x[CURSOR_VERT] == 1) {
+    if(fabs(x[CURSOR_HORZ]) >= fabs(x[CURSOR_VERT])) {
+      bool_x[CURSOR_HORZ] = 1;
+      bool_x[CURSOR_VERT] = 0;
+    } else {
+      bool_x[CURSOR_HORZ] = 0;
+      bool_x[CURSOR_VERT] = 1;
+    }
   }
 
   // RIGHMB MODEITAL BUTTONS [(1), (2), (3), (4), (10)]
@@ -175,10 +209,12 @@ void MapToJoystickState(char* b, double* x,
   //tapping TSR-side
   else if ( bool_x[RIGHT_THUMB_HORZ] == 1 &&  last_bool_x[RIGHT_THUMB_HORZ] == 0  ) {
     joystick_state->rightMode = JoystickState::RIGHT_THUMB_HORZ_PRESS;
+    joystick_state->thumbValue[JoystickState::RIGHT] = x[RIGHT_THUMB_HORZ];
   }
   //holding TSR-side
   else if ( bool_x[RIGHT_THUMB_HORZ] == 1 &&  last_bool_x[RIGHT_THUMB_HORZ] == 1  ) {
     joystick_state->rightMode = JoystickState::RIGHT_THUMB_HORZ_HOLD;
+    joystick_state->thumbValue[JoystickState::RIGHT] = x[RIGHT_THUMB_HORZ];
   }
   //releasing TSR-side
   else if ( bool_x[RIGHT_THUMB_HORZ] == 0 &&  last_bool_x[RIGHT_THUMB_HORZ] == 1  ) {
@@ -187,10 +223,12 @@ void MapToJoystickState(char* b, double* x,
   //tapping TSR-updown
   else if ( bool_x[RIGHT_THUMB_VERT] == 1 &&  last_bool_x[RIGHT_THUMB_VERT] == 0  ) {
     joystick_state->rightMode = JoystickState::RIGHT_THUMB_VERT_PRESS;
+    joystick_state->thumbValue[JoystickState::RIGHT] = x[RIGHT_THUMB_VERT];
   }
   //holding TSR-updown
   else if ( bool_x[RIGHT_THUMB_VERT] == 1 &&  last_bool_x[RIGHT_THUMB_VERT] == 1  ) {
     joystick_state->rightMode = JoystickState::RIGHT_THUMB_VERT_HOLD;
+    joystick_state->thumbValue[JoystickState::RIGHT] = x[RIGHT_THUMB_VERT];
   }
   //releasing TSR-updown
   else if ( bool_x[RIGHT_THUMB_VERT] == 0 &&  last_bool_x[RIGHT_THUMB_VERT] == 1  ) {
@@ -223,10 +261,12 @@ void MapToJoystickState(char* b, double* x,
   //tapping TSL-side
   else if ( bool_x[LEFT_THUMB_HORZ] == 1 &&  last_bool_x[LEFT_THUMB_HORZ] == 0  ) {
     joystick_state->leftMode = JoystickState::LEFT_THUMB_HORZ_PRESS;
+    joystick_state->thumbValue[JoystickState::LEFT] = x[LEFT_THUMB_HORZ];
   }
   //holding TSL-side
   else if ( bool_x[LEFT_THUMB_HORZ] == 1 &&  last_bool_x[LEFT_THUMB_HORZ] == 1  ) {
     joystick_state->leftMode = JoystickState::LEFT_THUMB_HORZ_HOLD;
+    joystick_state->thumbValue[JoystickState::LEFT] = x[LEFT_THUMB_HORZ];
   }
   //releasing TSL-side
   else if ( bool_x[LEFT_THUMB_HORZ] == 0 &&  last_bool_x[LEFT_THUMB_HORZ] == 1  ) {
@@ -235,10 +275,12 @@ void MapToJoystickState(char* b, double* x,
   //tapping TSL-updn
   else if ( bool_x[LEFT_THUMB_VERT] == 1 &&  last_bool_x[LEFT_THUMB_VERT] == 0  ) {
     joystick_state->leftMode = JoystickState::LEFT_THUMB_VERT_PRESS;
+    joystick_state->thumbValue[JoystickState::LEFT] = x[LEFT_THUMB_VERT];
   }
   //holding TSL-updn
   else if ( bool_x[LEFT_THUMB_VERT] == 1 &&  last_bool_x[LEFT_THUMB_VERT] == 1  ) {
     joystick_state->leftMode = JoystickState::LEFT_THUMB_VERT_HOLD;
+    joystick_state->thumbValue[JoystickState::LEFT] = x[LEFT_THUMB_VERT];
   }
   //releasing TSL-updn
   else if ( bool_x[LEFT_THUMB_VERT] == 0 &&  last_bool_x[LEFT_THUMB_VERT] == 1  ) {
@@ -247,10 +289,12 @@ void MapToJoystickState(char* b, double* x,
   //tapping AXL-side
   else if ( bool_x[CURSOR_HORZ] == 1 &&  last_bool_x[CURSOR_HORZ] == 0  ) {
     joystick_state->leftMode = JoystickState::CURSOR_HORZ_PRESS;
+    joystick_state->thumbValue[JoystickState::LEFT] = x[CURSOR_HORZ];
   }
   //holding AXL-side
   else if ( bool_x[CURSOR_HORZ] == 1 &&  last_bool_x[CURSOR_HORZ] == 1  ) {
     joystick_state->leftMode = JoystickState::CURSOR_HORZ_HOLD;
+    joystick_state->thumbValue[JoystickState::LEFT] = x[CURSOR_HORZ];
   }
   //releasing AXL-side
   else if ( bool_x[CURSOR_HORZ] == 0 &&  last_bool_x[CURSOR_HORZ] == 1  ) {
@@ -259,10 +303,12 @@ void MapToJoystickState(char* b, double* x,
   //tapping AXL-updn
   else if ( bool_x[CURSOR_VERT] == 1 &&  last_bool_x[CURSOR_VERT] == 0  ) {
     joystick_state->leftMode = JoystickState::CURSOR_VERT_PRESS;
+    joystick_state->thumbValue[JoystickState::LEFT] = x[CURSOR_VERT];
   }
   //holding AXL-updn
   else if ( bool_x[CURSOR_VERT] == 1 &&  last_bool_x[CURSOR_VERT] == 1  ) {
     joystick_state->leftMode = JoystickState::CURSOR_VERT_HOLD;
+    joystick_state->thumbValue[JoystickState::LEFT] = x[CURSOR_VERT];
   }
   //releasing AXL-updn
   else if ( bool_x[CURSOR_VERT] == 0 &&  last_bool_x[CURSOR_VERT] == 1  ) {
@@ -345,8 +391,10 @@ void MapToJoystickState(char* b, double* x,
 
 
   // update last values for buttons and analog values
-  for (int i=0; i < 6; i++) {
+  for (int i=0; i < 10; i++) {
     last_b[i] = b[i];
+  }
+  for (int i=0; i < 6; i++) {
     last_bool_x[i] = bool_x[i];
   }
 }
