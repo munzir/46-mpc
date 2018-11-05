@@ -64,7 +64,6 @@ void run (BalancingConfig& params) {
   torso_state.mode = TorsoState::kStop;
   Somatic__WaistMode waist_mode;
   BalanceControl balance_control(krang, robot, params);
-  const char MODE_string[][16] = {"Ground Lo", "Stand", "Sit", "Bal Lo", "Bal Hi"};
   while(!somatic_sig_received) {
 
     bool debug = (debug_iter++ % 20 == 0);
@@ -104,14 +103,14 @@ void run (BalancingConfig& params) {
     }
 
     // Print the information about the last iteration
-    // (after reading effects of it from sensors)
-    // NOTE: Constructor order is NOT the print order
-    // if(logGlobal) {
-    //  logStates.push_back(new LogState(time, com, averagedTorque,
-    //                                   externalWrench(4), krang->amc->cur[0],
-    //                                   krang->amc->cur[1], state, refState,
-    //                                   lastUleft, lastUright));
-    //}
+      // (after reading effects of it from sensors)
+      // NOTE: Constructor order is NOT the print order
+      // if(logGlobal) {
+      //  logStates.push_back(new LogState(time, com, averagedTorque,
+      //                                   externalWrench(4), krang->amc->cur[0],
+      //                                   krang->amc->cur[1], state, refState,
+      //                                   lastUleft, lastUright));
+      //}
 
     // Print the mode
     if(debug) {
