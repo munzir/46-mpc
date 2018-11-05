@@ -100,19 +100,20 @@ void ReadConfigParams(const char* config_file, BalancingConfig* params) {
       "joystickGainsStand", "joystickGainsSit",
       "joystickGainsBalLo", "joystickGainsBalHi"
     };
-    Eigen::Matrix<double, 2, 1>* joystickGains[] = {
-      &params->joystickGainsGroundLo, &params->joystickGainsGroundHi,
-      &params->joystickGainsStand, &params->joystickGainsSit,
-      &params->joystickGainsBalLo, &params->joystickGainsBalHi
+    double* joystickGains[] = {
+      params->joystickGainsGroundLo, params->joystickGainsGroundHi,
+      params->joystickGainsStand, params->joystickGainsSit,
+      params->joystickGainsBalLo, params->joystickGainsBalHi
     };
     for(int i = 0; i<6; i++) {
       str = cfg->lookupString(scope, joystickGainsStrings[i]);
       stream.str(str);
       for(int j = 0; j < 2; j++)
-        stream >> (*(joystickGains[i]))(j);
+        stream >> joystickGains[i][j];
       stream.clear();
       std::cout << joystickGainsStrings[i] << ": ";
-      std::cout << (*(joystickGains[i])).transpose() << std::endl;
+      std::cout << joystickGains[i][0] << "  ";
+      std::cout << joystickGains[i][1] << std::endl;
     }
 
     // Dynamic LQR?
@@ -135,6 +136,10 @@ void ReadConfigParams(const char* config_file, BalancingConfig* params) {
       stream >> params->lqrR(i, i);
     stream.clear();
     std::cout << "lqrR: " << params->lqrR << std::endl;
+
+    // Read parameters for bal control mode transition
+    params->imuSitAngle = cfg->lookupFloat(scope, "imuSitAngle");
+    params->toBalThreshold = cfg->lookupFloat(scope, "toBalThreshold");
 
 
   } catch (const config4cpp::ConfigurationException& ex) {

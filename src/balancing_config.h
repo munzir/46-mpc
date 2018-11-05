@@ -66,17 +66,21 @@ struct BalancingConfig {
   Eigen::Matrix<double, 6, 1> pdGainsBalHi;
 
   // Joystick Gains
-  Eigen::Matrix<double, 2, 1> joystickGainsGroundLo;
-  Eigen::Matrix<double, 2, 1> joystickGainsGroundHi;
-  Eigen::Matrix<double, 2, 1> joystickGainsStand;
-  Eigen::Matrix<double, 2, 1> joystickGainsSit;
-  Eigen::Matrix<double, 2, 1> joystickGainsBalLo;
-  Eigen::Matrix<double, 2, 1> joystickGainsBalHi;
+  double joystickGainsGroundLo[2];
+  double joystickGainsGroundHi[2];
+  double joystickGainsStand[2];
+  double joystickGainsSit[2];
+  double joystickGainsBalLo[2];
+  double joystickGainsBalHi[2];
 
   // Q and R matrices for LQR
   bool dynamicLQR;
   Eigen::Matrix<double, 4, 4> lqrQ;
   Eigen::Matrix<double, 1, 1> lqrR;
+
+  // Balancing control mode transition parameters
+  double imuSitAngle;
+  double toBalThreshold;
 };
 
 // Function for reading configuration parameters. First argument is the location of

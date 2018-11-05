@@ -104,6 +104,7 @@ void keyboardEvents(kbShared& kb_shared, const BalancingConfig& params, bool& st
 void joystickBalancingEvents(somatic_d_t& daemon_cx_, Krang::Hardware* krang_,
                              char* b_, double* x_, BalancingConfig& params,
                              bool& joystickControl_,
+                             Eigen::Matrix<double, 6, 1>& refState,
                              const Eigen::Matrix<double, 6, 1>& state,
                              const Eigen::Matrix<double, 6, 1>& error,
                              KRANG_MODE& MODE_, Eigen::Matrix<double, 6, 1>& K_,
@@ -178,7 +179,10 @@ void joystickBalancingEvents(somatic_d_t& daemon_cx_, Krang::Hardware* krang_,
     // If in ground mode and state error is not high stand up
     if(MODE_ == GROUND_LO) {
       if(state(0) < 0.0 && error(0) > -10.0*M_PI/180.0) {
+
         MODE_ = STAND;
+        refState(2) = state(2);
+        refState(4) = state(4);
         std::cout << "[MODE] STAND" << std::endl;
       } else {
         std::cout << "[ERR ] Can't stand up!! Bal error too high" << std::endl;
