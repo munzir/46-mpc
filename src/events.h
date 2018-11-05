@@ -53,19 +53,11 @@
 #include <somatic.h>
 #include "torso.h"
 
-void keyboardEvents(kbShared& kb_shared, const BalancingConfig& params, bool& start_,
-                    bool& joystickControl_, somatic_d_t& daemon_cx_,
-                    Krang::Hardware* krang_, Eigen::Matrix<double, 6, 1>& K_,
-                    KRANG_MODE& MODE_);
+void keyboardEvents(kbShared& kb_shared, bool& start_, bool& joystickControl_,
+                    BalanceControl& balance_control);
 
-void joystickBalancingEvents(somatic_d_t& daemon_cx_, Krang::Hardware* krang_,
-                             char* b_, double* x_, BalancingConfig& params,
-                             bool& joystickControl_,
-                             Eigen::Matrix<double, 6, 1>& refState,
-                             const Eigen::Matrix<double, 6, 1>& state,
-                             const Eigen::Matrix<double, 6, 1>& error,
-                             KRANG_MODE& MODE_, Eigen::Matrix<double, 6, 1>& K_,
-                             double& js_forw, double& js_spin);
+void joystickBalancingEvents(char* b_, double* x_, bool& joystickControl_,
+                             BalanceControl& balance_control);
 
 void joystickTorsoEvents(const char* b, const double* x, TorsoState* torso_state);
 

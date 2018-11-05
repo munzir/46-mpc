@@ -52,63 +52,52 @@
 /* ******************************************************************************************** */
 // If a character was entered from the keyboard process it
 
-void keyboardEvents(kbShared& kb_shared, const BalancingConfig& params, bool& start_,
-                    bool& joystickControl_, somatic_d_t& daemon_cx_,
-                    Krang::Hardware* krang_, Eigen::Matrix<double, 6, 1>& K_,
-                    KRANG_MODE& MODE_) {
+void keyboardEvents(kbShared& kb_shared, bool& start_, bool& joystickControl_,
+                    BalanceControl& balance_control) {
 
   char input;
 
   if(kbCharReceived(kb_shared, &input)) {
 
-    if(input=='s') start_ = true;
+    if(input=='s') {
+      start_ = true;
+      balance_control.CancelPositionBuiltup();
+    }
     //else if(input=='.') readGains();
     else if(input=='j') {
       joystickControl_ = !joystickControl_;
     }
     else if(input=='1') {
       printf("Mode 1\n");
-      K_ = params.pdGainsGroundLo;
-      MODE_ = GROUND_LO;
+      balance_control.ForceModeChange(BalanceControl::GROUND_LO);
     }
     else if(input=='2') {
       printf("Mode 2\n");
-      K_ = params.pdGainsStand;
-      MODE_ = STAND;
+      balance_control.ForceModeChange(BalanceControl::STAND);
     }
     else if(input=='3') {
       printf("Mode 3\n");
-      K_ = params.pdGainsSit;
-      MODE_ = SIT;
+      balance_control.ForceModeChange(BalanceControl::SIT);
     }
     else if(input=='4') {
       printf("Mode 4\n");
-      K_ = params.pdGainsBalLo;
-      MODE_ = BAL_LO;
+      balance_control.ForceModeChange(BalanceControl::BAL_LO);
     }
     else if(input=='5') {
       printf("Mode 5\n");
-      K_ = params.pdGainsBalHi;
-      MODE_ = BAL_HI;
+      balance_control.ForceModeChange(BalanceControl::BAL_HI);
     }
     else if(input=='6') {
       printf("Mode 6\n");
-      K_ = params.pdGainsGroundHi;
-      MODE_ = GROUND_HI;
+      balance_control.ForceModeChange(BalanceControl::GROUND_HI);
     }
   }
 }
 
 /* ******************************************************************************************** */
 /// Returns the values of axes 1 (left up/down) and 2 (right left/right) in the joystick
-void joystickBalancingEvents(somatic_d_t& daemon_cx_, Krang::Hardware* krang_,
-                             char* b_, double* x_, BalancingConfig& params,
-                             bool& joystickControl_,
-                             Eigen::Matrix<double, 6, 1>& refState,
-                             const Eigen::Matrix<double, 6, 1>& state,
-                             const Eigen::Matrix<double, 6, 1>& error,
-                             KRANG_MODE& MODE_, Eigen::Matrix<double, 6, 1>& K_,
-                             double& js_forw, double& js_spin) {
+void joystickBalancingEvents(char* b_, double* x_, bool& joystickControl_,
+                             BalanceControl& balance_control) {
 
   // joystickControl flag toggle. activates arm control via joystick if set
   static int lastb0 = b_[0];
@@ -122,82 +111,44 @@ void joystickBalancingEvents(somatic_d_t& daemon_cx_, Krang::Hardware* krang_,
     const double deltaTH = 0.2;
     const double deltaX = 0.02;
     const double deltaSpin = 0.02;
-    Eigen::Matrix<double, 6, 1>* gains[] = {&params.pdGainsGroundLo,
-        &params.pdGainsStand, &params.pdGainsSit, &params.pdGainsBalLo,
-        &params.pdGainsBalHi, &params.pdGainsGroundHi};
     if(b_[5] == 0 && b_[7] == 0) {
-      if     (b_[0] == 1) (*(gains[MODE_]))(0) += deltaTH;
-      else if(b_[1] == 1) (*(gains[MODE_]))(1) += deltaTH;
-      else if(b_[2] == 1) (*(gains[MODE_]))(0) -= deltaTH;
-      else if(b_[3] == 1) (*(gains[MODE_]))(1) -= deltaTH;
+      if     (b_[0] == 1) balance_control.ChangePdGain(0, +deltaTH);
+      else if(b_[1] == 1) balance_control.ChangePdGain(1, +deltaTH);
+      else if(b_[2] == 1) balance_control.ChangePdGain(0, -deltaTH);
+      else if(b_[3] == 1) balance_control.ChangePdGain(1, -deltaTH);
     }
     else if(b_[5] == 1 && b_[7] == 0) {
-      if     (b_[0] == 1) (*(gains[MODE_]))(2) += deltaX;
-      else if(b_[1] == 1) (*(gains[MODE_]))(3) += deltaX;
-      else if(b_[2] == 1) (*(gains[MODE_]))(2) -= deltaX;
-      else if(b_[3] == 1) (*(gains[MODE_]))(3) -= deltaX;
+      if     (b_[0] == 1) balance_control.ChangePdGain(2, +deltaX);
+      else if(b_[1] == 1) balance_control.ChangePdGain(3, +deltaX);
+      else if(b_[2] == 1) balance_control.ChangePdGain(2, -deltaX);
+      else if(b_[3] == 1) balance_control.ChangePdGain(3, -deltaX);
     }
     else if(b_[5] == 0 && b_[7] == 1) {
-      if     (b_[0] == 1) (*(gains[MODE_]))(4) += deltaSpin;
-      else if(b_[1] == 1) (*(gains[MODE_]))(5) += deltaSpin;
-      else if(b_[2] == 1) (*(gains[MODE_]))(4) -= deltaSpin;
-      else if(b_[3] == 1) (*(gains[MODE_]))(5) -= deltaSpin;
+      if     (b_[0] == 1) balance_control.ChangePdGain(4, +deltaSpin);
+      else if(b_[1] == 1) balance_control.ChangePdGain(5, +deltaSpin);
+      else if(b_[2] == 1) balance_control.ChangePdGain(4, -deltaSpin);
+      else if(b_[3] == 1) balance_control.ChangePdGain(5, -deltaSpin);
     }
   }
 
   // Gain Change
   static int lastb2 = b_[2];
   if((b_[4] == 1) && (b_[6] == 0) && (b_[2] == 1) && (lastb2 == 0)) {
-    if(MODE_ == BAL_LO) {
-      printf("Mode 5\n");
-      K_ = params.pdGainsBalHi;
-      MODE_ = BAL_HI;
-    }
-    else if (MODE_ == BAL_HI) {
-      printf("Mode 4\n");
-      K_ = params.pdGainsBalLo;
-      MODE_ = BAL_LO;
-    }
+    balance_control.BalHiLoEvent();
   }
   lastb2 = b_[2];
 
   // Ignore the joystick statements for the arm control
   if((b_[4] == 1) || (b_[5] == 1) || (b_[6] == 1) || (b_[7] == 1)) {
-    js_forw = js_spin = 0.0;
-    return;
-  }
-
-  else {
-    js_forw = -x_[1];
-    js_spin = x_[2];
+    balance_control.SetFwdSpinInputs(0.0, 0.0);
+  } else {
+    balance_control.SetFwdSpinInputs(-x_[1], x_[2]);
   }
 
   // Stand/Sit if button 10 is pressed and conditions are right
   static bool b9Prev = 0;
   if(b9Prev == 0 && b_[9] == 1) {
-
-    // If in ground mode and state error is not high stand up
-    if(MODE_ == GROUND_LO) {
-      if(state(0) < 0.0 && error(0) > -10.0*M_PI/180.0) {
-
-        MODE_ = STAND;
-        refState(2) = state(2);
-        refState(4) = state(4);
-        std::cout << "[MODE] STAND" << std::endl;
-      } else {
-        std::cout << "[ERR ] Can't stand up!! Bal error too high" << std::endl;
-      }
-    }
-
-    // If in balLow mode and waist is not too high, sit down
-    else if(MODE_ == STAND || MODE_ == BAL_LO) {
-      if((krang_->waist->pos[0] - krang_->waist->pos[1])/2.0 > 150.0*M_PI/180.0) {
-        MODE_ = SIT;
-        std::cout << "[MODE] SIT " << std::endl;
-      } else {
-        std::cout << "[ERR ] Can't sit down, Waist is too high! " << std::endl;
-      }
-    }
+    balance_control.StandSitEvent();
   }
   b9Prev = b_[9];
 }

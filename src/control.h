@@ -56,20 +56,6 @@ class BalanceControl {
   BalanceControl (Krang::Hardware* krang_, dart::dynamics::SkeletonPtr robot_,
                   BalancingConfig& params);
   ~BalanceControl () {};
-
- private:
-  void GetState();
-  void SetComParameters(Eigen::MatrixXd betaParams, int bodyParams);
-  void UpdateReference(const double& forw, const double& spin);
-  void ComputeCurrent(const Eigen::Matrix<double, 6, 1>& K,
-                      const Eigen::Matrix<double, 6, 1>& error,
-                      double* control_input);
-  Eigen::MatrixXd ComputeLqrGains();
-  void BalancingController(const bool joystickControl,
-                           double* control_input);
-  void PrintLog();
-
- private:
   enum BalanceMode {
     GROUND_LO = 0,
     STAND,
@@ -78,13 +64,35 @@ class BalanceControl {
     BAL_HI,
     GROUND_HI,
     NUM_MODES
-  } MODE;
+  };
+  static const char MODE_STRINGS[][16];
+  double ElapsedTimeSinceLastCall();
+  void UpdateState();
+  void CancelPositionBuiltup();
+  void ForceModeChange(BalanceMode new_mode);
+  void BalancingController(const bool joystickControl, double* control_input);
+  void ChangePdGain(int index, double change);
+  void Print();
+  void StandSitEvent();
+  void BalHiLoEvent();
+  void SetFwdSpinInputs(double forw, double spin);
+ private:
+  void SetComParameters(Eigen::MatrixXd betaParams, int bodyParams);
+  void UpdateReference(const double& forw, const double& spin);
+  void ComputeCurrent(const Eigen::Matrix<double, 6, 1>& K,
+                      const Eigen::Matrix<double, 6, 1>& error,
+                      double* control_input);
+  Eigen::MatrixXd ComputeLqrGains();
+
+ private:
+  BalanceMode MODE;
   Eigen::Matrix<double, 4, 4> lqrHackRatios;
   Eigen::Matrix<double, 6, 1> K, refState, state, error;
   Eigen::Matrix<double, 6, 1> pdGains[NUM_MODES];
   double joystickGains[NUM_MODES][2];
   Eigen::Matrix<double, 3, 1> com;
   double joystick_forw, joystick_spin;
+  struct timespec t_now, t_prev;
   double dt;
   double u_theta, u_x, u_spin;
 
@@ -97,56 +105,4 @@ class BalanceControl {
 
   double toBalThreshold, imuSitAngle;
 };
-/* ******************************************************************************************** */
-// Krang Mode Enum
-enum KRANG_MODE {
-    GROUND_LO,
-    STAND,
-    SIT,
-    BAL_LO,
-    BAL_HI,
-    GROUND_HI,
-    MPC
-};
-
-/* ************************************************************************** */
-/// Get the joint values from the encoders and the imu and compute the center
-//  of mass as well
-void getState(Krang::Hardware* krang_, dart::dynamics::SkeletonPtr robot_,
-              Eigen::Matrix<double, 6, 1>& state, double dt, Eigen::Vector3d* com_);
-
-/* ************************************************************************** */
-// // Change robot's beta values (parameters)
-dart::dynamics::SkeletonPtr setParameters(dart::dynamics::SkeletonPtr robot_,
-                                          Eigen::MatrixXd betaParams, int bodyParams);
-
-/* ************************************************************************** */
-void UpdateReference(const double& forw, const double& spin, const double& dt,
-                     Eigen::Matrix<double, 6, 1>& refState);
-
-/* ************************************************************************** */
-void ComputeCurrent(const Eigen::Matrix<double, 6, 1>& K,
-                    const Eigen::Matrix<double, 6, 1>& error,
-                    double* u_theta, double* u_x, double* u_spin,
-                    double* control_input);
-
-/* ************************************************************************** */
-Eigen::MatrixXd ComputeLqrGains(
-    const Krang::Hardware* krang,
-    const BalancingConfig& params,
-    const Eigen::Matrix<double, 4, 4>& lqrHackRatios);
-
-/* ************************************************************************** */
-void BalancingController(const Krang::Hardware* krang,
-                         const Eigen::Matrix<double, 6, 1>& state,
-                         const double& dt,
-                         const BalancingConfig& params,
-                         const Eigen::Matrix<double, 4, 4> lqrHackRatios,
-                         const bool joystickControl,
-                         const double& js_forw, const double& js_spin,
-                         const bool& debug,
-                         KRANG_MODE& MODE,
-                         Eigen::Matrix<double, 6, 1>& refState,
-                         Eigen::Matrix<double, 6, 1>& error,
-                         double* control_input);
 #endif // KRANG_BALANCING_CONTROL_H_
