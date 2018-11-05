@@ -30,10 +30,6 @@ kbShared kb_shared;
 bool debugGlobal = false, logGlobal = true;
 dart::simulation::WorldPtr world;			///< the world representation in dart
 bool start = false;						///< Giving time to the user to get the robot in balancing angle
-/* ******************************************************************************************** */
-// LQR hack ratios
-
-Eigen::Matrix<double, 4, 4> lqrHackRatios;
 
 /* ******************************************************************************************** */
 typedef Eigen::Matrix<double, 6, 1> Vector6d;			///< A typedef for convenience to contain f/t values
@@ -54,118 +50,52 @@ char b [10];						///< Stores the joystick button inputs
 double x [6];
 
 
-/* ******************************************************************************************** */
-// All the freaking gains
-
-KRANG_MODE MODE = GROUND_LO;
-Vector6d K;
-
-/* ******************************************************************************************** */
-/// The continuous control loop which has 4 state variables, {x, x., psi, psi.}, where
-/// x is for the position along the heading direction and psi is the heading angle. We create
-/// reference x and psi values from the joystick and follow them with pd control.
 void run (BalancingConfig& params) {
 
   // Send a message; set the event code and the priority
   somatic_d_event(&daemon_cx, SOMATIC__EVENT__PRIORITIES__NOTICE,
       SOMATIC__EVENT__CODES__PROC_RUNNING, NULL, NULL);
 
-  // Initially the reference position and velocities are zero (don't move!) (and error!)
-  // Initializing here helps to print logs of the previous state
-  Vector6d refState = Vector6d::Zero(), state = Vector6d::Zero(), error = Vector6d::Zero();
-
-  // Read the FT sensor wrenches, shift them on the wheel axis and display
-  size_t c_ = 0;
-  struct timespec t_now, t_prev = aa_tm_now();
+  size_t debug_iter = 0;
   double time = 0.0;
-  Eigen::Vector3d com;
-
-  // Initialize the running history
-  const size_t historySize = 60;
-
-  // Continue processing data until stop received
-  double js_forw = 0.0, js_spin = 0.0;
-  bool lastStart = start;
-
   ArmState arm_state;
   arm_state.mode = ArmState::kStop;
   TorsoState torso_state;
   torso_state.mode = TorsoState::kStop;
   Somatic__WaistMode waist_mode;
-
+  BalanceControl balance_control(krang, robot, params);
   const char MODE_string[][16] = {"Ground Lo", "Stand", "Sit", "Bal Lo", "Bal Hi"};
-
   while(!somatic_sig_received) {
 
-    bool debug = (c_++ % 20 == 0);
+    bool debug = (debug_iter++ % 20 == 0);
     debugGlobal = debug;
-    if(debug) cout << "vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv\n" << endl;
 
-    // ========================================================================
-    // Get time, state, joystick (and keybaord) readings
-
-    // Get the current time and compute the time difference and update the prev. time
-    t_now = aa_tm_now();
-    double dt = (double)aa_tm_timespec2sec(aa_tm_sub(t_now, t_prev));
-    t_prev = t_now;
-    time += dt;
-
-    // Get the current state and ask the user if they want to start
-    getState(krang, robot, state, dt, &com);
-    if(debug) {
-      cout << "\nstate: " << state.transpose() << endl;
-      cout << "com: " << com.transpose() << endl;
-      cout << "WAIST ANGLE: " << krang->waist->pos[0] << endl;
-    }
-
-    // Get the joystick input
+    // Read time, state and joystick inputs
+    time += balance_control.ElapsedTimeSinceLastCall();
+    balance_control.UpdateState();
     bool gotInput = false;
     while(!gotInput) gotInput = getJoystickInput(b, x);
 
-    // ========================================================================
-    // Generate events based on keyboard input and joystick input
-
-    // Process keyboard and joystick events
-    keyboardEvents(kb_shared, params, start, joystickControl, daemon_cx, krang,
-                   K, MODE);
-    joystickBalancingEvents(daemon_cx, krang, b, x, params, joystickControl,
-                            refState, state, error, MODE, K, js_forw, js_spin);
-    if(debug) cout << "js_forw: " << js_forw << ", js_spin: " << js_spin << endl;
+    // Process events based on joystick/keybaord input
+    keyboardEvents(kb_shared, start, joystickControl, balance_control);
+    joystickBalancingEvents(b, x, joystickControl, balance_control);
     if(joystickControl) {
-      if(debug) cout << "Joystick for Arms and Waist..." << endl;
       joyStickArmEvents(b, x, &arm_state);
       waist_mode = joystickWaistEvents(x[5]);
       joystickTorsoEvents(b, x, &torso_state);
     }
-
-    // Kill Event
     if (!joystickKillEvent(b)) {
       break;
     }
 
-    // Cancel position built up if start pressed
-    if(lastStart != start) {
-      refState(2) = state(2), refState(4) = state(4);
-      lastStart = start;
-    }
-
-    // ========================================================================
     // Balancing Control
     double control_input[2];
-    BalancingController(krang, state, dt, params, lqrHackRatios, joystickControl,
-                        js_forw, js_spin, debug, MODE, refState, error,
-                        &control_input[0]);
+    balance_control.BalancingController(joystickControl, &control_input[0]);
     if(start) {
-      if(debug) {
-        std::cout << "Started...";
-        if(joystickControl) std::cout << "but joystick for arms is enabled ..";
-        std::cout << std::endl;
-      }
       somatic_motor_cmd(&daemon_cx, krang->amc, SOMATIC__MOTOR_PARAM__MOTOR_CURRENT,
                         control_input, 2, NULL);
     }
 
-    // ========================================================================
     // Control the rest of the body
     if(joystickControl) {
       controlArms(daemon_cx, arm_state, krang);
@@ -173,7 +103,6 @@ void run (BalancingConfig& params) {
       controlTorso(daemon_cx, torso_state, krang);
     }
 
-    // ========================================================================
     // Print the information about the last iteration
     // (after reading effects of it from sensors)
     // NOTE: Constructor order is NOT the print order
@@ -185,7 +114,14 @@ void run (BalancingConfig& params) {
     //}
 
     // Print the mode
-    if(debug) printf("Mode : %s\tdt: %lf\n", MODE_string[MODE], dt);
+    if(debug) {
+      std::cout << "vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv\n" << std::endl;
+      balance_control.Print();
+      if(start)
+        std::cout << "Started..." << std::endl;
+      if(joystickControl)
+        std::cout << "Joystick for Arms and Waist..." << std::endl;
+    }
   }
 
   // Send the stoppig event
@@ -216,29 +152,6 @@ void init(BalancingConfig& params) {
   int hwMode = Krang::Hardware::MODE_AMC | Krang::Hardware::MODE_LARM |
     Krang::Hardware::MODE_RARM | Krang::Hardware::MODE_TORSO | Krang::Hardware::MODE_WAIST;
   krang = new Krang::Hardware((Krang::Hardware::Mode) hwMode, &daemon_cx, robot);
-
-  // lqrHackRatios
-  Eigen::VectorXd LQR_Gains = Eigen::VectorXd::Zero(4);
-  LQR_Gains = ComputeLqrGains(krang, params, Eigen::Matrix<double, 4, 4>::Identity());
-  for (int i = 0; i < lqrHackRatios.cols(); i++) {
-    lqrHackRatios(i, i) = params.pdGainsStand(i) / -LQR_Gains(i);
-  }
-
-  // Read CoM estimation model paramters
-  Eigen::MatrixXd beta;
-  string inputBetaFilename = params.comParametersPath;
-  try {
-    cout << "Reading converged beta ...\n";
-    beta = readInputFileAsMatrix(inputBetaFilename);
-    cout << "|-> Done\n";
-  } catch (exception& e) {
-    cout << e.what() << endl;
-    assert(false && "Problem loading CoM parameters...");
-  }
-  robot = setParameters(robot, beta, 4);
-
-  // Initialize the gains
-  K = params.pdGainsGroundLo;
 
   // Initialize the joystick channel
   openJoystickChannel();
