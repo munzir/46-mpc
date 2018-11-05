@@ -44,8 +44,6 @@ somatic_d_t daemon_cx;				///< The context of the current daemon
 Krang::Hardware* krang;				///< Interface for the motor and sensors on the hardware
 dart::dynamics::SkeletonPtr robot;			///< the robot representation in dart
 
-bool joystickControl = false;
-
 char b [10];						///< Stores the joystick button inputs
 double x [6];
 
@@ -58,8 +56,7 @@ void run (BalancingConfig& params) {
 
   size_t debug_iter = 0;
   double time = 0.0;
-  ArmState arm_state;
-  arm_state.mode = ArmState::kStop;
+  ArmControl arm_control(&daemon_cx, krang, params);
   TorsoState torso_state;
   torso_state.mode = TorsoState::kStop;
   Somatic__WaistMode waist_mode;
@@ -76,31 +73,27 @@ void run (BalancingConfig& params) {
     while(!gotInput) gotInput = getJoystickInput(b, x);
 
     // Process events based on joystick/keybaord input
-    keyboardEvents(kb_shared, start, joystickControl, balance_control);
-    joystickBalancingEvents(b, x, joystickControl, balance_control);
-    if(joystickControl) {
-      joyStickArmEvents(b, x, &arm_state);
-      waist_mode = joystickWaistEvents(x[5]);
-      joystickTorsoEvents(b, x, &torso_state);
-    }
+    keyboardEvents(kb_shared, start, balance_control, arm_control);
+    joystickBalancingEvents(b, x, balance_control);
+    joyStickArmEvents(b, x, &arm_control);
+    waist_mode = joystickWaistEvents(x[5]);
+    joystickTorsoEvents(b, x, &torso_state);
     if (!joystickKillEvent(b)) {
       break;
     }
 
     // Balancing Control
     double control_input[2];
-    balance_control.BalancingController(joystickControl, &control_input[0]);
+    balance_control.BalancingController(&control_input[0]);
     if(start) {
       somatic_motor_cmd(&daemon_cx, krang->amc, SOMATIC__MOTOR_PARAM__MOTOR_CURRENT,
                         control_input, 2, NULL);
     }
 
     // Control the rest of the body
-    if(joystickControl) {
-      controlArms(daemon_cx, arm_state, krang);
-      controlWaist(waist_mode, krang);
-      controlTorso(daemon_cx, torso_state, krang);
-    }
+    arm_control.ControlArms();
+    controlWaist(waist_mode, krang);
+    controlTorso(daemon_cx, torso_state, krang);
 
     // Print the information about the last iteration
       // (after reading effects of it from sensors)
@@ -118,8 +111,6 @@ void run (BalancingConfig& params) {
       balance_control.Print();
       if(start)
         std::cout << "Started..." << std::endl;
-      if(joystickControl)
-        std::cout << "Joystick for Arms and Waist..." << std::endl;
     }
   }
 
@@ -168,19 +159,8 @@ void destroy() {
 
   cout << "destroying" << endl;
 
-  // ===========================
-  // Stop motors, close motor/sensor channels and destroy motor objects
-
-  // To prevent arms from halting if joystick control is not on, change mode of krang
-  if(!joystickControl) {
-    somatic_motor_destroy(&daemon_cx, krang->arms[Krang::LEFT]);
-    somatic_motor_destroy(&daemon_cx, krang->arms[Krang::RIGHT]);
-    krang->arms[Krang::LEFT] = NULL;
-    krang->arms[Krang::RIGHT] = NULL;
-  }
   delete krang;
 
-  // Destroy the daemon resources
   somatic_d_destroy(&daemon_cx);
 
   // Print the data

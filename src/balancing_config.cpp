@@ -139,8 +139,14 @@ void ReadConfigParams(const char* config_file, BalancingConfig* params) {
 
     // Read parameters for bal control mode transition
     params->imuSitAngle = cfg->lookupFloat(scope, "imuSitAngle");
+    std::cout << "imuSitAngle :" << params->imuSitAngle << std::endl;
     params->toBalThreshold = cfg->lookupFloat(scope, "toBalThreshold");
+    std::cout << "toBalThreshold :" << params->toBalThreshold << std::endl;
 
+    // Halt arm to stop
+    params->eventBasedArmLockUnlock = cfg->lookupBoolean(scope, "eventBasedArmLockUnlock");
+    std::cout << "eventBasedArmLockUnlock: ";
+    std::cout << (params->eventBasedArmLockUnlock? "true":"false") << std::endl;
 
   } catch (const config4cpp::ConfigurationException& ex) {
     std::cerr << ex.c_str() << std::endl;

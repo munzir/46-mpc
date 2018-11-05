@@ -232,8 +232,7 @@ Eigen::MatrixXd BalanceControl::ComputeLqrGains() {
 
   return LQR_Gains;
 }
-void BalanceControl::BalancingController(const bool joystickControl,
-                                         double* control_input) {
+void BalanceControl::BalancingController(double* control_input) {
 
   // The timer we use for deciding whether krang has stood up and needs to
   // be switched to BAL_LO mode. This timer is supposed to be zero in all
@@ -258,11 +257,8 @@ void BalanceControl::BalancingController(const bool joystickControl,
       // Calculate state Error
       error = state - refState;
 
-      // Gains to remain zero if joystickControl (for arms) flag is set
-      // otherwise read the fwd and spin gains from parameters
-      if(!joystickControl) {
-        K.tail(4) = pdGains[BalanceControl::GROUND_LO].tail(4);
-      }
+      // Gains - read fwd and spin only
+      K.tail(4) = pdGains[BalanceControl::GROUND_LO].tail(4);
 
       // Compute the current
       BalanceControl::ComputeCurrent(K, error, &control_input[0]);
@@ -286,11 +282,8 @@ void BalanceControl::BalancingController(const bool joystickControl,
       // Calculate state Error
       error = state - refState;
 
-      // Gains to remain zero if joystickControl (for arms) flag is set
-      // otherwise read the fwd and spin gains from parameters
-      if(!joystickControl) {
-        K.tail(4) = pdGains[BalanceControl::GROUND_HI].tail(4);
-      }
+      // Gains - read fwd and spin gains only
+      K.tail(4) = pdGains[BalanceControl::GROUND_HI].tail(4);
 
       // Compute the current
       BalanceControl::ComputeCurrent(K, error, &control_input[0]);

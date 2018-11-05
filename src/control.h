@@ -70,7 +70,7 @@ class BalanceControl {
   void UpdateState();
   void CancelPositionBuiltup();
   void ForceModeChange(BalanceMode new_mode);
-  void BalancingController(const bool joystickControl, double* control_input);
+  void BalancingController(double* control_input);
   void ChangePdGain(int index, double change);
   void Print();
   void StandSitEvent();

@@ -47,10 +47,12 @@
 #include <somatic.h>
 #include <somatic/daemon.h>
 #include <kore.hpp>
+#include "balancing_config.h"
 
 /* ********************************************************************************************* */
 // The struct used by controlArm function to decide the control command to be sent
-struct ArmState {
+class ArmControl {
+ public:
   enum ArmMode {
     kStop,              // both arms' halted
     kMoveLeftBigSet,    // sets left arms' joints 1-4 vel to command_vals[0-3]
@@ -60,14 +62,33 @@ struct ArmState {
     kMoveLeftToPresetPos,   // left arms' pos = presetArmConfs[2*preset_config_num]
     kMoveRightToPresetPos,  // right arms' pos = presetArmConfs[2*preset_config_num+1]
     kMoveBothToPresetPos    // does both the above
-  } mode;
+  };
+  static double presetArmConfs[][7]; // should be const but somatic_motor_cmd
+                                     // gives problems when passing directly
+                                     // const array pointers to it
 
+  ArmControl(somatic_d_t* daemon_cx_, Krang::Hardware* krang_,
+             BalancingConfig& params);
+  ~ArmControl() {};
+
+  void ControlArms();
+  void LockUnlockEvent();
+
+  ArmMode mode;
   int preset_config_num;
   double command_vals[7];
-};
 
-/* ********************************************************************************************* */
-/// Controls the arms
-void controlArms(somatic_d_t& daemon_cx, const ArmState& arm_state, Krang::Hardware* krang);
+ private:
+  bool ArmResetIfNeeded(ArmMode& last_mode);
+  void StopLeftArm();
+  void StopRightArm();
+
+  somatic_d_t* daemon_cx;
+  Krang::Hardware* krang;
+  bool event_based_lock_unlock;
+  bool halted; // to manage halt/reset events when state_based_lock_unlock is not set
+  void ArmLockEvent();
+  void ArmUnlockEvent();
+};
 
 #endif // KRANG_BALANCING_ARMS_H_
