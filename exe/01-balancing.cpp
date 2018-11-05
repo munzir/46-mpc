@@ -21,18 +21,10 @@
 #include "utils.h"
 #include <dart/utils/urdf/urdf.hpp>
 
-// Torque to current conversion
-// Motor Constant
-// TODO: Copy comments from repo 28 mpc branch
-double km = 12.0 * 0.00706;
-
-// Gear Ratio
-double GR = 15;
-
 kbShared kb_shared;
 
 /// The vector of states
-vector <LogState*> logStates;
+//vector <LogState*> logStates;
 
 // Debug flags default values
 bool debugGlobal = false, logGlobal = true;
@@ -42,11 +34,6 @@ bool start = false;						///< Giving time to the user to get the robot in balanc
 // LQR hack ratios
 
 Eigen::Matrix<double, 4, 4> lqrHackRatios;
-
-/* ******************************************************************************************** */
-// Constants for the robot kinematics
-const double wheelRadius = 10.5; 							///< Radius of krang wheels in inches
-const double distanceBetweenWheels = 27.375; 	///< Distance Between krang's wheels in inches
 
 /* ******************************************************************************************** */
 typedef Eigen::Matrix<double, 6, 1> Vector6d;			///< A typedef for convenience to contain f/t values
@@ -63,9 +50,6 @@ dart::dynamics::SkeletonPtr robot;			///< the robot representation in dart
 
 bool joystickControl = false;
 
-double jsFwdAmp;				///< The gains for joystick forward/reverse input
-double jsSpinAmp;				///< The gains for joystick left/right spin input
-
 char b [10];						///< Stores the joystick button inputs
 double x [6];
 
@@ -74,25 +58,7 @@ double x [6];
 // All the freaking gains
 
 KRANG_MODE MODE = GROUND_LO;
-Vector6d K_groundLo;
-Vector6d K_groundHi;
-Eigen::Vector2d J_ground (1.0, 1.0);
-Vector6d K_stand;
-Eigen::Vector2d J_stand;
-Vector6d K_sit;
-Eigen::Vector2d J_sit;
-Vector6d K_balLow;
-Eigen::Vector2d J_balLow;
-Vector6d K_balHigh;
-Eigen::Vector2d J_balHigh;
-Vector6d K = K_groundLo;
-
-/* ******************************************************************************************** */
-// Constants for end-effector wrench estimation
-//static const double eeMass = 2.3 + 0.169 + 0.000;			///< The mass of the robotiq end-effector
-static const double eeMass = 1.6 + 0.169 + 0.000;			///< The mass of the Schunk end-effector
-static const Eigen::Vector3d s2com (0.0, -0.008, 0.091); // 0.065 robotiq itself, 0.026 length of ext + 2nd
-
+Vector6d K;
 
 /* ******************************************************************************************** */
 /// The continuous control loop which has 4 state variables, {x, x., psi, psi.}, where
@@ -112,22 +78,14 @@ void run (BalancingConfig& params) {
   size_t c_ = 0;
   struct timespec t_now, t_prev = aa_tm_now();
   double time = 0.0;
-  Vector6d externalWrench;
   Eigen::Vector3d com;
 
   // Initialize the running history
   const size_t historySize = 60;
 
-
   // Continue processing data until stop received
-  double js_forw = 0.0, js_spin = 0.0, averagedTorque = 0.0, lastUleft = 0.0, lastUright = 0.0;
-  size_t mode4iter = 0;
-  KRANG_MODE lastMode = MODE; bool lastStart = start;
-  Eigen::MatrixXd A = Eigen::MatrixXd::Zero(4,4);
-  Eigen::MatrixXd B = Eigen::MatrixXd::Zero(4,1);
-  Eigen::VectorXd B_thWheel = Eigen::VectorXd::Zero(3);
-  Eigen::VectorXd B_thCOM = Eigen::VectorXd::Zero(3);
-  Eigen::VectorXd LQR_Gains = Eigen::VectorXd::Zero(4);
+  double js_forw = 0.0, js_spin = 0.0;
+  bool lastStart = start;
 
   ArmState arm_state;
   arm_state.mode = ArmState::kStop;
@@ -171,7 +129,7 @@ void run (BalancingConfig& params) {
     keyboardEvents(kb_shared, params, start, joystickControl, daemon_cx, krang,
                    K, MODE);
     joystickBalancingEvents(daemon_cx, krang, b, x, params, joystickControl,
-                            state, error, MODE, K, js_forw, js_spin);
+                            refState, state, error, MODE, K, js_forw, js_spin);
     if(debug) cout << "js_forw: " << js_forw << ", js_spin: " << js_spin << endl;
     if(joystickControl) {
       if(debug) cout << "Joystick for Arms and Waist..." << endl;
@@ -185,15 +143,11 @@ void run (BalancingConfig& params) {
       break;
     }
 
-//  // Cancel any position built up in previous mode
-//  if(lastMode != MODE) {
-//    refState(2) = state(2), refState(4) = state(4);
-//    lastMode = MODE;
-//  }
-//  if(lastStart != start) {
-//    refState(2) = state(2), refState(4) = state(4);
-//    lastStart = start;
-//  }
+    // Cancel position built up if start pressed
+    if(lastStart != start) {
+      refState(2) = state(2), refState(4) = state(4);
+      lastStart = start;
+    }
 
     // ========================================================================
     // Balancing Control
@@ -201,7 +155,6 @@ void run (BalancingConfig& params) {
     BalancingController(krang, state, dt, params, lqrHackRatios, joystickControl,
                         js_forw, js_spin, debug, MODE, refState, error,
                         &control_input[0]);
-    lastUleft = control_input[0], lastUright = control_input[1];
     if(start) {
       if(debug) {
         std::cout << "Started...";
@@ -224,12 +177,12 @@ void run (BalancingConfig& params) {
     // Print the information about the last iteration
     // (after reading effects of it from sensors)
     // NOTE: Constructor order is NOT the print order
-    if(logGlobal) {
-      logStates.push_back(new LogState(time, com, averagedTorque,
-                                       externalWrench(4), krang->amc->cur[0],
-                                       krang->amc->cur[1], state, refState,
-                                       lastUleft, lastUright));
-    }
+    // if(logGlobal) {
+    //  logStates.push_back(new LogState(time, com, averagedTorque,
+    //                                   externalWrench(4), krang->amc->cur[0],
+    //                                   krang->amc->cur[1], state, refState,
+    //                                   lastUleft, lastUright));
+    //}
 
     // Print the mode
     if(debug) printf("Mode : %s\tdt: %lf\n", MODE_string[MODE], dt);
@@ -265,14 +218,8 @@ void init(BalancingConfig& params) {
   krang = new Krang::Hardware((Krang::Hardware::Mode) hwMode, &daemon_cx, robot);
 
   // lqrHackRatios
-  Eigen::MatrixXd A = Eigen::MatrixXd::Zero(4,4);
-  Eigen::MatrixXd B = Eigen::MatrixXd::Zero(4,1);
-  Eigen::VectorXd B_thWheel = Eigen::VectorXd::Zero(3);
-  Eigen::VectorXd B_thCOM = Eigen::VectorXd::Zero(3);
   Eigen::VectorXd LQR_Gains = Eigen::VectorXd::Zero(4);
-  computeLinearizedDynamics(robot, A, B, B_thWheel, B_thCOM);
-  lqr(A, B, params.lqrQ, params.lqrR, LQR_Gains);
-  LQR_Gains /= (GR * km);
+  LQR_Gains = ComputeLqrGains(krang, params, Eigen::Matrix<double, 4, 4>::Identity());
   for (int i = 0; i < lqrHackRatios.cols(); i++) {
     lqrHackRatios(i, i) = params.pdGainsStand(i) / -LQR_Gains(i);
   }
@@ -291,13 +238,7 @@ void init(BalancingConfig& params) {
   robot = setParameters(robot, beta, 4);
 
   // Initialize the gains
-  K_groundLo = params.pdGainsGroundLo; J_ground = params.joystickGainsGroundLo;
-  K_groundHi = params.pdGainsGroundHi; J_ground = params.joystickGainsGroundHi;
-  K_stand = params.pdGainsStand;       J_stand = params.joystickGainsStand;
-  K_sit = params.pdGainsSit;           J_sit = params.joystickGainsSit;
-  K_balLow = params.pdGainsBalLo;      J_balLow = params.joystickGainsBalLo;
-  K_balHigh = params.pdGainsBalHi;     J_balHigh = params.joystickGainsBalHi;
-  K = K_groundLo;
+  K = params.pdGainsGroundLo;
 
   // Initialize the joystick channel
   openJoystickChannel();
@@ -331,11 +272,11 @@ void destroy() {
   somatic_d_destroy(&daemon_cx);
 
   // Print the data
-  printf("log states size: %lu\n", logStates.size());
-  for(size_t i = 0; i < logStates.size(); i++) {
-    logStates[i]->print();
-    delete logStates[i];
-  }
+  //printf("log states size: %lu\n", logStates.size());
+  //for(size_t i = 0; i < logStates.size(); i++) {
+  //  logStates[i]->print();
+  //  delete logStates[i];
+  //}
 }
 
 /* ******************************************************************************************** */

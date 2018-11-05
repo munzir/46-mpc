@@ -61,6 +61,7 @@ void keyboardEvents(kbShared& kb_shared, const BalancingConfig& params, bool& st
 void joystickBalancingEvents(somatic_d_t& daemon_cx_, Krang::Hardware* krang_,
                              char* b_, double* x_, BalancingConfig& params,
                              bool& joystickControl_,
+                             Eigen::Matrix<double, 6, 1>& refState,
                              const Eigen::Matrix<double, 6, 1>& state,
                              const Eigen::Matrix<double, 6, 1>& error,
                              KRANG_MODE& MODE_, Eigen::Matrix<double, 6, 1>& K_,

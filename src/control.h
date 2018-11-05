@@ -50,6 +50,53 @@
 
 #include "balancing_config.h"
 
+
+class BalanceControl {
+ public:
+  BalanceControl (Krang::Hardware* krang_, dart::dynamics::SkeletonPtr robot_,
+                  BalancingConfig& params);
+  ~BalanceControl () {};
+
+ private:
+  void GetState();
+  void SetComParameters(Eigen::MatrixXd betaParams, int bodyParams);
+  void UpdateReference(const double& forw, const double& spin);
+  void ComputeCurrent(const Eigen::Matrix<double, 6, 1>& K,
+                      const Eigen::Matrix<double, 6, 1>& error,
+                      double* control_input);
+  Eigen::MatrixXd ComputeLqrGains();
+  void BalancingController(const bool joystickControl,
+                           double* control_input);
+  void PrintLog();
+
+ private:
+  enum BalanceMode {
+    GROUND_LO = 0,
+    STAND,
+    SIT,
+    BAL_LO,
+    BAL_HI,
+    GROUND_HI,
+    NUM_MODES
+  } MODE;
+  Eigen::Matrix<double, 4, 4> lqrHackRatios;
+  Eigen::Matrix<double, 6, 1> K, refState, state, error;
+  Eigen::Matrix<double, 6, 1> pdGains[NUM_MODES];
+  double joystickGains[NUM_MODES][2];
+  Eigen::Matrix<double, 3, 1> com;
+  double joystick_forw, joystick_spin;
+  double dt;
+  double u_theta, u_x, u_spin;
+
+  Krang::Hardware* krang;
+  dart::dynamics::SkeletonPtr robot;
+
+  bool dynamicLQR;
+  Eigen::Matrix<double, 4, 4> lqrQ;
+  Eigen::Matrix<double, 1, 1> lqrR;
+
+  double toBalThreshold, imuSitAngle;
+};
 /* ******************************************************************************************** */
 // Krang Mode Enum
 enum KRANG_MODE {
