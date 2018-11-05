@@ -53,15 +53,15 @@
 #include <somatic.h>
 #include "torso.h"
 
-void keyboardEvents(kbShared& kb_shared, bool& start_, bool& joystickControl_,
-                    BalanceControl& balance_control);
+void keyboardEvents(kbShared& kb_shared, bool& start_,
+                    BalanceControl& balance_control, ArmControl& arm_control);
 
-void joystickBalancingEvents(char* b_, double* x_, bool& joystickControl_,
+void joystickBalancingEvents(char* b_, double* x_,
                              BalanceControl& balance_control);
 
 void joystickTorsoEvents(const char* b, const double* x, TorsoState* torso_state);
 
-void joyStickArmEvents(const char* b, const double* x, ArmState* arm_state);
+void joyStickArmEvents(const char* b, const double* x, ArmControl* arm_control);
 
 Somatic__WaistMode joystickWaistEvents(double x);
 

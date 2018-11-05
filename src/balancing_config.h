@@ -81,6 +81,11 @@ struct BalancingConfig {
   // Balancing control mode transition parameters
   double imuSitAngle;
   double toBalThreshold;
+
+  // if this flag is not set, arms are always locked when not in use
+  // if this flag is set, arms have to be unhalted by a joystick-based event
+  // before use, and have to be halted in order to lock them
+  bool eventBasedArmLockUnlock;
 };
 
 // Function for reading configuration parameters. First argument is the location of

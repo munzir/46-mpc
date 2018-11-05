@@ -52,8 +52,8 @@
 /* ******************************************************************************************** */
 // If a character was entered from the keyboard process it
 
-void keyboardEvents(kbShared& kb_shared, bool& start_, bool& joystickControl_,
-                    BalanceControl& balance_control) {
+void keyboardEvents(kbShared& kb_shared, bool& start_,
+                    BalanceControl& balance_control, ArmControl& arm_control) {
 
   char input;
 
@@ -65,7 +65,8 @@ void keyboardEvents(kbShared& kb_shared, bool& start_, bool& joystickControl_,
     }
     //else if(input=='.') readGains();
     else if(input=='j') {
-      joystickControl_ = !joystickControl_;
+      arm_control.LockUnlockEvent();
+      std::cout << "[INFO] Keyboard based lock unlock event called" << std::endl;
     }
     else if(input=='1') {
       printf("Mode 1\n");
@@ -96,39 +97,30 @@ void keyboardEvents(kbShared& kb_shared, bool& start_, bool& joystickControl_,
 
 /* ******************************************************************************************** */
 /// Returns the values of axes 1 (left up/down) and 2 (right left/right) in the joystick
-void joystickBalancingEvents(char* b_, double* x_, bool& joystickControl_,
+void joystickBalancingEvents(char* b_, double* x_,
                              BalanceControl& balance_control) {
 
-  // joystickControl flag toggle. activates arm control via joystick if set
-  static int lastb0 = b_[0];
-  if((b_[4] == 1) && (b_[6] == 0) && (b_[0] == 1) && (lastb0 == 0)) {
-    joystickControl_ = !joystickControl_;
-  }
-  lastb0 = b_[0];
-
   // Change the gains with the given joystick input
-  if(!joystickControl_) {
-    const double deltaTH = 0.2;
-    const double deltaX = 0.02;
-    const double deltaSpin = 0.02;
-    if(b_[5] == 0 && b_[7] == 0) {
-      if     (b_[0] == 1) balance_control.ChangePdGain(0, +deltaTH);
-      else if(b_[1] == 1) balance_control.ChangePdGain(1, +deltaTH);
-      else if(b_[2] == 1) balance_control.ChangePdGain(0, -deltaTH);
-      else if(b_[3] == 1) balance_control.ChangePdGain(1, -deltaTH);
-    }
-    else if(b_[5] == 1 && b_[7] == 0) {
-      if     (b_[0] == 1) balance_control.ChangePdGain(2, +deltaX);
-      else if(b_[1] == 1) balance_control.ChangePdGain(3, +deltaX);
-      else if(b_[2] == 1) balance_control.ChangePdGain(2, -deltaX);
-      else if(b_[3] == 1) balance_control.ChangePdGain(3, -deltaX);
-    }
-    else if(b_[5] == 0 && b_[7] == 1) {
-      if     (b_[0] == 1) balance_control.ChangePdGain(4, +deltaSpin);
-      else if(b_[1] == 1) balance_control.ChangePdGain(5, +deltaSpin);
-      else if(b_[2] == 1) balance_control.ChangePdGain(4, -deltaSpin);
-      else if(b_[3] == 1) balance_control.ChangePdGain(5, -deltaSpin);
-    }
+  const double deltaTH = 0.2;
+  const double deltaX = 0.02;
+  const double deltaSpin = 0.02;
+  if(b_[5] == 0 && b_[7] == 0) {
+    if     (b_[0] == 1) balance_control.ChangePdGain(0, +deltaTH);
+    else if(b_[1] == 1) balance_control.ChangePdGain(1, +deltaTH);
+    else if(b_[2] == 1) balance_control.ChangePdGain(0, -deltaTH);
+    else if(b_[3] == 1) balance_control.ChangePdGain(1, -deltaTH);
+  }
+  else if(b_[5] == 1 && b_[7] == 0) {
+    if     (b_[0] == 1) balance_control.ChangePdGain(2, +deltaX);
+    else if(b_[1] == 1) balance_control.ChangePdGain(3, +deltaX);
+    else if(b_[2] == 1) balance_control.ChangePdGain(2, -deltaX);
+    else if(b_[3] == 1) balance_control.ChangePdGain(3, -deltaX);
+  }
+  else if(b_[5] == 0 && b_[7] == 1) {
+    if     (b_[0] == 1) balance_control.ChangePdGain(4, +deltaSpin);
+    else if(b_[1] == 1) balance_control.ChangePdGain(5, +deltaSpin);
+    else if(b_[2] == 1) balance_control.ChangePdGain(4, -deltaSpin);
+    else if(b_[3] == 1) balance_control.ChangePdGain(5, -deltaSpin);
   }
 
   // Gain Change
@@ -168,7 +160,15 @@ void joystickTorsoEvents(const char* b, const double* x, TorsoState* torso_state
 
 /* ************************************************************************************/
 /// Changes desired arm state based on joystick input
-void joyStickArmEvents(const char* b, const double* x, ArmState* arm_state) {
+void joyStickArmEvents(const char* b, const double* x, ArmControl* arm_control) {
+
+  // Lock or unlock arms
+  static int lastb0 = b[0];
+  if((b[4] == 1) && (b[6] == 0) && (b[0] == 1) && (lastb0 == 0)) {
+    arm_control->LockUnlockEvent();
+    std::cout << "[INFO] Joystick based lock unlock event called" << std::endl;
+  }
+  lastb0 = b[0];
 
   // Go To Preset Positions
   if(((b[4] == 1) && (b[6] == 1)) || ((b[5] == 1) && (b[7] == 1))) {
@@ -177,16 +177,16 @@ void joyStickArmEvents(const char* b, const double* x, ArmState* arm_state) {
     for(size_t i = 0; i < 4; i++) {
       if(b[i] == 1) {
         if((b[4] == 1) && (b[6] == 1) && (b[5] == 1) && (b[7] == 1)) {
-          arm_state->mode = ArmState::kMoveBothToPresetPos;
-          arm_state->preset_config_num = i;
+          arm_control->mode = ArmControl::kMoveBothToPresetPos;
+          arm_control->preset_config_num = i;
         }
         else if((b[4] == 1) && (b[6] == 1)) {
-          arm_state->mode = ArmState::kMoveLeftToPresetPos;
-          arm_state->preset_config_num = i;
+          arm_control->mode = ArmControl::kMoveLeftToPresetPos;
+          arm_control->preset_config_num = i;
         }
         else if((b[5] == 1) && (b[7] == 1))  {
-          arm_state->mode = ArmState::kMoveRightToPresetPos;
-          arm_state->preset_config_num = i;
+          arm_control->mode = ArmControl::kMoveRightToPresetPos;
+          arm_control->preset_config_num = i;
         }
         noConfs = false;
       }
@@ -194,30 +194,30 @@ void joyStickArmEvents(const char* b, const double* x, ArmState* arm_state) {
 
     // If nothing is pressed, stop the arms
     if(noConfs) {
-      arm_state->mode = ArmState::kStop;
+      arm_control->mode = ArmControl::kStop;
     }
   }
   // If only one of the front buttons is pressed
   else {
     if(b[4] && !b[6]) {
-      arm_state->mode = ArmState::kMoveLeftBigSet;
+      arm_control->mode = ArmControl::kMoveLeftBigSet;
       for(int i = 0; i < 4; i++)
-        arm_state->command_vals[i] = x[i];
+        arm_control->command_vals[i] = x[i];
     } else if(!b[4] && b[6]) {
-      arm_state->mode = ArmState::kMoveLeftSmallSet;
+      arm_control->mode = ArmControl::kMoveLeftSmallSet;
       for(int i = 4; i < 7; i++)
-        arm_state->command_vals[i] = x[i-4];
+        arm_control->command_vals[i] = x[i-4];
     } else if(b[5] && !b[7]) {
-      arm_state->mode = ArmState::kMoveRightBigSet;
+      arm_control->mode = ArmControl::kMoveRightBigSet;
       for(int i = 0; i < 4; i++)
-        arm_state->command_vals[i] = x[i];
+        arm_control->command_vals[i] = x[i];
     } else if(!b[5] && b[7]) {
-      arm_state->mode = ArmState::kMoveRightSmallSet;
+      arm_control->mode = ArmControl::kMoveRightSmallSet;
       for(int i = 4; i < 7; i++)
-        arm_state->command_vals[i] = x[i-4];
+        arm_control->command_vals[i] = x[i-4];
     }
     else {
-      arm_state->mode = ArmState::kStop;
+      arm_control->mode = ArmControl::kStop;
     }
   }
 }
