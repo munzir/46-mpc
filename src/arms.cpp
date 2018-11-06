@@ -73,7 +73,7 @@ ArmControl::ArmControl(somatic_d_t* daemon_cx_, Krang::Hardware* krang_,
                    BalancingConfig& params)
     : krang(krang_),
       daemon_cx(daemon_cx_) {
-  event_based_lock_unlock = params.eventBasedArmLockUnlock;
+  event_based_lock_unlock = params.manualArmLockUnlock;
 	somatic_motor_halt(daemon_cx, krang->arms[Krang::LEFT]);
 	somatic_motor_halt(daemon_cx, krang->arms[Krang::RIGHT]);
   usleep(1e5);
