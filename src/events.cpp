@@ -45,201 +45,643 @@
 #include "balancing_config.h"
 #include "control.h"
 #include <Eigen/Eigen>
+#include "joystick.h"
 #include <kore.hpp>
 #include <somatic.h>
 #include "torso.h"
 
+/* ****************************************************************************** */
+/// Events
+bool Events(kbShared& kb_shared, Joystick& joystick,
+            bool* start, BalanceControl* balance_control,
+            Somatic__WaistMode* waist_mode, TorsoState* torso_state,
+            ArmControl* arm_control) {
+
+  KeyboardEvents(kb_shared, start, balance_control, arm_control);
+  JoystickEvents(joystick, balance_control, waist_mode, torso_state,
+                 arm_control);
+}
+
+
 /* ******************************************************************************************** */
 // If a character was entered from the keyboard process it
 
-void keyboardEvents(kbShared& kb_shared, bool& start_,
-                    BalanceControl& balance_control, ArmControl& arm_control) {
+void KeyboardEvents(kbShared& kb_shared, bool* start_,
+                    BalanceControl* balance_control, ArmControl* arm_control) {
 
   char input;
 
   if(kbCharReceived(kb_shared, &input)) {
 
     if(input=='s') {
-      start_ = true;
-      balance_control.CancelPositionBuiltup();
+      *start_ = true;
+      balance_control->CancelPositionBuiltup();
     }
     //else if(input=='.') readGains();
     else if(input=='j') {
-      arm_control.LockUnlockEvent();
+      arm_control->LockUnlockEvent();
       std::cout << "[INFO] Keyboard based lock unlock event called" << std::endl;
     }
     else if(input=='1') {
       printf("Mode 1\n");
-      balance_control.ForceModeChange(BalanceControl::GROUND_LO);
+      balance_control->ForceModeChange(BalanceControl::GROUND_LO);
     }
     else if(input=='2') {
       printf("Mode 2\n");
-      balance_control.ForceModeChange(BalanceControl::STAND);
+      balance_control->ForceModeChange(BalanceControl::STAND);
     }
     else if(input=='3') {
       printf("Mode 3\n");
-      balance_control.ForceModeChange(BalanceControl::SIT);
+      balance_control->ForceModeChange(BalanceControl::SIT);
     }
     else if(input=='4') {
       printf("Mode 4\n");
-      balance_control.ForceModeChange(BalanceControl::BAL_LO);
+      balance_control->ForceModeChange(BalanceControl::BAL_LO);
     }
     else if(input=='5') {
       printf("Mode 5\n");
-      balance_control.ForceModeChange(BalanceControl::BAL_HI);
+      balance_control->ForceModeChange(BalanceControl::BAL_HI);
     }
     else if(input=='6') {
       printf("Mode 6\n");
-      balance_control.ForceModeChange(BalanceControl::GROUND_HI);
+      balance_control->ForceModeChange(BalanceControl::GROUND_HI);
     }
   }
-}
-
-/* ******************************************************************************************** */
-/// Returns the values of axes 1 (left up/down) and 2 (right left/right) in the joystick
-void joystickBalancingEvents(char* b_, double* x_,
-                             BalanceControl& balance_control) {
-
-  // Change the gains with the given joystick input
-  const double deltaTH = 0.2;
-  const double deltaX = 0.02;
-  const double deltaSpin = 0.02;
-  if(b_[5] == 0 && b_[7] == 0) {
-    if     (b_[0] == 1) balance_control.ChangePdGain(0, +deltaTH);
-    else if(b_[1] == 1) balance_control.ChangePdGain(1, +deltaTH);
-    else if(b_[2] == 1) balance_control.ChangePdGain(0, -deltaTH);
-    else if(b_[3] == 1) balance_control.ChangePdGain(1, -deltaTH);
-  }
-  else if(b_[5] == 1 && b_[7] == 0) {
-    if     (b_[0] == 1) balance_control.ChangePdGain(2, +deltaX);
-    else if(b_[1] == 1) balance_control.ChangePdGain(3, +deltaX);
-    else if(b_[2] == 1) balance_control.ChangePdGain(2, -deltaX);
-    else if(b_[3] == 1) balance_control.ChangePdGain(3, -deltaX);
-  }
-  else if(b_[5] == 0 && b_[7] == 1) {
-    if     (b_[0] == 1) balance_control.ChangePdGain(4, +deltaSpin);
-    else if(b_[1] == 1) balance_control.ChangePdGain(5, +deltaSpin);
-    else if(b_[2] == 1) balance_control.ChangePdGain(4, -deltaSpin);
-    else if(b_[3] == 1) balance_control.ChangePdGain(5, -deltaSpin);
-  }
-
-  // Gain Change
-  static int lastb2 = b_[2];
-  if((b_[4] == 1) && (b_[6] == 0) && (b_[2] == 1) && (lastb2 == 0)) {
-    balance_control.BalHiLoEvent();
-  }
-  lastb2 = b_[2];
-
-  // Ignore the joystick statements for the arm control
-  if((b_[4] == 1) || (b_[5] == 1) || (b_[6] == 1) || (b_[7] == 1)) {
-    balance_control.SetFwdSpinInputs(0.0, 0.0);
-  } else {
-    balance_control.SetFwdSpinInputs(-x_[1], x_[2]);
-  }
-
-  // Stand/Sit if button 10 is pressed and conditions are right
-  static bool b9Prev = 0;
-  if(b9Prev == 0 && b_[9] == 1) {
-    balance_control.StandSitEvent();
-  }
-  b9Prev = b_[9];
-}
-
-/* ************************************************************************************/
-/// Changes desired arm state based on joystick input
-void joystickTorsoEvents(const char* b, const double* x, TorsoState* torso_state) {
-
-  if(fabs(x[4]) < 0.1)
-    torso_state->mode = TorsoState::kStop;
-  else {
-    torso_state->mode = TorsoState::kMove;
-    torso_state->command_val = x[4] / 7.0;
-  }
-
-}
-
-/* ************************************************************************************/
-/// Changes desired arm state based on joystick input
-void joyStickArmEvents(const char* b, const double* x, ArmControl* arm_control) {
-
-  // Lock or unlock arms
-  static int lastb0 = b[0];
-  if((b[4] == 1) && (b[6] == 0) && (b[0] == 1) && (lastb0 == 0)) {
-    arm_control->LockUnlockEvent();
-    std::cout << "[INFO] Joystick based lock unlock event called" << std::endl;
-  }
-  lastb0 = b[0];
-
-  // Go To Preset Positions
-  if(((b[4] == 1) && (b[6] == 1)) || ((b[5] == 1) && (b[7] == 1))) {
-
-    bool noConfs = true;
-    for(size_t i = 0; i < 4; i++) {
-      if(b[i] == 1) {
-        if((b[4] == 1) && (b[6] == 1) && (b[5] == 1) && (b[7] == 1)) {
-          arm_control->mode = ArmControl::kMoveBothToPresetPos;
-          arm_control->preset_config_num = i;
-        }
-        else if((b[4] == 1) && (b[6] == 1)) {
-          arm_control->mode = ArmControl::kMoveLeftToPresetPos;
-          arm_control->preset_config_num = i;
-        }
-        else if((b[5] == 1) && (b[7] == 1))  {
-          arm_control->mode = ArmControl::kMoveRightToPresetPos;
-          arm_control->preset_config_num = i;
-        }
-        noConfs = false;
-      }
-    }
-
-    // If nothing is pressed, stop the arms
-    if(noConfs) {
-      arm_control->mode = ArmControl::kStop;
-    }
-  }
-  // If only one of the front buttons is pressed
-  else {
-    if(b[4] && !b[6]) {
-      arm_control->mode = ArmControl::kMoveLeftBigSet;
-      for(int i = 0; i < 4; i++)
-        arm_control->command_vals[i] = x[i];
-    } else if(!b[4] && b[6]) {
-      arm_control->mode = ArmControl::kMoveLeftSmallSet;
-      for(int i = 4; i < 7; i++)
-        arm_control->command_vals[i] = x[i-4];
-    } else if(b[5] && !b[7]) {
-      arm_control->mode = ArmControl::kMoveRightBigSet;
-      for(int i = 0; i < 4; i++)
-        arm_control->command_vals[i] = x[i];
-    } else if(!b[5] && b[7]) {
-      arm_control->mode = ArmControl::kMoveRightSmallSet;
-      for(int i = 4; i < 7; i++)
-        arm_control->command_vals[i] = x[i-4];
-    }
-    else {
-      arm_control->mode = ArmControl::kStop;
-    }
-  }
-}
-
-/* **************************************************************************** */
-// Decides what mode waist should be in based on the value of the input argument that is assumed
-// to be one of the axes of the joystick
-Somatic__WaistMode joystickWaistEvents(double x) {
-  // Set the mode we want to send to the waist daemon
-  Somatic__WaistMode waistMode;
-  if(x < -0.9) waistMode = SOMATIC__WAIST_MODE__MOVE_FWD;
-  else if(x > 0.9) waistMode = SOMATIC__WAIST_MODE__MOVE_REV;
-  else waistMode = SOMATIC__WAIST_MODE__STOP;
-  return waistMode;
 }
 
 /* ****************************************************************************** */
-/// Kill Event
-bool joystickKillEvent(char* b_) {
-  // ==========================================================================
-  // Quit if button 9 on the joystick is pressed
+/// Joystick Events
+bool JoystickEvents(Joystick& joystick,
+                    BalanceControl* balance_control,
+                    Somatic__WaistMode* waist_mode,
+                    TorsoState* torso_state,
+                    ArmControl* arm_control) {
+  // Default values
+  balance_control->SetFwdInput(0.0);
+  balance_control->SetSpinInput(0.0);
+  *waist_mode = SOMATIC__WAIST_MODE__STOP;
+  arm_control->mode = ArmControl::kStop;
+  for(int i = 0; i < 7; i++) arm_control->command_vals[i] = 0.0;
+  torso_state->mode = TorsoState::kStop;
+  bool kill_program = false;
 
-  if(b_[8] == 1) return false;
-  return true;
+  // Delta change in gains
+  const double deltaTH = 0.2;
+  const double deltaX = 0.02;
+  const double deltaSpin = 0.02;
+
+  switch(joystick.fingerMode) {
+    case(Joystick::L1L2R1R2_FREE): {
+      switch(joystick.leftMode) {
+        case(Joystick::LEFT_THUMB_FREE): {
+          switch(joystick.rightMode) {
+            //case(Joystick::RIGHT_THUMB_FREE):
+            case(Joystick::B1_PRESS): {
+              balance_control->ChangePdGain(0, +deltaTH);
+              break;
+            }
+            case(Joystick::B2_PRESS): {
+              balance_control->ChangePdGain(1, +deltaTH);
+              break;
+            }
+            case(Joystick::B3_PRESS): {
+              balance_control->ChangePdGain(0, -deltaTH);
+              break;
+            }
+            case(Joystick::B4_PRESS): {
+              balance_control->ChangePdGain(1, -deltaTH);
+              break;
+            }
+            case(Joystick::B10_PRESS): {
+              balance_control->StandSitEvent();
+              break;
+            }
+            case(Joystick::RIGHT_THUMB_HORZ_HOLD): {
+              double spin = joystick.thumbValue[Joystick::RIGHT];
+              balance_control->SetSpinInput(spin);
+              break;
+            }
+            //case(Joystick::RIGHT_THUMB_VERT_PRESS):
+          }
+          break;
+        }
+        case(Joystick::B9_HOLD): {
+          switch(joystick.rightMode) {
+            case(Joystick::RIGHT_THUMB_FREE): {
+              kill_program = true;
+              break;
+            }
+            //case(Joystick::B1_PRESS):
+            //case(Joystick::B2_PRESS):
+            //case(Joystick::B3_PRESS):
+            //case(Joystick::B4_PRESS):
+            //case(Joystick::B10_PRESS):
+            //case(Joystick::RIGHT_THUMB_HORZ_PRESS):
+            //case(Joystick::RIGHT_THUMB_VERT_PRESS):
+          }
+          break;
+        }
+        case(Joystick::LEFT_THUMB_HORZ_PRESS): {
+          switch(joystick.rightMode) {
+            //case(Joystick::RIGHT_THUMB_FREE):
+            //case(Joystick::B1_PRESS):
+            //case(Joystick::B2_PRESS):
+            //case(Joystick::B3_PRESS):
+            //case(Joystick::B4_PRESS):
+            //case(Joystick::B10_PRESS):
+            case(Joystick::RIGHT_THUMB_HORZ_HOLD): {
+              double spin = joystick.thumbValue[Joystick::RIGHT];
+              balance_control->SetSpinInput(spin);
+              break;
+            }
+            //case(Joystick::RIGHT_THUMB_VERT_PRESS):
+          }
+          break;
+        }
+        case(Joystick::LEFT_THUMB_VERT_HOLD): {
+          switch(joystick.rightMode) {
+            case(Joystick::RIGHT_THUMB_FREE): {
+              double forw = joystick.thumbValue[Joystick::LEFT];
+              balance_control->SetFwdInput(forw);
+              break;
+            }
+            //case(Joystick::B1_PRESS):
+            //case(Joystick::B2_PRESS):
+            //case(Joystick::B3_PRESS):
+            //case(Joystick::B4_PRESS):
+            //case(Joystick::B10_PRESS):
+            case(Joystick::RIGHT_THUMB_HORZ_HOLD): {
+              double forw = joystick.thumbValue[Joystick::LEFT];
+              balance_control->SetFwdInput(forw);
+              double spin = joystick.thumbValue[Joystick::RIGHT];
+              balance_control->SetSpinInput(spin);
+              break;
+            }
+            case(Joystick::RIGHT_THUMB_VERT_HOLD): {
+              double forw = joystick.thumbValue[Joystick::LEFT];
+              balance_control->SetFwdInput(forw);
+              break;
+            }
+          }
+          break;
+        }
+        case(Joystick::CURSOR_HORZ_HOLD): {
+          switch(joystick.rightMode) {
+            case(Joystick::RIGHT_THUMB_FREE): {
+              torso_state->mode = TorsoState::kMove;
+              double x = joystick.thumbValue[Joystick::LEFT];
+              torso_state->command_val = x / 7.0;
+              break;
+            }
+            //case(Joystick::B1_PRESS):
+            //case(Joystick::B2_PRESS):
+            //case(Joystick::B3_PRESS):
+            //case(Joystick::B4_PRESS):
+            //case(Joystick::B10_PRESS):
+            //case(Joystick::RIGHT_THUMB_HORZ_PRESS):
+            //case(Joystick::RIGHT_THUMB_VERT_PRESS):
+          }
+          break;
+        }
+        case(Joystick::CURSOR_VERT_HOLD): {
+          switch(joystick.rightMode) {
+            case(Joystick::RIGHT_THUMB_FREE): {
+              double x = joystick.thumbValue[Joystick::LEFT];
+              if(x < -0.9) {
+                *waist_mode = SOMATIC__WAIST_MODE__MOVE_FWD;
+              }
+              else if(x > 0.9) {
+                *waist_mode = SOMATIC__WAIST_MODE__MOVE_REV;
+              }
+              break;
+            }
+            //case(Joystick::B1_PRESS):
+            //case(Joystick::B2_PRESS):
+            //case(Joystick::B3_PRESS):
+            //case(Joystick::B4_PRESS):
+            //case(Joystick::B10_PRESS):
+            //case(Joystick::RIGHT_THUMB_HORZ_PRESS):
+            //case(Joystick::RIGHT_THUMB_VERT_PRESS):
+          }
+          break;
+        }
+      }
+      break;
+    }
+    case(Joystick::L1): {
+      switch(joystick.leftMode) {
+        case(Joystick::LEFT_THUMB_FREE): {
+          switch(joystick.rightMode) {
+            //case(Joystick::RIGHT_THUMB_FREE):
+            case(Joystick::B1_PRESS): {
+              arm_control->LockUnlockEvent();
+              break;
+            }
+            //case(Joystick::B2_PRESS):
+            case(Joystick::B3_PRESS): {
+              balance_control->BalHiLoEvent();
+              break;
+            }
+            //case(Joystick::B4_PRESS):
+            //case(Joystick::B10_PRESS):
+            case(Joystick::RIGHT_THUMB_HORZ_HOLD): {
+              arm_control->mode = ArmControl::kMoveLeftBigSet;
+              double x = joystick.thumbValue[Joystick::RIGHT];
+              arm_control->command_vals[2] = x;
+              break;
+            }
+            case(Joystick::RIGHT_THUMB_VERT_HOLD): {
+              arm_control->mode = ArmControl::kMoveLeftBigSet;
+              double x = joystick.thumbValue[Joystick::RIGHT];
+              arm_control->command_vals[3] = x;
+              break;
+            }
+          }
+          break;
+        }
+        // case(Joystick::B9_PRESS):
+        case(Joystick::LEFT_THUMB_HORZ_HOLD): {
+          switch(joystick.rightMode) {
+            case(Joystick::RIGHT_THUMB_FREE): {
+              arm_control->mode = ArmControl::kMoveLeftBigSet;
+              double x = joystick.thumbValue[Joystick::LEFT];
+              arm_control->command_vals[0] = x;
+              break;
+            }
+            //case(Joystick::B1_PRESS):
+            //case(Joystick::B2_PRESS):
+            //case(Joystick::B3_PRESS):
+            //case(Joystick::B4_PRESS):
+            //case(Joystick::B10_PRESS):
+            //case(Joystick::RIGHT_THUMB_HORZ_PRESS):
+            //case(Joystick::RIGHT_THUMB_VERT_PRESS):
+          }
+          break;
+        }
+        case(Joystick::LEFT_THUMB_VERT_HOLD): {
+          switch(joystick.rightMode) {
+            case(Joystick::RIGHT_THUMB_FREE): {
+              arm_control->mode = ArmControl::kMoveLeftBigSet;
+              double x = joystick.thumbValue[Joystick::LEFT];
+              arm_control->command_vals[1] = x;
+              break;
+            }
+            //case(Joystick::B1_PRESS):
+            //case(Joystick::B2_PRESS):
+            //case(Joystick::B3_PRESS):
+            //case(Joystick::B4_PRESS):
+            //case(Joystick::B10_PRESS):
+            //case(Joystick::RIGHT_THUMB_HORZ_PRESS):
+            //case(Joystick::RIGHT_THUMB_VERT_PRESS):
+          }
+          break;
+        }
+        // case(Joystick::CURSOR_HORZ_PRESS):
+        // case(Joystick::CURSOR_VERT_PRESS):
+      }
+      break;
+    }
+    case(Joystick::L2): {
+      switch(joystick.leftMode) {
+        case(Joystick::LEFT_THUMB_FREE): {
+          switch(joystick.rightMode) {
+            //case(Joystick::RIGHT_THUMB_FREE):
+            //case(Joystick::B1_PRESS):
+            //case(Joystick::B2_PRESS):
+            //case(Joystick::B3_PRESS):
+            //case(Joystick::B4_PRESS):
+            //case(Joystick::B10_PRESS):
+            case(Joystick::RIGHT_THUMB_HORZ_HOLD): {
+              arm_control->mode = ArmControl::kMoveLeftSmallSet;
+              double x = joystick.thumbValue[Joystick::RIGHT];
+              arm_control->command_vals[6] = x;
+              break;
+            }
+            //case(Joystick::RIGHT_THUMB_VERT_PRESS):
+          }
+          break;
+        }
+        // case(Joystick::B9_PRESS):
+        case(Joystick::LEFT_THUMB_HORZ_HOLD): {
+          switch(joystick.rightMode) {
+            case(Joystick::RIGHT_THUMB_FREE): {
+              arm_control->mode = ArmControl::kMoveLeftSmallSet;
+              double x = joystick.thumbValue[Joystick::LEFT];
+              arm_control->command_vals[4] = x;
+              break;
+            }
+            //case(Joystick::B1_PRESS):
+            //case(Joystick::B2_PRESS):
+            //case(Joystick::B3_PRESS):
+            //case(Joystick::B4_PRESS):
+            //case(Joystick::B10_PRESS):
+            //case(Joystick::RIGHT_THUMB_HORZ_PRESS):
+            //case(Joystick::RIGHT_THUMB_VERT_PRESS):
+          }
+          break;
+        }
+        case(Joystick::LEFT_THUMB_VERT_HOLD): {
+          switch(joystick.rightMode) {
+            case(Joystick::RIGHT_THUMB_FREE): {
+              arm_control->mode = ArmControl::kMoveLeftSmallSet;
+              double x = joystick.thumbValue[Joystick::LEFT];
+              arm_control->command_vals[5] = x;
+              break;
+            }
+            //case(Joystick::B1_PRESS):
+            //case(Joystick::B2_PRESS):
+            //case(Joystick::B3_PRESS):
+            //case(Joystick::B4_PRESS):
+            //case(Joystick::B10_PRESS):
+            //case(Joystick::RIGHT_THUMB_HORZ_PRESS):
+            //case(Joystick::RIGHT_THUMB_VERT_PRESS):
+          }
+          break;
+        }
+        // case(Joystick::CURSOR_HORZ_PRESS):
+        // case(Joystick::CURSOR_VERT_PRESS):
+      }
+      break;
+    }
+    case(Joystick::R1): {
+      switch(joystick.leftMode) {
+        case(Joystick::LEFT_THUMB_FREE): {
+          switch(joystick.rightMode) {
+            //case(Joystick::RIGHT_THUMB_FREE):
+            case(Joystick::B1_PRESS): {
+              balance_control->ChangePdGain(2, +deltaX);
+              break;
+            }
+            case(Joystick::B2_PRESS): {
+              balance_control->ChangePdGain(3, +deltaX);
+              break;
+            }
+            case(Joystick::B3_PRESS): {
+              balance_control->ChangePdGain(2, -deltaX);
+              break;
+            }
+            case(Joystick::B4_PRESS): {
+              balance_control->ChangePdGain(3, -deltaX);
+              break;
+            }
+            //case(Joystick::B10_PRESS):
+            case(Joystick::RIGHT_THUMB_HORZ_HOLD): {
+              arm_control->mode = ArmControl::kMoveRightBigSet;
+              double x = joystick.thumbValue[Joystick::LEFT];
+              arm_control->command_vals[2] = x;
+              break;
+            }
+            case(Joystick::RIGHT_THUMB_VERT_HOLD): {
+              arm_control->mode = ArmControl::kMoveRightBigSet;
+              double x = joystick.thumbValue[Joystick::LEFT];
+              arm_control->command_vals[3] = x;
+              break;
+            }
+          }
+          break;
+        }
+        // case(Joystick::B9_PRESS):
+        case(Joystick::LEFT_THUMB_HORZ_HOLD): {
+          switch(joystick.rightMode) {
+            case(Joystick::RIGHT_THUMB_FREE): {
+              arm_control->mode = ArmControl::kMoveRightBigSet;
+              double x = joystick.thumbValue[Joystick::RIGHT];
+              arm_control->command_vals[0] = x;
+              break;
+            }
+            //case(Joystick::B1_PRESS):
+            //case(Joystick::B2_PRESS):
+            //case(Joystick::B3_PRESS):
+            //case(Joystick::B4_PRESS):
+            //case(Joystick::B10_PRESS):
+            //case(Joystick::RIGHT_THUMB_HORZ_PRESS):
+            //case(Joystick::RIGHT_THUMB_VERT_PRESS):
+          }
+          break;
+        }
+        case(Joystick::LEFT_THUMB_VERT_HOLD): {
+          switch(joystick.rightMode) {
+            case(Joystick::RIGHT_THUMB_FREE): {
+              arm_control->mode = ArmControl::kMoveRightBigSet;
+              double x = joystick.thumbValue[Joystick::RIGHT];
+              arm_control->command_vals[0] = x;
+              break;
+            }
+            //case(Joystick::B1_PRESS):
+            //case(Joystick::B2_PRESS):
+            //case(Joystick::B3_PRESS):
+            //case(Joystick::B4_PRESS):
+            //case(Joystick::B10_PRESS):
+            //case(Joystick::RIGHT_THUMB_HORZ_PRESS):
+            //case(Joystick::RIGHT_THUMB_VERT_PRESS):
+          }
+          break;
+        }
+        // case(Joystick::CURSOR_HORZ_PRESS):
+        // case(Joystick::CURSOR_VERT_PRESS):
+      }
+      break;
+    }
+    case(Joystick::R2): {
+      switch(joystick.leftMode) {
+        case(Joystick::LEFT_THUMB_FREE): {
+          switch(joystick.rightMode) {
+            //case(Joystick::RIGHT_THUMB_FREE):
+            case(Joystick::B1_PRESS): {
+              balance_control->ChangePdGain(4, +deltaSpin);
+              break;
+            }
+            case(Joystick::B2_PRESS): {
+              balance_control->ChangePdGain(5, +deltaSpin);
+              break;
+            }
+            case(Joystick::B3_PRESS): {
+              balance_control->ChangePdGain(4, -deltaSpin);
+              break;
+            }
+            case(Joystick::B4_PRESS): {
+              balance_control->ChangePdGain(5, -deltaSpin);
+              break;
+            }
+            //case(Joystick::B10_PRESS):
+            case(Joystick::RIGHT_THUMB_HORZ_HOLD): {
+              arm_control->mode = ArmControl::kMoveRightSmallSet;
+              double x = joystick.thumbValue[Joystick::RIGHT];
+              arm_control->command_vals[6] = x;
+              break;
+            }
+            // case(Joystick::RIGHT_THUMB_VERT_HOLD):
+          }
+          break;
+        }
+        // case(Joystick::B9_PRESS):
+        case(Joystick::LEFT_THUMB_HORZ_HOLD): {
+          switch(joystick.rightMode) {
+            case(Joystick::RIGHT_THUMB_FREE): {
+              arm_control->mode = ArmControl::kMoveRightSmallSet;
+              double x = joystick.thumbValue[Joystick::LEFT];
+              arm_control->command_vals[4] = x;
+              break;
+            }
+            //case(Joystick::B1_PRESS):
+            //case(Joystick::B2_PRESS):
+            //case(Joystick::B3_PRESS):
+            //case(Joystick::B4_PRESS):
+            //case(Joystick::B10_PRESS):
+            //case(Joystick::RIGHT_THUMB_HORZ_PRESS):
+            //case(Joystick::RIGHT_THUMB_VERT_PRESS):
+          }
+          break;
+        }
+        case(Joystick::LEFT_THUMB_VERT_HOLD): {
+          switch(joystick.rightMode) {
+            case(Joystick::RIGHT_THUMB_FREE): {
+              arm_control->mode = ArmControl::kMoveRightSmallSet;
+              double x = joystick.thumbValue[Joystick::LEFT];
+              arm_control->command_vals[5] = x;
+              break;
+            }
+            //case(Joystick::B1_PRESS):
+            //case(Joystick::B2_PRESS):
+            //case(Joystick::B3_PRESS):
+            //case(Joystick::B4_PRESS):
+            //case(Joystick::B10_PRESS):
+            //case(Joystick::RIGHT_THUMB_HORZ_PRESS):
+            //case(Joystick::RIGHT_THUMB_VERT_PRESS):
+          }
+          break;
+        }
+        // case(Joystick::CURSOR_HORZ_PRESS):
+        // case(Joystick::CURSOR_VERT_PRESS):
+      }
+      break;
+    }
+    case(Joystick::L1L2): {
+      switch(joystick.leftMode) {
+        case(Joystick::LEFT_THUMB_FREE): {
+          switch(joystick.rightMode) {
+            //case(Joystick::RIGHT_THUMB_FREE):
+            case(Joystick::B1_HOLD): {
+              arm_control->mode = ArmControl::kMoveLeftToPresetPos;
+              arm_control->preset_config_num = 1;
+              break;
+            }
+            case(Joystick::B2_HOLD): {
+              arm_control->mode = ArmControl::kMoveLeftToPresetPos;
+              arm_control->preset_config_num = 2;
+              break;
+            }
+            case(Joystick::B3_HOLD): {
+              arm_control->mode = ArmControl::kMoveLeftToPresetPos;
+              arm_control->preset_config_num = 3;
+              break;
+            }
+            case(Joystick::B4_HOLD): {
+              arm_control->mode = ArmControl::kMoveLeftToPresetPos;
+              arm_control->preset_config_num = 4;
+              break;
+            }
+            //case(Joystick::B10_PRESS):
+            //case(Joystick::RIGHT_THUMB_HORZ_PRESS):
+            //case(Joystick::RIGHT_THUMB_VERT_PRESS):
+          }
+          break;
+        }
+        // case(Joystick::B9_PRESS):
+        // case(Joystick::LEFT_THUMB_HORZ_PRESS):
+        // case(Joystick::LEFT_THUMB_VERT_PRESS):
+        // case(Joystick::CURSOR_HORZ_PRESS):
+        // case(Joystick::CURSOR_VERT_PRESS):
+      }
+      break;
+    }
+    case(Joystick::R1R2): {
+      switch(joystick.leftMode) {
+        case(Joystick::LEFT_THUMB_FREE): {
+          switch(joystick.rightMode) {
+            //case(Joystick::RIGHT_THUMB_FREE):
+            case(Joystick::B1_HOLD): {
+              arm_control->mode = ArmControl::kMoveRightToPresetPos;
+              arm_control->preset_config_num = 1;
+              break;
+            }
+            case(Joystick::B2_HOLD): {
+              arm_control->mode = ArmControl::kMoveRightToPresetPos;
+              arm_control->preset_config_num = 2;
+              break;
+            }
+            case(Joystick::B3_HOLD): {
+              arm_control->mode = ArmControl::kMoveRightToPresetPos;
+              arm_control->preset_config_num = 3;
+              break;
+            }
+            case(Joystick::B4_HOLD): {
+              arm_control->mode = ArmControl::kMoveRightToPresetPos;
+              arm_control->preset_config_num = 4;
+              break;
+            }
+            //case(Joystick::B10_PRESS):
+            //case(Joystick::RIGHT_THUMB_HORZ_PRESS):
+            //case(Joystick::RIGHT_THUMB_VERT_PRESS):
+          }
+          break;
+        }
+        // case(Joystick::B9_PRESS):
+        // case(Joystick::LEFT_THUMB_HORZ_PRESS):
+        // case(Joystick::LEFT_THUMB_VERT_PRESS):
+        // case(Joystick::CURSOR_HORZ_PRESS):
+        // case(Joystick::CURSOR_VERT_PRESS):
+      }
+      break;
+    }
+    // case(Joystick::L1R1):
+    // case(Joystick::L1R2):
+    // case(Joystick::L2R1):
+    // case(Joystick::L2R2):
+    // case(Joystick::L1L2R1):
+    // case(Joystick::L1L2R2):
+    // case(Joystick::L1R1R2):
+    // case(Joystick::L2R1R2):
+    case(Joystick::L1L2R1R2): {
+      switch(joystick.leftMode) {
+        case(Joystick::LEFT_THUMB_FREE): {
+          switch(joystick.rightMode) {
+            //case(Joystick::RIGHT_THUMB_FREE):
+            case(Joystick::B1_HOLD): {
+              arm_control->mode = ArmControl::kMoveBothToPresetPos;
+              arm_control->preset_config_num = 1;
+              break;
+            }
+            case(Joystick::B2_HOLD): {
+              arm_control->mode = ArmControl::kMoveBothToPresetPos;
+              arm_control->preset_config_num = 1;
+              break;
+            }
+            case(Joystick::B3_HOLD): {
+              arm_control->mode = ArmControl::kMoveBothToPresetPos;
+              arm_control->preset_config_num = 1;
+              break;
+            }
+            case(Joystick::B4_HOLD): {
+              arm_control->mode = ArmControl::kMoveBothToPresetPos;
+              arm_control->preset_config_num = 1;
+              break;
+            }
+            //case(Joystick::B10_PRESS):
+            //case(Joystick::RIGHT_THUMB_HORZ_PRESS):
+            //case(Joystick::RIGHT_THUMB_VERT_PRESS):
+          }
+          break;
+        }
+        // case(Joystick::B9_PRESS):
+        // case(Joystick::LEFT_THUMB_HORZ_PRESS):
+        // case(Joystick::LEFT_THUMB_VERT_PRESS):
+        // case(Joystick::CURSOR_HORZ_PRESS):
+        // case(Joystick::CURSOR_VERT_PRESS):
+      }
+      break;
+    }
+  }
+
+  return kill_program;
 }

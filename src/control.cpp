@@ -455,7 +455,9 @@ void BalanceControl::StandSitEvent() {
   }
 
 }
-void BalanceControl::SetFwdSpinInputs(double forw, double spin) {
+void BalanceControl::SetFwdInput(double forw) {
   joystick_forw = forw;
+}
+void BalanceControl::SetSpinInput(double spin) {
   joystick_spin = spin;
 }

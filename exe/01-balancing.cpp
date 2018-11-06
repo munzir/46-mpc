@@ -21,7 +21,19 @@
 #include "utils.h"
 #include <dart/utils/urdf/urdf.hpp>
 
-kbShared kb_shared;
+
+/* **************************************************************************** */
+// Globals for imu, motors and joystick
+
+somatic_d_t daemon_cx; ///< The context of the current daemon
+
+Krang::Hardware* krang; ///< Interface for the motor and sensors on the hardware
+dart::dynamics::SkeletonPtr robot; ///< the robot representation in dart
+
+char b [10]; ///< Stores the joystick button inputs
+double x [6];
+
+kbShared kb_shared; ///< info shared by keyboard thread here
 
 /// The vector of states
 //vector <LogState*> logStates;
@@ -29,25 +41,11 @@ kbShared kb_shared;
 // Debug flags default values
 bool debugGlobal = false, logGlobal = true;
 dart::simulation::WorldPtr world;			///< the world representation in dart
-bool start = false;						///< Giving time to the user to get the robot in balancing angle
+bool start = false;						///< Giving time to the user to get the robot
+                              ///  in balancing angle
 
-/* ******************************************************************************************** */
-typedef Eigen::Matrix<double, 6, 1> Vector6d;			///< A typedef for convenience to contain f/t values
-typedef Eigen::Matrix<double, 7, 1> Vector7d;			///< A typedef for convenience to contain joint values
-typedef Eigen::Matrix<double, 6, 6> Matrix6d;			///< A typedef for convenience to contain wrenches
-
-/* ******************************************************************************************** */
-// Globals for imu, motors and joystick
-
-somatic_d_t daemon_cx;				///< The context of the current daemon
-
-Krang::Hardware* krang;				///< Interface for the motor and sensors on the hardware
-dart::dynamics::SkeletonPtr robot;			///< the robot representation in dart
-
-char b [10];						///< Stores the joystick button inputs
-double x [6];
-
-
+/* **************************************************************************** */
+// The infinite while loop lives here
 void run (BalancingConfig& params) {
 
   // Send a message; set the event code and the priority
@@ -56,6 +54,7 @@ void run (BalancingConfig& params) {
 
   size_t debug_iter = 0;
   double time = 0.0;
+  Joystick joystick;
   ArmControl arm_control(&daemon_cx, krang, params);
   TorsoState torso_state;
   torso_state.mode = TorsoState::kStop;
@@ -70,15 +69,13 @@ void run (BalancingConfig& params) {
     time += balance_control.ElapsedTimeSinceLastCall();
     balance_control.UpdateState();
     bool gotInput = false;
-    while(!gotInput) gotInput = getJoystickInput(b, x);
+    while(!gotInput) gotInput = joystick.Update();
 
-    // Process events based on joystick/keybaord input
-    keyboardEvents(kb_shared, start, balance_control, arm_control);
-    joystickBalancingEvents(b, x, balance_control);
-    joyStickArmEvents(b, x, &arm_control);
-    waist_mode = joystickWaistEvents(x[5]);
-    joystickTorsoEvents(b, x, &torso_state);
-    if (!joystickKillEvent(b)) {
+    // Decide control modes and generate control events based on keyb/joys input
+    if(Events(kb_shared, joystick, &start, &balance_control, &waist_mode,
+              &torso_state, &arm_control)) {
+
+      // kill program if kill event was triggered
       break;
     }
 
@@ -119,7 +116,7 @@ void run (BalancingConfig& params) {
            SOMATIC__EVENT__CODES__PROC_STOPPING, NULL, NULL);
 }
 
-/* ******************************************************************************************** */
+/* ********************************************************************************* */
 /// Initialize the motor and daemons
 void init(BalancingConfig& params) {
 
@@ -140,11 +137,9 @@ void init(BalancingConfig& params) {
 
   // Initialize the motors and sensors on the hardware and update the kinematics in dart
   int hwMode = Krang::Hardware::MODE_AMC | Krang::Hardware::MODE_LARM |
-    Krang::Hardware::MODE_RARM | Krang::Hardware::MODE_TORSO | Krang::Hardware::MODE_WAIST;
+               Krang::Hardware::MODE_RARM | Krang::Hardware::MODE_TORSO |
+               Krang::Hardware::MODE_WAIST;
   krang = new Krang::Hardware((Krang::Hardware::Mode) hwMode, &daemon_cx, robot);
-
-  // Initialize the joystick channel
-  openJoystickChannel();
 
   // Create a thread to wait for user input to begin balancing
   kb_shared.kb_char_received = false;
@@ -153,7 +148,7 @@ void init(BalancingConfig& params) {
   pthread_create(&kbhitThread, NULL, &kbhit, &kb_shared);
 }
 
-/* ******************************************************************************************** */
+/* *********************************************************************** */
 /// Send zero velocity to the motors and kill daemon. Also clean up daemon structs.
 void destroy() {
 
@@ -171,7 +166,7 @@ void destroy() {
   //}
 }
 
-/* ******************************************************************************************** */
+/* ************************************************************************* */
 /// The main thread
 int main(int argc, char* argv[]) {
 
@@ -185,6 +180,7 @@ int main(int argc, char* argv[]) {
     else if(argv[7][0] == 'd') {debugGlobal = 1; logGlobal = 0; }
   }
 
+  // Wait for a character input before starting the program
   getchar();
 
   // Initialize, run, destroy

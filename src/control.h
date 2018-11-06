@@ -75,7 +75,8 @@ class BalanceControl {
   void Print();
   void StandSitEvent();
   void BalHiLoEvent();
-  void SetFwdSpinInputs(double forw, double spin);
+  void SetFwdInput(double forw);
+  void SetSpinInput(double spin);
  private:
   void SetComParameters(Eigen::MatrixXd betaParams, int bodyParams);
   void UpdateReference(const double& forw, const double& spin);
