@@ -144,9 +144,9 @@ void ReadConfigParams(const char* config_file, BalancingConfig* params) {
     std::cout << "toBalThreshold :" << params->toBalThreshold << std::endl;
 
     // Halt arm to stop
-    params->eventBasedArmLockUnlock = cfg->lookupBoolean(scope, "eventBasedArmLockUnlock");
-    std::cout << "eventBasedArmLockUnlock: ";
-    std::cout << (params->eventBasedArmLockUnlock? "true":"false") << std::endl;
+    params->manualArmLockUnlock = cfg->lookupBoolean(scope, "manualArmLockUnlock");
+    std::cout << "manualArmLockUnlock: ";
+    std::cout << (params->manualArmLockUnlock? "true":"false") << std::endl;
 
   } catch (const config4cpp::ConfigurationException& ex) {
     std::cerr << ex.c_str() << std::endl;
