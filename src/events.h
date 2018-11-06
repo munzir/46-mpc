@@ -48,23 +48,30 @@
 #include "balancing_config.h"
 #include "control.h"
 #include <Eigen/Eigen>
+#include "joystick.h"
 #include "keyboard.h"
 #include <kore.hpp>
 #include <somatic.h>
 #include "torso.h"
 
-void keyboardEvents(kbShared& kb_shared, bool& start_,
-                    BalanceControl& balance_control, ArmControl& arm_control);
+/* ****************************************************************************** */
+/// Events
+bool Events(kbShared& kb_shared, Joystick& joystick,
+            bool* start, BalanceControl* balance_control,
+            Somatic__WaistMode* waist_mode, TorsoState* torso_state,
+            ArmControl* arm_control);
 
-void joystickBalancingEvents(char* b_, double* x_,
-                             BalanceControl& balance_control);
+/* ******************************************************************************************** */
+// If a character was entered from the keyboard process it
+void KeyboardEvents(kbShared& kb_shared, bool* start_,
+                    BalanceControl* balance_control, ArmControl* arm_control);
 
-void joystickTorsoEvents(const char* b, const double* x, TorsoState* torso_state);
-
-void joyStickArmEvents(const char* b, const double* x, ArmControl* arm_control);
-
-Somatic__WaistMode joystickWaistEvents(double x);
-
-bool joystickKillEvent(char* b_);
+/* ****************************************************************************** */
+/// Joystick Events
+bool JoystickEvents(Joystick& joystick,
+                    BalanceControl* balance_control,
+                    Somatic__WaistMode* waist_mode,
+                    TorsoState* torso_state,
+                    ArmControl* arm_control);
 
 #endif // KRANG_BALANCING_EVENTS_H_

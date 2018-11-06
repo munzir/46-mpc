@@ -70,45 +70,47 @@ enum ANALOG {
   CURSOR_VERT
 } ;
 
-/* ******************************************************************************************** */
+Joystick::Joystick () {
+  OpenJoystickChannel();
+}
+/* ***************************************************************************** */
 // Opens ach channel to read joystick data
-void openJoystickChannel() {
+void Joystick::OpenJoystickChannel() {
   // Initialize the joystick channel
-  int r = ach_open(&js_chan, "joystick-data", NULL);
+  int r = ach_open(&ach_chan, "joystick-data", NULL);
   aa_hard_assert(r == ACH_OK, "Ach failure '%s' on opening Joystick channel (%s, line %d)\n",
     ach_result_to_string(static_cast<ach_status_t>(r)), __FILE__, __LINE__);
 }
 
 
-/* ******************************************************************************************** */
+/* ***************************************************************************** */
 /// Returns the values of axes 1 (left up/down) and 2 (right left/right) in the joystick
-bool getJoystickInput(char* b, double* x, JoystickState* joystick_state) {
+bool Joystick::Update() {
 
   // Get the message and check output is OK.
   int r = 0;
   Somatic__Joystick *js_msg =
-      SOMATIC_GET_LAST_UNPACK( r, somatic__joystick, NULL, 4096, &js_chan );
+      SOMATIC_GET_LAST_UNPACK( r, somatic__joystick, NULL, 4096, &ach_chan );
   if(!(ACH_OK == r || ACH_MISSED_FRAME == r) || (js_msg == NULL)) return false;
 
   // Get the values
+  char b[10];
   for(size_t i = 0; i < 10; i++)
     b[i] = js_msg->buttons->data[i] ? 1 : 0;
 
+  double x[6];
   for(size_t i = 0; i < 6; i++)
     x[i] = js_msg->axes->data[i];
 
   // Free the joystick message
   somatic__joystick__free_unpacked(js_msg, NULL);
 
-  if(joystick_state != NULL) {
-    MapToJoystickState(b, x, joystick_state);
-  }
+  MapToJoystickState(b, x);
   return true;
 }
 
-/* ******************************************************************************************** */
-void MapToJoystickState(char* b, double* x,
-                        JoystickState* joystick_state) {
+/* ***************************************************************************** */
+void Joystick::MapToJoystickState(char* b, double* x) {
   //b={(1),(2),(3),(4),L1,L2,R1,R2,(9),(10)}
   //b={  0,  0,  0,  0, 0, 0, 0, 0,  0,  1 }
   static char last_b[10] = {0};
@@ -121,8 +123,8 @@ void MapToJoystickState(char* b, double* x,
   }
 
   // thumbValues to be zero if thumb axes are not active
-  joystick_state->thumbValue[JoystickState::LEFT] = 0.0;
-  joystick_state->thumbValue[JoystickState::RIGHT] = 0.0;
+  thumbValue[Joystick::LEFT] = 0.0;
+  thumbValue[Joystick::RIGHT] = 0.0;
 
   // for one horz/vert pair, only one direction can be active at a time
   // prioritize the one with a higher value
@@ -157,82 +159,82 @@ void MapToJoystickState(char* b, double* x,
   // RIGHMB MODEITAL BUTTONS [(1), (2), (3), (4), (10)]
   // Button (1)
   if (b[ONE] == 1 && last_b[ONE] == 0) {  //tapping (1)
-    joystick_state->rightMode = JoystickState::B1_PRESS;
+    rightMode = Joystick::B1_PRESS;
   }
   else if (b[ONE] == 1  && last_b[ONE] == 1) {  //holding (1)
-    joystick_state->rightMode = JoystickState::B1_HOLD;
+    rightMode = Joystick::B1_HOLD;
   }
   else if (b[ONE] == 0 && last_b[ONE] == 1) { // releasing (1)
-    joystick_state->rightMode = JoystickState::B1_RELEASE;
+    rightMode = Joystick::B1_RELEASE;
   }
   // Button (2)
   else if (b[TWO] == 1 && last_b[TWO] == 0) {  //tapping (2)
-    joystick_state->rightMode = JoystickState::B2_PRESS;
+    rightMode = Joystick::B2_PRESS;
   }
   else if (b[TWO] == 1  && last_b[TWO] == 1) {  //holding (2)
-    joystick_state->rightMode = JoystickState::B2_HOLD;
+    rightMode = Joystick::B2_HOLD;
   }
   else if (b[TWO] == 0 && last_b[TWO] == 1) { // releasing (2)
-    joystick_state->rightMode = JoystickState::B2_RELEASE;
+    rightMode = Joystick::B2_RELEASE;
   }
   // Button (3)
   else if (b[THREE] == 1 && last_b[THREE] == 0) {  //tapping (3)
-    joystick_state->rightMode = JoystickState::B3_PRESS;
+    rightMode = Joystick::B3_PRESS;
   }
   else if (b[THREE] == 1  && last_b[THREE] == 1) {  //holding (3)
-    joystick_state->rightMode = JoystickState::B3_HOLD;
+    rightMode = Joystick::B3_HOLD;
   }
   else if (b[THREE] == 0 && last_b[THREE] == 1) { // releasing (3)
-    joystick_state->rightMode = JoystickState::B3_RELEASE;
+    rightMode = Joystick::B3_RELEASE;
   }
   // Button (4)
   else if (b[FOUR] == 1 && last_b[FOUR] == 0) {  //tapping (4)
-    joystick_state->rightMode = JoystickState::B4_PRESS;
+    rightMode = Joystick::B4_PRESS;
   }
   else if (b[FOUR] == 1  && last_b[FOUR] == 1) {  //holding (4)
-    joystick_state->rightMode = JoystickState::B4_HOLD;
+    rightMode = Joystick::B4_HOLD;
   }
   else if (b[FOUR] == 0 && last_b[FOUR] == 1) { // releasing (4)
-    joystick_state->rightMode = JoystickState::B4_RELEASE;
+    rightMode = Joystick::B4_RELEASE;
   }
   // Button (10)
   else if (b[TEN] == 1 && last_b[TEN] == 0) {  //tapping (10)
-    joystick_state->rightMode = JoystickState::B10_PRESS;
+    rightMode = Joystick::B10_PRESS;
   }
   else if (b[TEN] == 1  && last_b[TEN] == 1) {  //holding (10)
-    joystick_state->rightMode = JoystickState::B10_HOLD;
+    rightMode = Joystick::B10_HOLD;
   }
   else if (b[TEN] == 0 && last_b[TEN] == 1) { // releasing (10)
-    joystick_state->rightMode = JoystickState::B10_RELEASE;
+    rightMode = Joystick::B10_RELEASE;
   }
   // RIGHT THUMB MODE: ANALOG
   //tapping TSR-side
   else if ( bool_x[RIGHT_THUMB_HORZ] == 1 &&  last_bool_x[RIGHT_THUMB_HORZ] == 0  ) {
-    joystick_state->rightMode = JoystickState::RIGHT_THUMB_HORZ_PRESS;
-    joystick_state->thumbValue[JoystickState::RIGHT] = x[RIGHT_THUMB_HORZ];
+    rightMode = Joystick::RIGHT_THUMB_HORZ_PRESS;
+    thumbValue[Joystick::RIGHT] = x[RIGHT_THUMB_HORZ];
   }
   //holding TSR-side
   else if ( bool_x[RIGHT_THUMB_HORZ] == 1 &&  last_bool_x[RIGHT_THUMB_HORZ] == 1  ) {
-    joystick_state->rightMode = JoystickState::RIGHT_THUMB_HORZ_HOLD;
-    joystick_state->thumbValue[JoystickState::RIGHT] = x[RIGHT_THUMB_HORZ];
+    rightMode = Joystick::RIGHT_THUMB_HORZ_HOLD;
+    thumbValue[Joystick::RIGHT] = x[RIGHT_THUMB_HORZ];
   }
   //releasing TSR-side
   else if ( bool_x[RIGHT_THUMB_HORZ] == 0 &&  last_bool_x[RIGHT_THUMB_HORZ] == 1  ) {
-    joystick_state->rightMode = JoystickState::RIGHT_THUMB_HORZ_RELEASE;
+    rightMode = Joystick::RIGHT_THUMB_HORZ_RELEASE;
   }
   //tapping TSR-updown
   else if ( bool_x[RIGHT_THUMB_VERT] == 1 &&  last_bool_x[RIGHT_THUMB_VERT] == 0  ) {
-    joystick_state->rightMode = JoystickState::RIGHT_THUMB_VERT_PRESS;
-    joystick_state->thumbValue[JoystickState::RIGHT] = x[RIGHT_THUMB_VERT];
+    rightMode = Joystick::RIGHT_THUMB_VERT_PRESS;
+    thumbValue[Joystick::RIGHT] = x[RIGHT_THUMB_VERT];
   }
   //holding TSR-updown
   else if ( bool_x[RIGHT_THUMB_VERT] == 1 &&  last_bool_x[RIGHT_THUMB_VERT] == 1  ) {
-    joystick_state->rightMode = JoystickState::RIGHT_THUMB_VERT_HOLD;
-    joystick_state->thumbValue[JoystickState::RIGHT] = x[RIGHT_THUMB_VERT];
+    rightMode = Joystick::RIGHT_THUMB_VERT_HOLD;
+    thumbValue[Joystick::RIGHT] = x[RIGHT_THUMB_VERT];
   }
   //releasing TSR-updown
   else if ( bool_x[RIGHT_THUMB_VERT] == 0 &&  last_bool_x[RIGHT_THUMB_VERT] == 1  ) {
-    joystick_state->rightMode = JoystickState::RIGHT_THUMB_VERT_RELEASE;
+    rightMode = Joystick::RIGHT_THUMB_VERT_RELEASE;
   }
   // no button pressed
   else if ( b[ONE] == 0 && b[TWO] == 0 &&
@@ -240,7 +242,7 @@ void MapToJoystickState(char* b, double* x,
             b[TEN] == 0 &&
             bool_x[RIGHT_THUMB_HORZ] == 0 &&
             bool_x[RIGHT_THUMB_VERT] == 0) {
-      joystick_state->rightMode = JoystickState::RIGHT_THUMB_FREE;
+      rightMode = Joystick::RIGHT_THUMB_FREE;
   }
 
 
@@ -249,70 +251,70 @@ void MapToJoystickState(char* b, double* x,
   // LEFT THUMB MODE: DIGITAL BUTTONS [(9)]
   // Button (9)
   if (b[NINE] == 1 && last_b[NINE] == 0) {  //tapping (9)
-    joystick_state->leftMode = JoystickState::B9_PRESS;
+    leftMode = Joystick::B9_PRESS;
   }
   else if (b[NINE] == 1  && last_b[NINE] == 1) {  //holding (9)
-    joystick_state->leftMode = JoystickState::B9_HOLD;
+    leftMode = Joystick::B9_HOLD;
   }
   else if (b[NINE] == 0 && last_b[NINE] == 1) { // releasing (9)
-    joystick_state->leftMode = JoystickState::B9_RELEASE;
+    leftMode = Joystick::B9_RELEASE;
   }
   // LEFT THUMB MODE: ANALOG
   //tapping TSL-side
   else if ( bool_x[LEFT_THUMB_HORZ] == 1 &&  last_bool_x[LEFT_THUMB_HORZ] == 0  ) {
-    joystick_state->leftMode = JoystickState::LEFT_THUMB_HORZ_PRESS;
-    joystick_state->thumbValue[JoystickState::LEFT] = x[LEFT_THUMB_HORZ];
+    leftMode = Joystick::LEFT_THUMB_HORZ_PRESS;
+    thumbValue[Joystick::LEFT] = x[LEFT_THUMB_HORZ];
   }
   //holding TSL-side
   else if ( bool_x[LEFT_THUMB_HORZ] == 1 &&  last_bool_x[LEFT_THUMB_HORZ] == 1  ) {
-    joystick_state->leftMode = JoystickState::LEFT_THUMB_HORZ_HOLD;
-    joystick_state->thumbValue[JoystickState::LEFT] = x[LEFT_THUMB_HORZ];
+    leftMode = Joystick::LEFT_THUMB_HORZ_HOLD;
+    thumbValue[Joystick::LEFT] = x[LEFT_THUMB_HORZ];
   }
   //releasing TSL-side
   else if ( bool_x[LEFT_THUMB_HORZ] == 0 &&  last_bool_x[LEFT_THUMB_HORZ] == 1  ) {
-    joystick_state->leftMode = JoystickState::LEFT_THUMB_HORZ_RELEASE;
+    leftMode = Joystick::LEFT_THUMB_HORZ_RELEASE;
   }
   //tapping TSL-updn
   else if ( bool_x[LEFT_THUMB_VERT] == 1 &&  last_bool_x[LEFT_THUMB_VERT] == 0  ) {
-    joystick_state->leftMode = JoystickState::LEFT_THUMB_VERT_PRESS;
-    joystick_state->thumbValue[JoystickState::LEFT] = x[LEFT_THUMB_VERT];
+    leftMode = Joystick::LEFT_THUMB_VERT_PRESS;
+    thumbValue[Joystick::LEFT] = x[LEFT_THUMB_VERT];
   }
   //holding TSL-updn
   else if ( bool_x[LEFT_THUMB_VERT] == 1 &&  last_bool_x[LEFT_THUMB_VERT] == 1  ) {
-    joystick_state->leftMode = JoystickState::LEFT_THUMB_VERT_HOLD;
-    joystick_state->thumbValue[JoystickState::LEFT] = x[LEFT_THUMB_VERT];
+    leftMode = Joystick::LEFT_THUMB_VERT_HOLD;
+    thumbValue[Joystick::LEFT] = x[LEFT_THUMB_VERT];
   }
   //releasing TSL-updn
   else if ( bool_x[LEFT_THUMB_VERT] == 0 &&  last_bool_x[LEFT_THUMB_VERT] == 1  ) {
-    joystick_state->leftMode = JoystickState::LEFT_THUMB_VERT_RELEASE;
+    leftMode = Joystick::LEFT_THUMB_VERT_RELEASE;
   }
   //tapping AXL-side
   else if ( bool_x[CURSOR_HORZ] == 1 &&  last_bool_x[CURSOR_HORZ] == 0  ) {
-    joystick_state->leftMode = JoystickState::CURSOR_HORZ_PRESS;
-    joystick_state->thumbValue[JoystickState::LEFT] = x[CURSOR_HORZ];
+    leftMode = Joystick::CURSOR_HORZ_PRESS;
+    thumbValue[Joystick::LEFT] = x[CURSOR_HORZ];
   }
   //holding AXL-side
   else if ( bool_x[CURSOR_HORZ] == 1 &&  last_bool_x[CURSOR_HORZ] == 1  ) {
-    joystick_state->leftMode = JoystickState::CURSOR_HORZ_HOLD;
-    joystick_state->thumbValue[JoystickState::LEFT] = x[CURSOR_HORZ];
+    leftMode = Joystick::CURSOR_HORZ_HOLD;
+    thumbValue[Joystick::LEFT] = x[CURSOR_HORZ];
   }
   //releasing AXL-side
   else if ( bool_x[CURSOR_HORZ] == 0 &&  last_bool_x[CURSOR_HORZ] == 1  ) {
-    joystick_state->leftMode = JoystickState::CURSOR_HORZ_RELEASE;
+    leftMode = Joystick::CURSOR_HORZ_RELEASE;
   }
   //tapping AXL-updn
   else if ( bool_x[CURSOR_VERT] == 1 &&  last_bool_x[CURSOR_VERT] == 0  ) {
-    joystick_state->leftMode = JoystickState::CURSOR_VERT_PRESS;
-    joystick_state->thumbValue[JoystickState::LEFT] = x[CURSOR_VERT];
+    leftMode = Joystick::CURSOR_VERT_PRESS;
+    thumbValue[Joystick::LEFT] = x[CURSOR_VERT];
   }
   //holding AXL-updn
   else if ( bool_x[CURSOR_VERT] == 1 &&  last_bool_x[CURSOR_VERT] == 1  ) {
-    joystick_state->leftMode = JoystickState::CURSOR_VERT_HOLD;
-    joystick_state->thumbValue[JoystickState::LEFT] = x[CURSOR_VERT];
+    leftMode = Joystick::CURSOR_VERT_HOLD;
+    thumbValue[Joystick::LEFT] = x[CURSOR_VERT];
   }
   //releasing AXL-updn
   else if ( bool_x[CURSOR_VERT] == 0 &&  last_bool_x[CURSOR_VERT] == 1  ) {
-    joystick_state->leftMode = JoystickState::CURSOR_VERT_RELEASE;
+    leftMode = Joystick::CURSOR_VERT_RELEASE;
   }
   // no button pressed
   else if ( b[NINE] == 0 &&
@@ -320,73 +322,73 @@ void MapToJoystickState(char* b, double* x,
             bool_x[LEFT_THUMB_VERT] == 0 &&
             bool_x[CURSOR_HORZ] == 0 &&
             bool_x[CURSOR_VERT] == 0 ) {
-      joystick_state->leftMode = JoystickState::LEFT_THUMB_FREE;
+      leftMode = Joystick::LEFT_THUMB_FREE;
   }
 
   // FINGER MODE: BUTTONS [ L1, L2, R1, R2]
   // pressing L1
   if      (b[L1] == 1 && b[L2] == 0  && b[R1] == 0  && b[R2] == 0 ) {
-    joystick_state->fingerMode = JoystickState::L1;
+    fingerMode = Joystick::L1;
   }
   // pressing L2
   else if (b[L1] == 0 && b[L2] == 1  && b[R1] == 0  && b[R2] == 0 ) {
-    joystick_state->fingerMode = JoystickState::L2;
+    fingerMode = Joystick::L2;
   }
   // pressing R1
   else if (b[L1] == 0 && b[L2] == 0  && b[R1] == 1  && b[R2] == 0 ) {
-    joystick_state->fingerMode = JoystickState::R1;
+    fingerMode = Joystick::R1;
   }
   // pressing R2
   else if (b[L1] == 0 && b[L2] == 0  && b[R1] == 0  && b[R2] == 1 ) {
-    joystick_state->fingerMode = JoystickState::R2;
+    fingerMode = Joystick::R2;
   }
   // pressing L1 & L2
   else if (b[L1] == 1 && b[L2] == 1  && b[R1] == 0  && b[R2] == 0 ) {
-    joystick_state->fingerMode = JoystickState::L1L2;
+    fingerMode = Joystick::L1L2;
   }
   // pressing R1 & R2
   else if (b[L1] == 0 && b[L2] == 0  && b[R1] == 1  && b[R2] == 1 ) {
-    joystick_state->fingerMode = JoystickState::R1R2;
+    fingerMode = Joystick::R1R2;
   }
   // pressing L1 & R1
   else if (b[L1] == 1 && b[L2] == 0  && b[R1] == 1  && b[R2] == 0 ) {
-    joystick_state->fingerMode = JoystickState::L1R1;
+    fingerMode = Joystick::L1R1;
   }
   // pressing L1 & R2
   else if (b[L1] == 1 && b[L2] == 0  && b[R1] == 0  && b[R2] == 1 ) {
-    joystick_state->fingerMode = JoystickState::L1R2;
+    fingerMode = Joystick::L1R2;
   }
   // pressing L2 & R1
   else if (b[L1] == 0 && b[L2] == 1  && b[R1] == 1  && b[R2] == 0 ) {
-    joystick_state->fingerMode = JoystickState::L2R1;
+    fingerMode = Joystick::L2R1;
   }
   // pressing L2 & R2
   else if (b[L1] == 0 && b[L2] == 1  && b[R1] == 0  && b[R2] == 1 ) {
-    joystick_state->fingerMode = JoystickState::L2R2;
+    fingerMode = Joystick::L2R2;
   }
   // pressing L1, L2, & R1
   else if (b[L1] == 1 && b[L2] == 1  && b[R1] == 1  && b[R2] == 0 ) {
-    joystick_state->fingerMode = JoystickState::L1L2R1;
+    fingerMode = Joystick::L1L2R1;
   }
   // pressing L1, L2, & R2
   else if (b[L1] == 1 && b[L2] == 1  && b[R1] == 0  && b[R2] == 1 ) {
-    joystick_state->fingerMode = JoystickState::L1L2R2;
+    fingerMode = Joystick::L1L2R2;
   }
   // pressing L1, R1, & R2
   else if (b[L1] == 1 && b[L2] == 0  && b[R1] == 1  && b[R2] == 1 ) {
-    joystick_state->fingerMode = JoystickState::L1R1R2;
+    fingerMode = Joystick::L1R1R2;
   }
   // pressing L2, R1, & R2
   else if (b[L1] == 0 && b[L2] == 1  && b[R1] == 1  && b[R2] == 1 ) {
-    joystick_state->fingerMode = JoystickState::L2R1R2;
+    fingerMode = Joystick::L2R1R2;
   }
   // pressing L1, L2, R1, & R2
   else if (b[L1] == 1 && b[L2] == 1  && b[R1] == 1  && b[R2] == 1 ) {
-    joystick_state->fingerMode = JoystickState::L1L2R1R2;
+    fingerMode = Joystick::L1L2R1R2;
   }
   // pressing No Buttons
   else if (b[L1] == 0 && b[L2] == 0  && b[R1] == 0  && b[R2] == 0 ) {
-    joystick_state->fingerMode = JoystickState::L1L2R1R2_FREE;
+    fingerMode = Joystick::L1L2R1R2_FREE;
   }
 
 
