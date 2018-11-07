@@ -53,10 +53,10 @@ enum BUTTONS {
   TWO,
   THREE,
   FOUR,
-  L1,
-  R1,
-  L2,
-  R2,
+  LEFT1,
+  RIGHT1,
+  LEFT2,
+  RIGHT2,
   NINE,
   TEN
 } ;
@@ -327,67 +327,67 @@ void Joystick::MapToJoystickState(char* b, double* x) {
 
   // FINGER MODE: BUTTONS [ L1, L2, R1, R2]
   // pressing L1
-  if      (b[L1] == 1 && b[L2] == 0  && b[R1] == 0  && b[R2] == 0 ) {
+  if      (b[LEFT1] == 1 && b[LEFT2] == 0  && b[RIGHT1] == 0  && b[RIGHT2] == 0 ) {
     fingerMode = Joystick::L1;
   }
   // pressing L2
-  else if (b[L1] == 0 && b[L2] == 1  && b[R1] == 0  && b[R2] == 0 ) {
+  else if (b[LEFT1] == 0 && b[LEFT2] == 1  && b[RIGHT1] == 0  && b[RIGHT2] == 0 ) {
     fingerMode = Joystick::L2;
   }
   // pressing R1
-  else if (b[L1] == 0 && b[L2] == 0  && b[R1] == 1  && b[R2] == 0 ) {
+  else if (b[LEFT1] == 0 && b[LEFT2] == 0  && b[RIGHT1] == 1  && b[RIGHT2] == 0 ) {
     fingerMode = Joystick::R1;
   }
   // pressing R2
-  else if (b[L1] == 0 && b[L2] == 0  && b[R1] == 0  && b[R2] == 1 ) {
+  else if (b[LEFT1] == 0 && b[LEFT2] == 0  && b[RIGHT1] == 0  && b[RIGHT2] == 1 ) {
     fingerMode = Joystick::R2;
   }
   // pressing L1 & L2
-  else if (b[L1] == 1 && b[L2] == 1  && b[R1] == 0  && b[R2] == 0 ) {
+  else if (b[LEFT1] == 1 && b[LEFT2] == 1  && b[RIGHT1] == 0  && b[RIGHT2] == 0 ) {
     fingerMode = Joystick::L1L2;
   }
   // pressing R1 & R2
-  else if (b[L1] == 0 && b[L2] == 0  && b[R1] == 1  && b[R2] == 1 ) {
+  else if (b[LEFT1] == 0 && b[LEFT2] == 0  && b[RIGHT1] == 1  && b[RIGHT2] == 1 ) {
     fingerMode = Joystick::R1R2;
   }
   // pressing L1 & R1
-  else if (b[L1] == 1 && b[L2] == 0  && b[R1] == 1  && b[R2] == 0 ) {
+  else if (b[LEFT1] == 1 && b[LEFT2] == 0  && b[RIGHT1] == 1  && b[RIGHT2] == 0 ) {
     fingerMode = Joystick::L1R1;
   }
   // pressing L1 & R2
-  else if (b[L1] == 1 && b[L2] == 0  && b[R1] == 0  && b[R2] == 1 ) {
+  else if (b[LEFT1] == 1 && b[LEFT2] == 0  && b[RIGHT1] == 0  && b[RIGHT2] == 1 ) {
     fingerMode = Joystick::L1R2;
   }
   // pressing L2 & R1
-  else if (b[L1] == 0 && b[L2] == 1  && b[R1] == 1  && b[R2] == 0 ) {
+  else if (b[LEFT1] == 0 && b[LEFT2] == 1  && b[RIGHT1] == 1  && b[RIGHT2] == 0 ) {
     fingerMode = Joystick::L2R1;
   }
   // pressing L2 & R2
-  else if (b[L1] == 0 && b[L2] == 1  && b[R1] == 0  && b[R2] == 1 ) {
+  else if (b[LEFT1] == 0 && b[LEFT2] == 1  && b[RIGHT1] == 0  && b[RIGHT2] == 1 ) {
     fingerMode = Joystick::L2R2;
   }
   // pressing L1, L2, & R1
-  else if (b[L1] == 1 && b[L2] == 1  && b[R1] == 1  && b[R2] == 0 ) {
+  else if (b[LEFT1] == 1 && b[LEFT2] == 1  && b[RIGHT1] == 1  && b[RIGHT2] == 0 ) {
     fingerMode = Joystick::L1L2R1;
   }
   // pressing L1, L2, & R2
-  else if (b[L1] == 1 && b[L2] == 1  && b[R1] == 0  && b[R2] == 1 ) {
+  else if (b[LEFT1] == 1 && b[LEFT2] == 1  && b[RIGHT1] == 0  && b[RIGHT2] == 1 ) {
     fingerMode = Joystick::L1L2R2;
   }
   // pressing L1, R1, & R2
-  else if (b[L1] == 1 && b[L2] == 0  && b[R1] == 1  && b[R2] == 1 ) {
+  else if (b[LEFT1] == 1 && b[LEFT2] == 0  && b[RIGHT1] == 1  && b[RIGHT2] == 1 ) {
     fingerMode = Joystick::L1R1R2;
   }
   // pressing L2, R1, & R2
-  else if (b[L1] == 0 && b[L2] == 1  && b[R1] == 1  && b[R2] == 1 ) {
+  else if (b[LEFT1] == 0 && b[LEFT2] == 1  && b[RIGHT1] == 1  && b[RIGHT2] == 1 ) {
     fingerMode = Joystick::L2R1R2;
   }
   // pressing L1, L2, R1, & R2
-  else if (b[L1] == 1 && b[L2] == 1  && b[R1] == 1  && b[R2] == 1 ) {
+  else if (b[LEFT1] == 1 && b[LEFT2] == 1  && b[RIGHT1] == 1  && b[RIGHT2] == 1 ) {
     fingerMode = Joystick::L1L2R1R2;
   }
   // pressing No Buttons
-  else if (b[L1] == 0 && b[L2] == 0  && b[R1] == 0  && b[R2] == 0 ) {
+  else if (b[LEFT1] == 0 && b[LEFT2] == 0  && b[RIGHT1] == 0  && b[RIGHT2] == 0 ) {
     fingerMode = Joystick::L1L2R1R2_FREE;
   }
 
