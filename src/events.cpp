@@ -80,7 +80,6 @@ void KeyboardEvents(kbShared& kb_shared, bool* start_,
     //else if(input=='.') readGains();
     else if(input=='j') {
       arm_control->LockUnlockEvent();
-      std::cout << "[INFO] Keyboard based lock unlock event called" << std::endl;
     }
     else if(input=='1') {
       printf("Mode 1\n");
@@ -201,7 +200,7 @@ bool JoystickEvents(Joystick& joystick,
         case(Joystick::LEFT_THUMB_VERT_HOLD): {
           switch(joystick.rightMode) {
             case(Joystick::RIGHT_THUMB_FREE): {
-              double forw = joystick.thumbValue[Joystick::LEFT];
+              double forw = -joystick.thumbValue[Joystick::LEFT];
               balance_control->SetFwdInput(forw);
               break;
             }
@@ -211,14 +210,14 @@ bool JoystickEvents(Joystick& joystick,
             //case(Joystick::B4_PRESS):
             //case(Joystick::B10_PRESS):
             case(Joystick::RIGHT_THUMB_HORZ_HOLD): {
-              double forw = joystick.thumbValue[Joystick::LEFT];
+              double forw = -joystick.thumbValue[Joystick::LEFT];
               balance_control->SetFwdInput(forw);
               double spin = joystick.thumbValue[Joystick::RIGHT];
               balance_control->SetSpinInput(spin);
               break;
             }
             case(Joystick::RIGHT_THUMB_VERT_HOLD): {
-              double forw = joystick.thumbValue[Joystick::LEFT];
+              double forw = -joystick.thumbValue[Joystick::LEFT];
               balance_control->SetFwdInput(forw);
               break;
             }
@@ -427,13 +426,13 @@ bool JoystickEvents(Joystick& joystick,
             //case(Joystick::B10_PRESS):
             case(Joystick::RIGHT_THUMB_HORZ_HOLD): {
               arm_control->mode = ArmControl::kMoveRightBigSet;
-              double x = joystick.thumbValue[Joystick::LEFT];
+              double x = joystick.thumbValue[Joystick::RIGHT];
               arm_control->command_vals[2] = x;
               break;
             }
             case(Joystick::RIGHT_THUMB_VERT_HOLD): {
               arm_control->mode = ArmControl::kMoveRightBigSet;
-              double x = joystick.thumbValue[Joystick::LEFT];
+              double x = joystick.thumbValue[Joystick::RIGHT];
               arm_control->command_vals[3] = x;
               break;
             }
@@ -445,7 +444,7 @@ bool JoystickEvents(Joystick& joystick,
           switch(joystick.rightMode) {
             case(Joystick::RIGHT_THUMB_FREE): {
               arm_control->mode = ArmControl::kMoveRightBigSet;
-              double x = joystick.thumbValue[Joystick::RIGHT];
+              double x = joystick.thumbValue[Joystick::LEFT];
               arm_control->command_vals[0] = x;
               break;
             }
@@ -463,8 +462,8 @@ bool JoystickEvents(Joystick& joystick,
           switch(joystick.rightMode) {
             case(Joystick::RIGHT_THUMB_FREE): {
               arm_control->mode = ArmControl::kMoveRightBigSet;
-              double x = joystick.thumbValue[Joystick::RIGHT];
-              arm_control->command_vals[0] = x;
+              double x = joystick.thumbValue[Joystick::LEFT];
+              arm_control->command_vals[1] = x;
               break;
             }
             //case(Joystick::B1_PRESS):

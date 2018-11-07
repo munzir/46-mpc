@@ -11,9 +11,11 @@ int main () {
   //memset(&dopt, 0, sizeof(dopt));
   //dopt.ident = "02-joystick_testing";
   //somatic_d_init(&daemon_cx, &dopt);
-  openJoystickChannel();
+  Joystick joystick;
 
-  JoystickState joystick_state, last_joystick_state;
+  Joystick::FingerButtons last_finger_mode;
+  Joystick::RightThumb last_right_mode;
+  Joystick::LeftThumb last_left_mode;
   char b[10];
   double x[6];
   const char finger_button_strings[][24] = {
@@ -57,23 +59,23 @@ int main () {
 
   int c = 0;
   while(!somatic_sig_received) {
-    getJoystickInput(b, x, &joystick_state);
-    if(joystick_state.fingerMode != last_joystick_state.fingerMode ||
-       joystick_state.rightMode != last_joystick_state.rightMode ||
-       joystick_state.leftMode != last_joystick_state.leftMode) {
+    joystick.Update();
+    if(joystick.fingerMode != last_finger_mode ||
+       joystick.rightMode != last_right_mode ||
+       joystick.leftMode != last_left_mode) {
       std::cout << std::endl << std::endl;
-      std::cout << "Finger     : " << finger_button_strings[joystick_state.fingerMode] << std::endl;
-      std::cout << "Right Thumb: " << right_thumb_strings[joystick_state.rightMode] << std::endl;
-      std::cout << "Left Thumb : " << left_thumb_strings[joystick_state.leftMode] << std::endl;
+      std::cout << "Finger     : " << finger_button_strings[joystick.fingerMode] << std::endl;
+      std::cout << "Right Thumb: " << right_thumb_strings[joystick.rightMode] << std::endl;
+      std::cout << "Left Thumb : " << left_thumb_strings[joystick.leftMode] << std::endl;
     }
     std::cout << "\rLeft Thumb Value: ";
-    std::cout << std::setprecision(4) << joystick_state.thumbValue[JoystickState::LEFT];
+    std::cout << std::setprecision(4) << joystick.thumbValue[Joystick::LEFT];
     std::cout << "  Right Thumb Value: ";
-    std::cout << std::setprecision(4) << joystick_state.thumbValue[JoystickState::RIGHT];
+    std::cout << std::setprecision(4) << joystick.thumbValue[Joystick::RIGHT];
     std::cout << "                    ";
-    last_joystick_state.fingerMode = joystick_state.fingerMode;
-    last_joystick_state.rightMode = joystick_state.rightMode;
-    last_joystick_state.leftMode = joystick_state.leftMode;
+    last_finger_mode = joystick.fingerMode;
+    last_right_mode = joystick.rightMode;
+    last_left_mode = joystick.leftMode;
   }
 
 }
