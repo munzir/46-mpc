@@ -8,7 +8,7 @@ This repo contains code for balancing krang. Aim is to implement original balanc
 - [09-URDF](https://github.gatech.edu/WholeBodyControlAttempt1/09-URDF) - Clone this repo. No installation needed.
 - [18-OnlineCoM](https://github.gatech.edu/WholeBodyControlAttempt1/18-OnlineCoM) - Clone this repo. No installation needed.
 - [37-somatic](https://github.gatech.edu/WholeBodyControlAttempt1/37-somatic) - Follow installation instructions on the git readme.
-- [36-kore](https://github.gatech.edu/WholeBodyControlAttempt1/37-somatic) - Follow installation instructions on the git readme
+- [36-kore (newdart branch)](https://github.gatech.edu/WholeBodyControlAttempt1/36-kore/tree/newdart) - Follow installation instructions on the git readme
 
 ## Installation
 
