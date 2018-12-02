@@ -5,6 +5,10 @@ This repo contains code for balancing krang. Aim is to implement original balanc
 ## Dependencies
 
 - [DART](https://dartsim.github.io/install_dart_on_ubuntu.html) - Use 'apt install' instructions on the page.
+- [config4cpp](http://www.config4star.org/) - Using the link, download the source code for Config4Cpp (C++ version) using the 'compressed tar' option. After extracting, cd into the directory and
+
+      make
+  Copy files from bin folder to /usr/local/bin/, from lib folder to /usr/local/lib/, and the config4cpp directory in the    include folder to /usr/local/include.
 - [09-URDF](https://github.gatech.edu/WholeBodyControlAttempt1/09-URDF) - Clone this repo. No installation needed.
 - [18-OnlineCoM](https://github.gatech.edu/WholeBodyControlAttempt1/18-OnlineCoM) - Clone this repo. No installation needed.
 - [37-somatic](https://github.gatech.edu/WholeBodyControlAttempt1/37-somatic) - Follow installation instructions on the git readme.
