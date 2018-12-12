@@ -54,8 +54,8 @@
 #include <time.h>
 
 #include "balancing_config.h"
-#include "../../18h-Util/lqr.hpp"
-#include "../../18h-Util/adrc.hpp"
+#include "lqr.hpp"
+#include "adrc.hpp"
 #include "file_ops.hpp"
 
 const char BalanceControl::MODE_STRINGS[][16] = {
@@ -165,6 +165,7 @@ void BalanceControl::SetComParameters(Eigen::MatrixXd betaParams, int bodyParams
     bodyMCOM(1) = betaParams(0, i * bodyParams + 2);
     bodyMCOM(2) = betaParams(0, i * bodyParams + 3);
 
+    //std::cout << robot->getBodyNode(i)->getName() << std::endl;
     robot->getBodyNode(i)->setMass(mi);
     robot->getBodyNode(i)->setLocalCOM(bodyMCOM/mi);
   }

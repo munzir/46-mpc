@@ -15,8 +15,8 @@
 #include "control.h"
 #include "events.h"
 #include "kore/display.hpp"
-#include "../../18h-Util/lqr.hpp"
-#include "../../18h-Util/adrc.hpp"
+#include "lqr.hpp"
+#include "adrc.hpp"
 #include "file_ops.hpp"
 #include "utils.h"
 #include <dart/utils/urdf/urdf.hpp>
@@ -61,6 +61,7 @@ void run (BalancingConfig& params) {
   Somatic__WaistMode waist_mode;
   BalanceControl balance_control(krang, robot, params);
   while(!somatic_sig_received) {
+
 
     bool debug = (debug_iter++ % 20 == 0);
     debugGlobal = debug;
