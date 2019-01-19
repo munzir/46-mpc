@@ -47,11 +47,7 @@ double x[6];
 
 kbShared kb_shared;  ///< info shared by keyboard thread here
 
-/// The vector of states
-// vector <LogState*> logStates;
-
 // Debug flags default values
-bool debugGlobal = false, logGlobal = true;
 dart::simulation::WorldPtr world;  ///< the world representation in dart
 bool start = false;                ///< Giving time to the user to get the robot
                                    ///  in balancing angle
@@ -74,7 +70,6 @@ void run(BalancingConfig& params) {
   BalanceControl balance_control(krang, robot, params);
   while (!somatic_sig_received) {
     bool debug = (debug_iter++ % 20 == 0);
-    debugGlobal = debug;
 
     // Read time, state and joystick inputs
     time += balance_control.ElapsedTimeSinceLastCall();
@@ -102,16 +97,6 @@ void run(BalancingConfig& params) {
     arm_control.ControlArms();
     controlWaist(waist_mode, krang);
     controlTorso(daemon_cx, torso_state, krang);
-
-    // Print the information about the last iteration
-    // (after reading effects of it from sensors)
-    // NOTE: Constructor order is NOT the print order
-    // if(logGlobal) {
-    //  logStates.push_back(new LogState(time, com, averagedTorque,
-    //                                   externalWrench(4), krang->amc->cur[0],
-    //                                   krang->amc->cur[1], state, refState,
-    //                                   lastUleft, lastUright));
-    //}
 
     // Print the mode
     if (debug) {
@@ -168,13 +153,6 @@ void destroy() {
   delete krang;
 
   somatic_d_destroy(&daemon_cx);
-
-  // Print the data
-  // printf("log states size: %lu\n", logStates.size());
-  // for(size_t i = 0; i < logStates.size(); i++) {
-  //  logStates[i]->print();
-  //  delete logStates[i];
-  //}
 }
 
 /* ************************************************************************* */
@@ -182,19 +160,6 @@ void destroy() {
 int main(int argc, char* argv[]) {
   BalancingConfig params;
   ReadConfigParams("../params.cfg", &params);
-
-  // Debug options from command line
-  debugGlobal = 1;
-  logGlobal = 0;
-  if (argc == 8) {
-    if (argv[7][0] == 'l') {
-      debugGlobal = 0;
-      logGlobal = 1;
-    } else if (argv[7][0] == 'd') {
-      debugGlobal = 1;
-      logGlobal = 0;
-    }
-  }
 
   // Wait for a character input before starting the program
   getchar();
