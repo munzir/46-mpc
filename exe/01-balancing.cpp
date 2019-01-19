@@ -21,6 +21,7 @@
 #include <somatic/daemon.h>  // somatic_d: t, t_opts, _init(), _event(), _destroy()
 #include <somatic/msg.h>  // somatic_anything_alloc(), somatic_anything_free()
 #include <somatic/motor.h> // somatic_motor_cmd()
+#include <somatic/util.h> // somatic_sig_received
 
 #include "balancing_config.h" // BalancingConfig, ReadConfigParams()
 #include "arms.h" //ArmControl

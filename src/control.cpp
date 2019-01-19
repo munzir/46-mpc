@@ -42,21 +42,20 @@
 
 #include "control.h"
 
-#include <algorithm>
-#include <iostream>
-#include <string>
+#include <algorithm> // std::max(), std::min()
+#include <cmath> // atan2, tan
+#include <iostream> // std::cout, std::endl
+#include <string> // std::string
 
-#include <amino/time.h>
-#include <dart/dart.hpp>
-#include <Eigen/Eigen>
-#include <kore.hpp>
-#include <somatic.h>
-#include <time.h>
+#include <amino/time.h> // aa_tm: _now(), _timespec2sec(), _sub()
+#include <dart/dart.hpp> // dart::dynamics::SkeletonPtr
+#include <Eigen/Eigen> // Eigen:: MatrixXd, VectorXd, Vector3d, Matrix<double, #, #>
+#include <kore.hpp> // Krang::Hardware
 
-#include "balancing_config.h"
-#include "lqr.hpp"
-#include "adrc.hpp"
-#include "file_ops.hpp"
+#include "balancing_config.h" // BalancingConfig
+#include "lqr.hpp" // lqr()
+#include "adrc.hpp" // computeLinearizedDynamics()
+#include "file_ops.hpp" // readInputFileAsMatrix()
 
 const char BalanceControl::MODE_STRINGS[][16] = {
     "Ground Lo", "Stand", "Sit",
