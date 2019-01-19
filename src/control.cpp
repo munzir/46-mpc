@@ -436,8 +436,7 @@ void BalanceControl::StandSitEvent() {
     if(state(0) < 0.0 && error(0) > -10.0*M_PI/180.0) {
 
       MODE = BalanceControl::STAND;
-      refState(2) = state(2);
-      refState(4) = state(4);
+      CancelPositionBuiltup();
       std::cout << "[MODE] STAND" << std::endl;
     } else {
       std::cout << "[ERR ] Can't stand up!! Bal error too high" << std::endl;
