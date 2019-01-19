@@ -5,21 +5,31 @@
  * @brief A neat and clean version of the original balancing logic.
  */
 
-#include "balancing_config.h"
-#include "arms.h"
-#include "waist.h"
-#include "grippers.h"
-#include "torso.h"
-#include "joystick.h"
-#include "keyboard.h"
-#include "control.h"
-#include "events.h"
-#include "kore/display.hpp"
-#include "lqr.hpp"
-#include "adrc.hpp"
-#include "file_ops.hpp"
-#include "utils.h"
-#include <dart/utils/urdf/urdf.hpp>
+#include <pthread.h> // pthread_t, pthread_mutex_init(), pthread_create()
+#include <stdio.h> // getchar()
+
+#include <memory> // std::make_shared
+#include <cstring> // memset()
+#include <iostream> // std::cout, std::endl
+
+#include <dart/dart.hpp> // dart::dynamics, dart::simulation
+#include <dart/utils/urdf/urdf.hpp> // dart::utils::DartLoader
+#include <kore.hpp> // Krang::Hardware
+#include <somatic.h> // has the correct order of other somatic includes
+
+#include <somatic.pb-c.h>  // SOMATIC__: EVENT, MOTOR_PARAM; Somatic__WaistMode
+#include <somatic/daemon.h>  // somatic_d: t, t_opts, _init(), _event(), _destroy()
+#include <somatic/msg.h>  // somatic_anything_alloc(), somatic_anything_free()
+#include <somatic/motor.h> // somatic_motor_cmd()
+
+#include "balancing_config.h" // BalancingConfig, ReadConfigParams()
+#include "arms.h" //ArmControl
+#include "waist.h" // controlWaist()
+#include "torso.h" // TorsoState
+#include "joystick.h" // Joystick
+#include "keyboard.h" // kbShared
+#include "control.h" // BalancingControl
+#include "events.h" // Events()
 
 
 /* **************************************************************************** */
@@ -153,7 +163,7 @@ void init(BalancingConfig& params) {
 /// Send zero velocity to the motors and kill daemon. Also clean up daemon structs.
 void destroy() {
 
-  cout << "destroying" << endl;
+  std::cout << "destroying" << std::endl;
 
   delete krang;
 
