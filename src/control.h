@@ -37,24 +37,24 @@
  * @file control.h
  * @author Munzir Zafar
  * @date Oct 31, 2018
- * @brief Header file for control.cpp that implements balancing control functions
+ * @brief Header file for control.cpp that implements balancing control
+ * functions
  */
 
 #ifndef KRANG_BALANCING_CONTROL_H_
 #define KRANG_BALANCING_CONTROL_H_
 
-#include <dart/dart.hpp> // dart::dynamics::SkeletonPtr
-#include <Eigen/Eigen> // Eigen::MatrixXd, Eigen::Matrix<double, #, #>
-#include <kore.hpp> // Krang::Hardware
+#include <Eigen/Eigen>    // Eigen::MatrixXd, Eigen::Matrix<double, #, #>
+#include <dart/dart.hpp>  // dart::dynamics::SkeletonPtr
+#include <kore.hpp>       // Krang::Hardware
 
-#include "balancing_config.h" // BalancingConfig
-
+#include "balancing_config.h"  // BalancingConfig
 
 class BalanceControl {
  public:
-  BalanceControl (Krang::Hardware* krang_, dart::dynamics::SkeletonPtr robot_,
-                  BalancingConfig& params);
-  ~BalanceControl () {};
+  BalanceControl(Krang::Hardware* krang_, dart::dynamics::SkeletonPtr robot_,
+                 BalancingConfig& params);
+  ~BalanceControl(){};
   enum BalanceMode {
     GROUND_LO = 0,
     STAND,
@@ -76,6 +76,7 @@ class BalanceControl {
   void BalHiLoEvent();
   void SetFwdInput(double forw);
   void SetSpinInput(double spin);
+
  private:
   void SetComParameters(Eigen::MatrixXd betaParams, int bodyParams);
   void UpdateReference(const double& forw, const double& spin);
@@ -105,4 +106,4 @@ class BalanceControl {
 
   double toBalThreshold, imuSitAngle;
 };
-#endif // KRANG_BALANCING_CONTROL_H_
+#endif  // KRANG_BALANCING_CONTROL_H_
