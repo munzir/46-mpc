@@ -43,12 +43,11 @@
 #ifndef KRANG_BALANCING_CONTROL_H_
 #define KRANG_BALANCING_CONTROL_H_
 
-#include <dart/dart.hpp>
-#include <Eigen/Eigen>
-#include <kore.hpp>
-#include <somatic.h>
+#include <dart/dart.hpp> // dart::dynamics::SkeletonPtr
+#include <Eigen/Eigen> // Eigen::MatrixXd, Eigen::Matrix<double, #, #>
+#include <kore.hpp> // Krang::Hardware
 
-#include "balancing_config.h"
+#include "balancing_config.h" // BalancingConfig
 
 
 class BalanceControl {
