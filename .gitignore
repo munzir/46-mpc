@@ -48,6 +48,7 @@
 !/src/lqr.cpp
 !/src/adrc.hpp
 !/src/adrc.cpp
+!/src/ESO.hpp
 
 # exe
 !/exe/
