@@ -47,6 +47,6 @@
 
 Somatic__WaistCmd *waistDaemonCmd = somatic_waist_cmd_alloc();
 
-void controlWaist(Somatic__WaistMode waistMode, Krang::Hardware* krang);
+void ControlWaist(Somatic__WaistMode waistMode, Krang::Hardware* krang);
 
 #endif // KRANG_BALANCING_WAIST_H_

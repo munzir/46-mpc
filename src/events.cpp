@@ -53,7 +53,7 @@
 /* ******************************************************************************
  */
 /// Events
-bool Events(kbShared& kb_shared, Joystick& joystick, bool* start,
+bool Events(KbShared& kb_shared, Joystick& joystick, bool* start,
             BalanceControl* balance_control, Somatic__WaistMode* waist_mode,
             TorsoState* torso_state, ArmControl* arm_control) {
   KeyboardEvents(kb_shared, start, balance_control, arm_control);
@@ -65,11 +65,11 @@ bool Events(kbShared& kb_shared, Joystick& joystick, bool* start,
  */
 // If a character was entered from the keyboard process it
 
-void KeyboardEvents(kbShared& kb_shared, bool* start_,
+void KeyboardEvents(KbShared& kb_shared, bool* start_,
                     BalanceControl* balance_control, ArmControl* arm_control) {
   char input;
 
-  if (kbCharReceived(kb_shared, &input)) {
+  if (KbCharReceived(kb_shared, &input)) {
     if (input == 's') {
       *start_ = true;
       balance_control->CancelPositionBuiltup();

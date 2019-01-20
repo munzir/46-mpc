@@ -54,7 +54,7 @@ class BalanceControl {
  public:
   BalanceControl(Krang::Hardware* krang_, dart::dynamics::SkeletonPtr robot_,
                  BalancingConfig& params);
-  ~BalanceControl(){};
+  ~BalanceControl() {}
   enum BalanceMode {
     GROUND_LO = 0,
     STAND,

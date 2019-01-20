@@ -48,9 +48,9 @@
 /* ********************************************************************************************* */
 /// Sits waiting for keyboard character input. Then raises a global flag to let other
 // threads know
-void *kbhit(void *arg) {
+void *KbHit(void *arg) {
 
-  struct kbShared *kb_shared = (struct kbShared *)arg;
+  struct KbShared *kb_shared = (struct KbShared *)arg;
 
   char input;
   bool other_thread_has_read_char_received = false;
@@ -77,7 +77,7 @@ void *kbhit(void *arg) {
 
 /* ********************************************************************************************* */
 // The function to be called by other threads to read the character input, if received
-bool kbCharReceived(kbShared& kb_shared, char* input) {
+bool KbCharReceived(KbShared& kb_shared, char* input) {
 
   bool char_received = false;
 
@@ -86,7 +86,7 @@ bool kbCharReceived(kbShared& kb_shared, char* input) {
     char_received = true;
     *input = kb_shared.kb_char_input;
 
-    kb_shared.kb_char_received = false; // to let kbhit thread know that we have read the input
+    kb_shared.kb_char_received = false; // to let KbHit thread know that we have read the input
   }
   pthread_mutex_unlock(&kb_shared.kb_mutex);
 
