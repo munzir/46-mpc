@@ -94,19 +94,19 @@ BalanceControl::BalanceControl(Krang::Hardware* krang_,
 
   // Initial values
   balance_mode_ = BalanceControl::GROUND_LO;
-  K = pdGains[BalanceControl::GROUND_LO];
+  pd_gain_ = pdGains[BalanceControl::GROUND_LO];
   refState.setZero();
   state.setZero();
   error.setZero();
   joystick_forw = 0.0;
   joystick_spin = 0.0;
 
-  // lqrHackRatios
+  // LQR Hack Ratios
   Eigen::VectorXd lqrGains = Eigen::VectorXd::Zero(4);
-  lqrHackRatios = Eigen::Matrix<double, 4, 4>::Identity();
+  lqr_hack_ratios_ = Eigen::Matrix<double, 4, 4>::Identity();
   lqrGains = BalanceControl::ComputeLqrGains();
-  for (int i = 0; i < lqrHackRatios.cols(); i++) {
-    lqrHackRatios(i, i) = pdGains[BalanceControl::STAND](i) / -lqrGains(i);
+  for (int i = 0; i < lqr_hack_ratios_.cols(); i++) {
+    lqr_hack_ratios_(i, i) = pdGains[BalanceControl::STAND](i) / -lqrGains(i);
   }
 
   // Read CoM estimation model paramters
@@ -200,13 +200,13 @@ void BalanceControl::ForceModeChange(BalanceControl::BalanceMode new_mode) {
 void BalanceControl::ChangePdGain(int index, double change) {
   pdGains[balance_mode_](index) += change;
 }
-void BalanceControl::ComputeCurrent(const Eigen::Matrix<double, 6, 1>& K_,
-                                    const Eigen::Matrix<double, 6, 1>& error_,
+void BalanceControl::ComputeCurrent(const Eigen::Matrix<double, 6, 1>& pd_gain,
+                                    const Eigen::Matrix<double, 6, 1>& error,
                                     double* control_input) {
   // Calculate individual components of the control input
-  u_theta = K_.topLeftCorner<2, 1>().dot(error_.topLeftCorner<2, 1>());
-  u_x = K_(2) * error_(2) + K_(3) * error_(3);
-  u_spin = -K_.bottomLeftCorner<2, 1>().dot(error_.bottomLeftCorner<2, 1>());
+  u_theta = pd_gain.topLeftCorner<2, 1>().dot(error.topLeftCorner<2, 1>());
+  u_x = pd_gain(2) * error(2) + pd_gain(3) * error(3);
+  u_spin = -pd_gain.bottomLeftCorner<2, 1>().dot(error.bottomLeftCorner<2, 1>());
   u_spin = std::max(-30.0, std::min(30.0, u_spin));
 
   // Calculate current for the wheels
@@ -227,7 +227,7 @@ Eigen::MatrixXd BalanceControl::ComputeLqrGains() {
   const double motor_constant = 12.0 * 0.00706;
   const double gear_ratio = 15;
   LQR_Gains /= (gear_ratio * motor_constant);
-  LQR_Gains = lqrHackRatios * LQR_Gains;
+  LQR_Gains = lqr_hack_ratios_ * LQR_Gains;
 
   return LQR_Gains;
 }
@@ -243,7 +243,7 @@ void BalanceControl::BalancingController(double* control_input) {
   if (balance_mode_ != BalanceControl::STAND) stood_up_timer = 0;
 
   // Controllers for each mode
-  K.setZero();
+  pd_gain_.setZero();
   switch (balance_mode_) {
     case BalanceControl::GROUND_LO: {
       //  Update Reference
@@ -256,10 +256,10 @@ void BalanceControl::BalancingController(double* control_input) {
       error = state - refState;
 
       // Gains - read fwd and spin only
-      K.tail(4) = pdGains[BalanceControl::GROUND_LO].tail(4);
+      pd_gain_.tail(4) = pdGains[BalanceControl::GROUND_LO].tail(4);
 
       // Compute the current
-      BalanceControl::ComputeCurrent(K, error, &control_input[0]);
+      BalanceControl::ComputeCurrent(pd_gain_, error, &control_input[0]);
 
       // State Transition - If the waist has been opened too much switch to
       // GROUND_HI mode
@@ -281,10 +281,10 @@ void BalanceControl::BalancingController(double* control_input) {
       error = state - refState;
 
       // Gains - read fwd and spin gains only
-      K.tail(4) = pdGains[BalanceControl::GROUND_HI].tail(4);
+      pd_gain_.tail(4) = pdGains[BalanceControl::GROUND_HI].tail(4);
 
       // Compute the current
-      BalanceControl::ComputeCurrent(K, error, &control_input[0]);
+      BalanceControl::ComputeCurrent(pd_gain_, error, &control_input[0]);
 
       // State Transitions
       // If in ground Hi mode and waist angle decreases below 150.0 goto
@@ -306,15 +306,15 @@ void BalanceControl::BalancingController(double* control_input) {
       error = state - refState;
 
       // Gains - no spinning
-      K.head(4) = pdGains[BalanceControl::STAND].head(4);
+      pd_gain_.head(4) = pdGains[BalanceControl::STAND].head(4);
       if (dynamicLQR == true) {
         Eigen::MatrixXd LQR_Gains;
         LQR_Gains = BalanceControl::ComputeLqrGains();
-        K.head(4) = -LQR_Gains;
+        pd_gain_.head(4) = -LQR_Gains;
       }
 
       // Compute the current
-      BalanceControl::ComputeCurrent(K, error, &control_input[0]);
+      BalanceControl::ComputeCurrent(pd_gain_, error, &control_input[0]);
 
       // State Transition - If stood up go to balancing mode
       if (fabs(state(0)) < (toBalThreshold / 180.0) * M_PI /*0.034*/) {
@@ -339,15 +339,15 @@ void BalanceControl::BalancingController(double* control_input) {
       error = state - refState;
 
       // Gains
-      K = pdGains[BalanceControl::BAL_LO];
+      pd_gain_ = pdGains[BalanceControl::BAL_LO];
       if (dynamicLQR == true) {
         Eigen::MatrixXd LQR_Gains;
         LQR_Gains = BalanceControl::ComputeLqrGains();
-        K.head(4) = -LQR_Gains;
+        pd_gain_.head(4) = -LQR_Gains;
       }
 
       // Compute the current
-      BalanceControl::ComputeCurrent(K, error, &control_input[0]);
+      BalanceControl::ComputeCurrent(pd_gain_, error, &control_input[0]);
 
       break;
     }
@@ -362,15 +362,15 @@ void BalanceControl::BalancingController(double* control_input) {
       error = state - refState;
 
       // Gains
-      K = pdGains[BalanceControl::BAL_HI];
+      pd_gain_ = pdGains[BalanceControl::BAL_HI];
       if (dynamicLQR == true) {
         Eigen::MatrixXd LQR_Gains;
         LQR_Gains = BalanceControl::ComputeLqrGains();
-        K.head(4) = -LQR_Gains;
+        pd_gain_.head(4) = -LQR_Gains;
       }
 
       // Compute the current
-      BalanceControl::ComputeCurrent(K, error, &control_input[0]);
+      BalanceControl::ComputeCurrent(pd_gain_, error, &control_input[0]);
 
       break;
     }
@@ -387,10 +387,10 @@ void BalanceControl::BalancingController(double* control_input) {
       error(0) = krang->imu - kImuSitAngle;
 
       // Gains - turn off fwd and spin control i.e. only control theta
-      K.head(2) = pdGains[BalanceControl::SIT].head(2);
+      pd_gain_.head(2) = pdGains[BalanceControl::SIT].head(2);
 
       // Compute the current
-      BalanceControl::ComputeCurrent(K, error, &control_input[0]);
+      BalanceControl::ComputeCurrent(pd_gain_, error, &control_input[0]);
 
       // State Transitions - If sat down switch to Ground Lo Mode
       if (krang->imu < kImuSitAngle) {
@@ -414,7 +414,7 @@ void BalanceControl::Print() {
   std::cout << "refState: " << refState.transpose() << std::endl;
   std::cout << "error: " << error.transpose();
   std::cout << ", imu: " << krang->imu / M_PI * 180.0 << std::endl;
-  std::cout << "K: " << K.transpose() << std::endl;
+  std::cout << "PD Gains: " << pd_gain_.transpose() << std::endl;
   std::cout << "Mode : " << MODE_STRINGS[balance_mode_] << "      ";
   std::cout << "dt: " << dt << std::endl;
 }
