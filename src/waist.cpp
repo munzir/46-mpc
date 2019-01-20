@@ -49,7 +49,7 @@
 
 /* ********************************************************************************************* */
 /// Handles the joystick commands for the waist module
-void controlWaist(Somatic__WaistMode waistMode, Krang::Hardware* krang) {
+void ControlWaist(Somatic__WaistMode waistMode, Krang::Hardware* krang) {
 
 	// Send message to the krang-waist daemon
 	somatic_waist_cmd_set(waistDaemonCmd, waistMode);

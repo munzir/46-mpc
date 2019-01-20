@@ -52,7 +52,7 @@
 
 /* ********************************************************************************************* */
 /// Handles the torso commands if we are using joystick
-void controlTorso(somatic_d_t& daemon_cx, TorsoState& torso_state,
+void ControlTorso(somatic_d_t& daemon_cx, TorsoState& torso_state,
                   Krang::Hardware* krang) {
 
   static TorsoState::TorsoMode last_mode = TorsoState::kStop;

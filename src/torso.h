@@ -59,7 +59,7 @@ struct TorsoState {
 
 /* ********************************************************************************************* */
 /// Controls the torso
-void controlTorso(somatic_d_t& daemon_cx, TorsoState& torso_state,
+void ControlTorso(somatic_d_t& daemon_cx, TorsoState& torso_state,
                   Krang::Hardware* krang);
 
 #endif // KRANG_BALANCING_TORSO_H_

@@ -1,3 +1,38 @@
+/*
+ * Copyright (c) 2018, Georgia Tech Research Corporation
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ *
+ *     * Redistributions of source code must retain the above
+ *       copyright notice, this list of conditions and the following
+ *       disclaimer.
+ *     * Redistributions in binary form must reproduce the above
+ *       copyright notice, this list of conditions and the following
+ *       disclaimer in the documentation and/or other materials
+ *       provided with the distribution.
+ *     * Neither the name of the Georgia Tech Research Corporation nor
+ *       the names of its contributors may be used to endorse or
+ *       promote products derived from this software without specific
+ *       prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY GEORGIA TECH RESEARCH CORPORATION ''AS
+ * IS'' AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
+ * FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL GEORGIA
+ * TECH RESEARCH CORPORATION BE LIABLE FOR ANY DIRECT, INDIRECT,
+ * INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+ * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+ * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+ * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
+ * STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
+ * OF THE POSSIBILITY OF SUCH DAMAGE.
+ *
+ */
+
 /**
  * @file 01-balancing.cpp
  * @author Munzir Zafar
@@ -23,14 +58,14 @@
 #include <somatic/msg.h>    // somatic_anything_alloc(), somatic_anything_free()
 #include <somatic/util.h>   // somatic_sig_received
 
-#include "arms.h"              //ArmControl
+#include "arms.h"              // ArmControl
 #include "balancing_config.h"  // BalancingConfig, ReadConfigParams()
 #include "control.h"           // BalancingControl
 #include "events.h"            // Events()
 #include "joystick.h"          // Joystick
-#include "keyboard.h"          // kbShared
-#include "torso.h"             // TorsoState
-#include "waist.h"             // controlWaist()
+#include "keyboard.h"          // KbShared, KbHit
+#include "torso.h"             // TorsoState, ControlTorso()
+#include "waist.h"             // ControlWaist()
 
 /* ************************************************************************* */
 /// The main thread
@@ -65,19 +100,20 @@ int main(int argc, char* argv[]) {
 
   // Initialize the motors and sensors on the hardware and update the kinematics
   // in dart
-  int hwMode = Krang::Hardware::MODE_AMC | Krang::Hardware::MODE_LARM |
-               Krang::Hardware::MODE_RARM | Krang::Hardware::MODE_TORSO |
-               Krang::Hardware::MODE_WAIST;
+  int hw_mode = Krang::Hardware::MODE_AMC | Krang::Hardware::MODE_LARM |
+                Krang::Hardware::MODE_RARM | Krang::Hardware::MODE_TORSO |
+                Krang::Hardware::MODE_WAIST;
   Krang::Hardware*
       krang;  ///< Interface for the motor and sensors on the hardware
-  krang = new Krang::Hardware((Krang::Hardware::Mode)hwMode, &daemon_cx, robot);
+  krang =
+      new Krang::Hardware((Krang::Hardware::Mode)hw_mode, &daemon_cx, robot);
 
   // Create a thread that processes keyboard inputs when keys are pressed
-  kbShared kb_shared;  ///< info shared by keyboard thread here
+  KbShared kb_shared;  ///< info shared by keyboard thread here
   kb_shared.kb_char_received = false;
   pthread_mutex_init(&kb_shared.kb_mutex, NULL);
-  pthread_t kbhitThread;
-  pthread_create(&kbhitThread, NULL, &kbhit, &kb_shared);
+  pthread_t kbhit_thread;
+  pthread_create(&kbhit_thread, NULL, &KbHit, &kb_shared);
 
   // Constructors for other objects being used in the main loop
   Joystick joystick;
@@ -105,8 +141,8 @@ int main(int argc, char* argv[]) {
     // Read time, state and joystick inputs
     time += balance_control.ElapsedTimeSinceLastCall();
     balance_control.UpdateState();
-    bool gotInput = false;
-    while (!gotInput) gotInput = joystick.Update();
+    bool joystick_msg_received = false;
+    while (!joystick_msg_received) joystick_msg_received = joystick.Update();
 
     // Decide control modes and generate control events based on keyb/joys input
     if (Events(kb_shared, joystick, &start, &balance_control, &waist_mode,
@@ -126,8 +162,8 @@ int main(int argc, char* argv[]) {
 
     // Control the rest of the body
     arm_control.ControlArms();
-    controlWaist(waist_mode, krang);
-    controlTorso(daemon_cx, torso_state, krang);
+    ControlWaist(waist_mode, krang);
+    ControlTorso(daemon_cx, torso_state, krang);
 
     // Print the mode
     if (debug) {
