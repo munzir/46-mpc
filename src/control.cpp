@@ -59,45 +59,45 @@
 
 const char BalanceControl::MODE_STRINGS[][16] = {
     "Ground Lo", "Stand", "Sit", "Bal Lo", "Bal Hi", "Ground Hi"};
-BalanceControl::BalanceControl(Krang::Hardware* krang_,
-                               dart::dynamics::SkeletonPtr robot_,
+BalanceControl::BalanceControl(Krang::Hardware* krang,
+                               dart::dynamics::SkeletonPtr robot,
                                BalancingConfig& params)
-    : krang(krang_), robot(robot_) {
+    : krang_(krang), robot_(robot) {
   // LQR Gains
-  dynamicLQR = params.dynamicLQR;
-  lqrQ = params.lqrQ;
-  lqrR = params.lqrR;
+  dynamic_lqr_ = params.dynamicLQR;
+  lqrQ_ = params.lqrQ;
+  lqrR_ = params.lqrR;
 
   // PD Gains for all modes
-  pdGains[BalanceControl::GROUND_LO] = params.pdGainsGroundLo;
-  pdGains[BalanceControl::GROUND_HI] = params.pdGainsGroundHi;
-  pdGains[BalanceControl::STAND] = params.pdGainsStand;
-  pdGains[BalanceControl::SIT] = params.pdGainsSit;
-  pdGains[BalanceControl::BAL_LO] = params.pdGainsBalLo;
-  pdGains[BalanceControl::BAL_HI] = params.pdGainsBalHi;
+  pd_gains_list_[BalanceControl::GROUND_LO] = params.pdGainsGroundLo;
+  pd_gains_list_[BalanceControl::GROUND_HI] = params.pdGainsGroundHi;
+  pd_gains_list_[BalanceControl::STAND] = params.pdGainsStand;
+  pd_gains_list_[BalanceControl::SIT] = params.pdGainsSit;
+  pd_gains_list_[BalanceControl::BAL_LO] = params.pdGainsBalLo;
+  pd_gains_list_[BalanceControl::BAL_HI] = params.pdGainsBalHi;
 
   // Joystick Gains for all modes
   for (int i = 0; i < 2; i++) {
-    joystickGains[BalanceControl::GROUND_LO][i] =
+    joystick_gains_list_[BalanceControl::GROUND_LO][i] =
         params.joystickGainsGroundLo[i];
-    joystickGains[BalanceControl::GROUND_HI][i] =
+    joystick_gains_list_[BalanceControl::GROUND_HI][i] =
         params.joystickGainsGroundHi[i];
-    joystickGains[BalanceControl::STAND][i] = params.joystickGainsStand[i];
-    joystickGains[BalanceControl::SIT][i] = params.joystickGainsSit[i];
-    joystickGains[BalanceControl::BAL_LO][i] = params.joystickGainsBalLo[i];
-    joystickGains[BalanceControl::BAL_HI][i] = params.joystickGainsBalHi[i];
+    joystick_gains_list_[BalanceControl::STAND][i] = params.joystickGainsStand[i];
+    joystick_gains_list_[BalanceControl::SIT][i] = params.joystickGainsSit[i];
+    joystick_gains_list_[BalanceControl::BAL_LO][i] = params.joystickGainsBalLo[i];
+    joystick_gains_list_[BalanceControl::BAL_HI][i] = params.joystickGainsBalHi[i];
   }
 
   // Parameters used for generating internal events
-  toBalThreshold = params.toBalThreshold;
-  imuSitAngle = params.imuSitAngle;
+  to_bal_threshold_ = params.toBalThreshold;
+  imu_sit_angle_ = params.imuSitAngle;
 
   // Initial values
   balance_mode_ = BalanceControl::GROUND_LO;
-  pd_gain_ = pdGains[BalanceControl::GROUND_LO];
-  refState.setZero();
-  state.setZero();
-  error.setZero();
+  pd_gains_ = pd_gains_list_[BalanceControl::GROUND_LO];
+  ref_state_.setZero();
+  state_.setZero();
+  error_.setZero();
   joystick_forw = 0.0;
   joystick_spin = 0.0;
 
@@ -106,7 +106,8 @@ BalanceControl::BalanceControl(Krang::Hardware* krang_,
   lqr_hack_ratios_ = Eigen::Matrix<double, 4, 4>::Identity();
   lqrGains = BalanceControl::ComputeLqrGains();
   for (int i = 0; i < lqr_hack_ratios_.cols(); i++) {
-    lqr_hack_ratios_(i, i) = pdGains[BalanceControl::STAND](i) / -lqrGains(i);
+    lqr_hack_ratios_(i, i) =
+        pd_gains_list_[BalanceControl::STAND](i) / -lqrGains(i);
   }
 
   // Read CoM estimation model paramters
@@ -123,35 +124,35 @@ BalanceControl::BalanceControl(Krang::Hardware* krang_,
   BalanceControl::SetComParameters(beta, 4);
 
   // time
-  t_prev = aa_tm_now();
+  t_prev_ = aa_tm_now();
 }
 
 double BalanceControl::ElapsedTimeSinceLastCall() {
-  t_now = aa_tm_now();
-  dt = (double)aa_tm_timespec2sec(aa_tm_sub(t_now, t_prev));
-  t_prev = t_now;
+  t_now_ = aa_tm_now();
+  dt_ = (double)aa_tm_timespec2sec(aa_tm_sub(t_now_, t_prev_));
+  t_prev_ = t_now_;
 
-  return dt;
+  return dt_;
 }
 void BalanceControl::UpdateState() {
   // Read motor encoders, imu and ft and update dart skeleton
-  krang->updateSensors(dt);
+  krang_->updateSensors(dt_);
 
   // Calculate the COM Using Skeleton
-  com = robot->getCOM() - robot->getPositions().segment(3, 3);
+  com_ = robot_->getCOM() - robot_->getPositions().segment(3, 3);
 
   // Update the state (note for amc we are reversing the effect of the motion of
   // the upper body) State are theta, dtheta, x, dx, psi, dpsi
-  state(0) = atan2(com(0), com(2));  // - 0.3 * M_PI / 180.0;;
-  state(1) = krang->imuSpeed;
-  state(2) = (krang->amc->pos[0] + krang->amc->pos[1]) / 2.0 + krang->imu;
-  state(3) = (krang->amc->vel[0] + krang->amc->vel[1]) / 2.0 + krang->imuSpeed;
-  state(4) = (krang->amc->pos[1] - krang->amc->pos[0]) / 2.0;
-  state(5) = (krang->amc->vel[1] - krang->amc->vel[0]) / 2.0;
+  state_(0) = atan2(com_(0), com_(2));  // - 0.3 * M_PI / 180.0;;
+  state_(1) = krang_->imuSpeed;
+  state_(2) = (krang_->amc->pos[0] + krang_->amc->pos[1]) / 2.0 + krang_->imu;
+  state_(3) = (krang_->amc->vel[0] + krang_->amc->vel[1]) / 2.0 + krang_->imuSpeed;
+  state_(4) = (krang_->amc->pos[1] - krang_->amc->pos[0]) / 2.0;
+  state_(5) = (krang_->amc->vel[1] - krang_->amc->vel[0]) / 2.0;
 
   // Making adjustment in com to make it consistent with the hack above for
   // state(0)
-  com(0) = com(2) * tan(state(0));
+  com_(0) = com_(2) * tan(state_(0));
 }
 
 void BalanceControl::SetComParameters(Eigen::MatrixXd beta_params,
@@ -166,25 +167,25 @@ void BalanceControl::SetComParameters(Eigen::MatrixXd beta_params,
     bodyMCOM(2) = beta_params(0, i * num_body_params + 3);
 
     // std::cout << robot->getBodyNode(i)->getName() << std::endl;
-    robot->getBodyNode(i)->setMass(mi);
-    robot->getBodyNode(i)->setLocalCOM(bodyMCOM / mi);
+    robot_->getBodyNode(i)->setMass(mi);
+    robot_->getBodyNode(i)->setLocalCOM(bodyMCOM / mi);
   }
 }
 void BalanceControl::UpdateReference(const double& forw, const double& spin) {
   // First, set the balancing angle and velocity to zeroes
-  refState(0) = refState(1) = 0.0;
+  ref_state_(0) = ref_state_(1) = 0.0;
 
   // Set the distance and heading velocities using the joystick input
-  refState(3) = forw;
-  refState(5) = spin;
+  ref_state_(3) = forw;
+  ref_state_(5) = spin;
 
   // Integrate the reference positions with the current reference velocities
-  refState(2) += dt * refState(3);
-  refState(4) += dt * refState(5);
+  ref_state_(2) += dt_ * ref_state_(3);
+  ref_state_(4) += dt_ * ref_state_(5);
 }
 void BalanceControl::CancelPositionBuiltup() {
-  refState(2) = state(2);
-  refState(4) = state(4);
+  ref_state_(2) = state_(2);
+  ref_state_(4) = state_(4);
 }
 void BalanceControl::ForceModeChange(BalanceControl::BalanceMode new_mode) {
   if ((balance_mode_ == BalanceControl::GROUND_LO ||
@@ -198,20 +199,21 @@ void BalanceControl::ForceModeChange(BalanceControl::BalanceMode new_mode) {
   balance_mode_ = new_mode;
 }
 void BalanceControl::ChangePdGain(int index, double change) {
-  pdGains[balance_mode_](index) += change;
+  pd_gains_list_[balance_mode_](index) += change;
 }
 void BalanceControl::ComputeCurrent(const Eigen::Matrix<double, 6, 1>& pd_gain,
                                     const Eigen::Matrix<double, 6, 1>& error,
                                     double* control_input) {
   // Calculate individual components of the control input
-  u_theta = pd_gain.topLeftCorner<2, 1>().dot(error.topLeftCorner<2, 1>());
-  u_x = pd_gain(2) * error(2) + pd_gain(3) * error(3);
-  u_spin = -pd_gain.bottomLeftCorner<2, 1>().dot(error.bottomLeftCorner<2, 1>());
-  u_spin = std::max(-30.0, std::min(30.0, u_spin));
+  u_theta_ = pd_gain.topLeftCorner<2, 1>().dot(error.topLeftCorner<2, 1>());
+  u_x_ = pd_gain(2) * error(2) + pd_gain(3) * error(3);
+  u_spin_ =
+      -pd_gain.bottomLeftCorner<2, 1>().dot(error.bottomLeftCorner<2, 1>());
+  u_spin_ = std::max(-30.0, std::min(30.0, u_spin_));
 
   // Calculate current for the wheels
-  control_input[0] = std::max(-49.0, std::min(49.0, u_theta + u_x + u_spin));
-  control_input[1] = std::max(-49.0, std::min(49.0, u_theta + u_x - u_spin));
+  control_input[0] = std::max(-49.0, std::min(49.0, u_theta_ + u_x_ + u_spin_));
+  control_input[1] = std::max(-49.0, std::min(49.0, u_theta_ + u_x_ - u_spin_));
 }
 Eigen::MatrixXd BalanceControl::ComputeLqrGains() {
   // TODO: Get rid of dynamic allocation
@@ -221,8 +223,8 @@ Eigen::MatrixXd BalanceControl::ComputeLqrGains() {
   Eigen::VectorXd B_thCOM = Eigen::VectorXd::Zero(3);
   Eigen::VectorXd LQR_Gains = Eigen::VectorXd::Zero(4);
 
-  computeLinearizedDynamics(krang->robot, A, B, B_thWheel, B_thCOM);
-  lqr(A, B, lqrQ, lqrR, LQR_Gains);
+  computeLinearizedDynamics(krang_->robot, A, B, B_thWheel, B_thCOM);
+  lqr(A, B, lqrQ_, lqrR_, LQR_Gains);
 
   const double motor_constant = 12.0 * 0.00706;
   const double gear_ratio = 15;
@@ -232,7 +234,7 @@ Eigen::MatrixXd BalanceControl::ComputeLqrGains() {
   return LQR_Gains;
 }
 void BalanceControl::BalancingController(double* control_input) {
-  // The timer we use for deciding whether krang has stood up and needs to
+  // The timer we use for deciding whether krang_ has stood up and needs to
   // be switched to BAL_LO mode. This timer is supposed to be zero in all
   // other modes excepts STAND mode. This is to ensure that no matter how we
   // transitioned to STAND mode, this timer is zero in the beginning.
@@ -243,27 +245,27 @@ void BalanceControl::BalancingController(double* control_input) {
   if (balance_mode_ != BalanceControl::STAND) stood_up_timer = 0;
 
   // Controllers for each mode
-  pd_gain_.setZero();
+  pd_gains_.setZero();
   switch (balance_mode_) {
     case BalanceControl::GROUND_LO: {
       //  Update Reference
       double forw, spin;
-      forw = joystickGains[BalanceControl::GROUND_LO][0] * joystick_forw;
-      spin = joystickGains[BalanceControl::GROUND_LO][1] * joystick_spin;
+      forw = joystick_gains_list_[BalanceControl::GROUND_LO][0] * joystick_forw;
+      spin = joystick_gains_list_[BalanceControl::GROUND_LO][1] * joystick_spin;
       BalanceControl::UpdateReference(forw, spin);
 
       // Calculate state Error
-      error = state - refState;
+      error_ = state_ - ref_state_;
 
       // Gains - read fwd and spin only
-      pd_gain_.tail(4) = pdGains[BalanceControl::GROUND_LO].tail(4);
+      pd_gains_.tail(4) = pd_gains_list_[BalanceControl::GROUND_LO].tail(4);
 
       // Compute the current
-      BalanceControl::ComputeCurrent(pd_gain_, error, &control_input[0]);
+      BalanceControl::ComputeCurrent(pd_gains_, error_, &control_input[0]);
 
       // State Transition - If the waist has been opened too much switch to
       // GROUND_HI mode
-      if ((krang->waist->pos[0] - krang->waist->pos[1]) / 2.0 <
+      if ((krang_->waist->pos[0] - krang_->waist->pos[1]) / 2.0 <
           150.0 * M_PI / 180.0) {
         balance_mode_ = BalanceControl::GROUND_HI;
       }
@@ -273,23 +275,23 @@ void BalanceControl::BalancingController(double* control_input) {
     case BalanceControl::GROUND_HI: {
       //  Update Reference
       double forw, spin;
-      forw = joystickGains[BalanceControl::GROUND_HI][0] * joystick_forw;
-      spin = joystickGains[BalanceControl::GROUND_HI][1] * joystick_spin;
+      forw = joystick_gains_list_[BalanceControl::GROUND_HI][0] * joystick_forw;
+      spin = joystick_gains_list_[BalanceControl::GROUND_HI][1] * joystick_spin;
       BalanceControl::UpdateReference(forw, spin);
 
       // Calculate state Error
-      error = state - refState;
+      error_ = state_ - ref_state_;
 
       // Gains - read fwd and spin gains only
-      pd_gain_.tail(4) = pdGains[BalanceControl::GROUND_HI].tail(4);
+      pd_gains_.tail(4) = pd_gains_list_[BalanceControl::GROUND_HI].tail(4);
 
       // Compute the current
-      BalanceControl::ComputeCurrent(pd_gain_, error, &control_input[0]);
+      BalanceControl::ComputeCurrent(pd_gains_, error_, &control_input[0]);
 
       // State Transitions
       // If in ground Hi mode and waist angle decreases below 150.0 goto
       // groundLo mode
-      if ((krang->waist->pos[0] - krang->waist->pos[1]) / 2.0 >
+      if ((krang_->waist->pos[0] - krang_->waist->pos[1]) / 2.0 >
           150.0 * M_PI / 180.0) {
         balance_mode_ = BalanceControl::GROUND_LO;
       }
@@ -303,21 +305,21 @@ void BalanceControl::BalancingController(double* control_input) {
       BalanceControl::UpdateReference(forw, spin);
 
       // Calculate state Error
-      error = state - refState;
+      error_ = state_ - ref_state_;
 
       // Gains - no spinning
-      pd_gain_.head(4) = pdGains[BalanceControl::STAND].head(4);
-      if (dynamicLQR == true) {
+      pd_gains_.head(4) = pd_gains_list_[BalanceControl::STAND].head(4);
+      if (dynamic_lqr_ == true) {
         Eigen::MatrixXd LQR_Gains;
         LQR_Gains = BalanceControl::ComputeLqrGains();
-        pd_gain_.head(4) = -LQR_Gains;
+        pd_gains_.head(4) = -LQR_Gains;
       }
 
       // Compute the current
-      BalanceControl::ComputeCurrent(pd_gain_, error, &control_input[0]);
+      BalanceControl::ComputeCurrent(pd_gains_, error_, &control_input[0]);
 
       // State Transition - If stood up go to balancing mode
-      if (fabs(state(0)) < (toBalThreshold / 180.0) * M_PI /*0.034*/) {
+      if (fabs(state_(0)) < (to_bal_threshold_ / 180.0) * M_PI /*0.034*/) {
         stood_up_timer++;
       } else {
         stood_up_timer = 0;
@@ -331,46 +333,46 @@ void BalanceControl::BalancingController(double* control_input) {
     case BalanceControl::BAL_LO: {
       //  Update Reference
       double forw, spin;
-      forw = joystickGains[BalanceControl::BAL_LO][0] * joystick_forw;
-      spin = joystickGains[BalanceControl::BAL_LO][1] * joystick_spin;
+      forw = joystick_gains_list_[BalanceControl::BAL_LO][0] * joystick_forw;
+      spin = joystick_gains_list_[BalanceControl::BAL_LO][1] * joystick_spin;
       BalanceControl::UpdateReference(forw, spin);
 
       // Calculate state Error
-      error = state - refState;
+      error_ = state_ - ref_state_;
 
       // Gains
-      pd_gain_ = pdGains[BalanceControl::BAL_LO];
-      if (dynamicLQR == true) {
+      pd_gains_ = pd_gains_list_[BalanceControl::BAL_LO];
+      if (dynamic_lqr_ == true) {
         Eigen::MatrixXd LQR_Gains;
         LQR_Gains = BalanceControl::ComputeLqrGains();
-        pd_gain_.head(4) = -LQR_Gains;
+        pd_gains_.head(4) = -LQR_Gains;
       }
 
       // Compute the current
-      BalanceControl::ComputeCurrent(pd_gain_, error, &control_input[0]);
+      BalanceControl::ComputeCurrent(pd_gains_, error_, &control_input[0]);
 
       break;
     }
     case BalanceControl::BAL_HI: {
       //  Update Reference
       double forw, spin;
-      forw = joystickGains[BalanceControl::BAL_HI][0] * joystick_forw;
-      spin = joystickGains[BalanceControl::BAL_HI][1] * joystick_spin;
+      forw = joystick_gains_list_[BalanceControl::BAL_HI][0] * joystick_forw;
+      spin = joystick_gains_list_[BalanceControl::BAL_HI][1] * joystick_spin;
       BalanceControl::UpdateReference(forw, spin);
 
       // Calculate state Error
-      error = state - refState;
+      error_ = state_ - ref_state_;
 
       // Gains
-      pd_gain_ = pdGains[BalanceControl::BAL_HI];
-      if (dynamicLQR == true) {
+      pd_gains_ = pd_gains_list_[BalanceControl::BAL_HI];
+      if (dynamic_lqr_ == true) {
         Eigen::MatrixXd LQR_Gains;
         LQR_Gains = BalanceControl::ComputeLqrGains();
-        pd_gain_.head(4) = -LQR_Gains;
+        pd_gains_.head(4) = -LQR_Gains;
       }
 
       // Compute the current
-      BalanceControl::ComputeCurrent(pd_gain_, error, &control_input[0]);
+      BalanceControl::ComputeCurrent(pd_gains_, error_, &control_input[0]);
 
       break;
     }
@@ -382,19 +384,19 @@ void BalanceControl::BalancingController(double* control_input) {
       BalanceControl::UpdateReference(forw, spin);
 
       // Calculate state Error
-      const double kImuSitAngle = ((imuSitAngle / 180.0) * M_PI);
-      error = state - refState;
-      error(0) = krang->imu - kImuSitAngle;
+      const double kImuSitAngle = ((imu_sit_angle_ / 180.0) * M_PI);
+      error_ = state_ - ref_state_;
+      error_(0) = krang_->imu - kImuSitAngle;
 
       // Gains - turn off fwd and spin control i.e. only control theta
-      pd_gain_.head(2) = pdGains[BalanceControl::SIT].head(2);
+      pd_gains_.head(2) = pd_gains_list_[BalanceControl::SIT].head(2);
 
       // Compute the current
-      BalanceControl::ComputeCurrent(pd_gain_, error, &control_input[0]);
+      BalanceControl::ComputeCurrent(pd_gains_, error_, &control_input[0]);
 
       // State Transitions - If sat down switch to Ground Lo Mode
-      if (krang->imu < kImuSitAngle) {
-        std::cout << "imu (" << krang->imu << ") < limit (" << kImuSitAngle
+      if (krang_->imu < kImuSitAngle) {
+        std::cout << "imu (" << krang_->imu << ") < limit (" << kImuSitAngle
                   << "):";
         std::cout << "changing to Ground Lo Mode" << std::endl;
         balance_mode_ = BalanceControl::GROUND_LO;
@@ -406,17 +408,17 @@ void BalanceControl::BalancingController(double* control_input) {
 }
 
 void BalanceControl::Print() {
-  std::cout << "\nstate: " << state.transpose() << std::endl;
-  std::cout << "com: " << com.transpose() << std::endl;
-  std::cout << "WAIST ANGLE: " << krang->waist->pos[0] << std::endl;
+  std::cout << "\nstate: " << state_.transpose() << std::endl;
+  std::cout << "com: " << com_.transpose() << std::endl;
+  std::cout << "WAIST ANGLE: " << krang_->waist->pos[0] << std::endl;
   std::cout << "js_forw: " << joystick_forw;
   std::cout << ", js_spin: " << joystick_spin << std::endl;
-  std::cout << "refState: " << refState.transpose() << std::endl;
-  std::cout << "error: " << error.transpose();
-  std::cout << ", imu: " << krang->imu / M_PI * 180.0 << std::endl;
-  std::cout << "PD Gains: " << pd_gain_.transpose() << std::endl;
+  std::cout << "refState: " << ref_state_.transpose() << std::endl;
+  std::cout << "error: " << error_.transpose();
+  std::cout << ", imu: " << krang_->imu / M_PI * 180.0 << std::endl;
+  std::cout << "PD Gains: " << pd_gains_.transpose() << std::endl;
   std::cout << "Mode : " << MODE_STRINGS[balance_mode_] << "      ";
-  std::cout << "dt: " << dt << std::endl;
+  std::cout << "dt: " << dt_ << std::endl;
 }
 void BalanceControl::BalHiLoEvent() {
   if (balance_mode_ == BalanceControl::BAL_LO) {
@@ -428,7 +430,7 @@ void BalanceControl::BalHiLoEvent() {
 void BalanceControl::StandSitEvent() {
   // If in ground mode and state error is not high stand up
   if (balance_mode_ == BalanceControl::GROUND_LO) {
-    if (state(0) < 0.0 && error(0) > -10.0 * M_PI / 180.0) {
+    if (state_(0) < 0.0 && error_(0) > -10.0 * M_PI / 180.0) {
       balance_mode_ = BalanceControl::STAND;
       CancelPositionBuiltup();
       std::cout << "[MODE] STAND" << std::endl;
@@ -440,7 +442,7 @@ void BalanceControl::StandSitEvent() {
   // If in balLow mode and waist is not too high, sit down
   else if (balance_mode_ == BalanceControl::STAND ||
            balance_mode_ == BalanceControl::BAL_LO) {
-    if ((krang->waist->pos[0] - krang->waist->pos[1]) / 2.0 >
+    if ((krang_->waist->pos[0] - krang_->waist->pos[1]) / 2.0 >
         150.0 * M_PI / 180.0) {
       balance_mode_ = BalanceControl::SIT;
       std::cout << "[MODE] SIT " << std::endl;

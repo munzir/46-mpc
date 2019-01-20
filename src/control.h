@@ -88,22 +88,22 @@ class BalanceControl {
  private:
   BalanceMode balance_mode_;
   Eigen::Matrix<double, 4, 4> lqr_hack_ratios_;
-  Eigen::Matrix<double, 6, 1> pd_gain_, refState, state, error;
-  Eigen::Matrix<double, 6, 1> pdGains[NUM_MODES];
-  double joystickGains[NUM_MODES][2];
-  Eigen::Matrix<double, 3, 1> com;
+  Eigen::Matrix<double, 6, 1> pd_gains_, ref_state_, state_, error_;
+  Eigen::Matrix<double, 6, 1> pd_gains_list_[NUM_MODES];
+  double joystick_gains_list_[NUM_MODES][2];
+  Eigen::Matrix<double, 3, 1> com_;
   double joystick_forw, joystick_spin;
-  struct timespec t_now, t_prev;
-  double dt;
-  double u_theta, u_x, u_spin;
+  struct timespec t_now_, t_prev_;
+  double dt_;
+  double u_theta_, u_x_, u_spin_;
 
-  Krang::Hardware* krang;
-  dart::dynamics::SkeletonPtr robot;
+  Krang::Hardware* krang_;
+  dart::dynamics::SkeletonPtr robot_;
 
-  bool dynamicLQR;
-  Eigen::Matrix<double, 4, 4> lqrQ;
-  Eigen::Matrix<double, 1, 1> lqrR;
+  bool dynamic_lqr_;
+  Eigen::Matrix<double, 4, 4> lqrQ_;
+  Eigen::Matrix<double, 1, 1> lqrR_;
 
-  double toBalThreshold, imuSitAngle;
+  double to_bal_threshold_, imu_sit_angle_;
 };
 #endif  // KRANG_BALANCING_CONTROL_H_
