@@ -80,15 +80,15 @@ class BalanceControl {
  private:
   void SetComParameters(Eigen::MatrixXd beta_params, int num_body_params);
   void UpdateReference(const double& forw, const double& spin);
-  void ComputeCurrent(const Eigen::Matrix<double, 6, 1>& K,
+  void ComputeCurrent(const Eigen::Matrix<double, 6, 1>& pd_gain,
                       const Eigen::Matrix<double, 6, 1>& error,
                       double* control_input);
   Eigen::MatrixXd ComputeLqrGains();
 
  private:
   BalanceMode balance_mode_;
-  Eigen::Matrix<double, 4, 4> lqrHackRatios;
-  Eigen::Matrix<double, 6, 1> K, refState, state, error;
+  Eigen::Matrix<double, 4, 4> lqr_hack_ratios_;
+  Eigen::Matrix<double, 6, 1> pd_gain_, refState, state, error;
   Eigen::Matrix<double, 6, 1> pdGains[NUM_MODES];
   double joystickGains[NUM_MODES][2];
   Eigen::Matrix<double, 3, 1> com;
