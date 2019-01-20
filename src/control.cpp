@@ -93,7 +93,7 @@ BalanceControl::BalanceControl(Krang::Hardware* krang_,
   imuSitAngle = params.imuSitAngle;
 
   // Initial values
-  MODE = BalanceControl::GROUND_LO;
+  balance_mode_ = BalanceControl::GROUND_LO;
   K = pdGains[BalanceControl::GROUND_LO];
   refState.setZero();
   state.setZero();
@@ -154,16 +154,16 @@ void BalanceControl::UpdateState() {
   com(0) = com(2) * tan(state(0));
 }
 
-void BalanceControl::SetComParameters(Eigen::MatrixXd betaParams,
-                                      int bodyParams) {
+void BalanceControl::SetComParameters(Eigen::MatrixXd beta_params,
+                                      int num_body_params) {
   Eigen::Vector3d bodyMCOM;
   double mi;
-  int numBodies = betaParams.cols() / bodyParams;
+  int numBodies = beta_params.cols() / num_body_params;
   for (int i = 0; i < numBodies; i++) {
-    mi = betaParams(0, i * bodyParams);
-    bodyMCOM(0) = betaParams(0, i * bodyParams + 1);
-    bodyMCOM(1) = betaParams(0, i * bodyParams + 2);
-    bodyMCOM(2) = betaParams(0, i * bodyParams + 3);
+    mi = beta_params(0, i * num_body_params);
+    bodyMCOM(0) = beta_params(0, i * num_body_params + 1);
+    bodyMCOM(1) = beta_params(0, i * num_body_params + 2);
+    bodyMCOM(2) = beta_params(0, i * num_body_params + 3);
 
     // std::cout << robot->getBodyNode(i)->getName() << std::endl;
     robot->getBodyNode(i)->setMass(mi);
@@ -187,18 +187,18 @@ void BalanceControl::CancelPositionBuiltup() {
   refState(4) = state(4);
 }
 void BalanceControl::ForceModeChange(BalanceControl::BalanceMode new_mode) {
-  if ((MODE == BalanceControl::GROUND_LO ||
-       MODE == BalanceControl::GROUND_HI) &&
+  if ((balance_mode_ == BalanceControl::GROUND_LO ||
+       balance_mode_ == BalanceControl::GROUND_HI) &&
       (new_mode == BalanceControl::STAND ||
        new_mode == BalanceControl::BAL_LO ||
        new_mode == BalanceControl::BAL_HI)) {
     CancelPositionBuiltup();
   }
 
-  MODE = new_mode;
+  balance_mode_ = new_mode;
 }
 void BalanceControl::ChangePdGain(int index, double change) {
-  pdGains[MODE](index) += change;
+  pdGains[balance_mode_](index) += change;
 }
 void BalanceControl::ComputeCurrent(const Eigen::Matrix<double, 6, 1>& K_,
                                     const Eigen::Matrix<double, 6, 1>& error_,
@@ -240,11 +240,11 @@ void BalanceControl::BalancingController(double* control_input) {
   // crosses the TimerLimit, mode is switched to balancing.
   static int stood_up_timer = 0;
   const int kStoodUpTimerLimit = 100;
-  if (MODE != BalanceControl::STAND) stood_up_timer = 0;
+  if (balance_mode_ != BalanceControl::STAND) stood_up_timer = 0;
 
   // Controllers for each mode
   K.setZero();
-  switch (MODE) {
+  switch (balance_mode_) {
     case BalanceControl::GROUND_LO: {
       //  Update Reference
       double forw, spin;
@@ -265,7 +265,7 @@ void BalanceControl::BalancingController(double* control_input) {
       // GROUND_HI mode
       if ((krang->waist->pos[0] - krang->waist->pos[1]) / 2.0 <
           150.0 * M_PI / 180.0) {
-        MODE = BalanceControl::GROUND_HI;
+        balance_mode_ = BalanceControl::GROUND_HI;
       }
 
       break;
@@ -291,7 +291,7 @@ void BalanceControl::BalancingController(double* control_input) {
       // groundLo mode
       if ((krang->waist->pos[0] - krang->waist->pos[1]) / 2.0 >
           150.0 * M_PI / 180.0) {
-        MODE = BalanceControl::GROUND_LO;
+        balance_mode_ = BalanceControl::GROUND_LO;
       }
       break;
     }
@@ -323,7 +323,7 @@ void BalanceControl::BalancingController(double* control_input) {
         stood_up_timer = 0;
       }
       if (stood_up_timer > kStoodUpTimerLimit) {
-        MODE = BalanceControl::BAL_LO;
+        balance_mode_ = BalanceControl::BAL_LO;
       }
 
       break;
@@ -397,7 +397,7 @@ void BalanceControl::BalancingController(double* control_input) {
         std::cout << "imu (" << krang->imu << ") < limit (" << kImuSitAngle
                   << "):";
         std::cout << "changing to Ground Lo Mode" << std::endl;
-        MODE = BalanceControl::GROUND_LO;
+        balance_mode_ = BalanceControl::GROUND_LO;
       }
 
       break;
@@ -415,21 +415,21 @@ void BalanceControl::Print() {
   std::cout << "error: " << error.transpose();
   std::cout << ", imu: " << krang->imu / M_PI * 180.0 << std::endl;
   std::cout << "K: " << K.transpose() << std::endl;
-  std::cout << "Mode : " << MODE_STRINGS[MODE] << "      ";
+  std::cout << "Mode : " << MODE_STRINGS[balance_mode_] << "      ";
   std::cout << "dt: " << dt << std::endl;
 }
 void BalanceControl::BalHiLoEvent() {
-  if (MODE == BalanceControl::BAL_LO) {
-    MODE = BalanceControl::BAL_HI;
-  } else if (MODE == BalanceControl::BAL_HI) {
-    MODE = BalanceControl::BAL_LO;
+  if (balance_mode_ == BalanceControl::BAL_LO) {
+    balance_mode_ = BalanceControl::BAL_HI;
+  } else if (balance_mode_ == BalanceControl::BAL_HI) {
+    balance_mode_ = BalanceControl::BAL_LO;
   }
 }
 void BalanceControl::StandSitEvent() {
   // If in ground mode and state error is not high stand up
-  if (MODE == BalanceControl::GROUND_LO) {
+  if (balance_mode_ == BalanceControl::GROUND_LO) {
     if (state(0) < 0.0 && error(0) > -10.0 * M_PI / 180.0) {
-      MODE = BalanceControl::STAND;
+      balance_mode_ = BalanceControl::STAND;
       CancelPositionBuiltup();
       std::cout << "[MODE] STAND" << std::endl;
     } else {
@@ -438,10 +438,11 @@ void BalanceControl::StandSitEvent() {
   }
 
   // If in balLow mode and waist is not too high, sit down
-  else if (MODE == BalanceControl::STAND || MODE == BalanceControl::BAL_LO) {
+  else if (balance_mode_ == BalanceControl::STAND ||
+           balance_mode_ == BalanceControl::BAL_LO) {
     if ((krang->waist->pos[0] - krang->waist->pos[1]) / 2.0 >
         150.0 * M_PI / 180.0) {
-      MODE = BalanceControl::SIT;
+      balance_mode_ = BalanceControl::SIT;
       std::cout << "[MODE] SIT " << std::endl;
     } else {
       std::cout << "[ERR ] Can't sit down, Waist is too high! " << std::endl;
