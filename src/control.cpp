@@ -57,8 +57,11 @@
 #include "file_ops.hpp"        // readInputFileAsMatrix()
 #include "lqr.hpp"             // lqr()
 
+//============================================================================
 const char BalanceControl::MODE_STRINGS[][16] = {
     "Ground Lo", "Stand", "Sit", "Bal Lo", "Bal Hi", "Ground Hi"};
+
+//============================================================================
 BalanceControl::BalanceControl(Krang::Hardware* krang,
                                dart::dynamics::SkeletonPtr robot,
                                BalancingConfig& params)
@@ -127,6 +130,8 @@ BalanceControl::BalanceControl(Krang::Hardware* krang,
   t_prev_ = aa_tm_now();
 }
 
+
+//============================================================================
 double BalanceControl::ElapsedTimeSinceLastCall() {
   t_now_ = aa_tm_now();
   dt_ = (double)aa_tm_timespec2sec(aa_tm_sub(t_now_, t_prev_));
@@ -134,6 +139,8 @@ double BalanceControl::ElapsedTimeSinceLastCall() {
 
   return dt_;
 }
+
+//============================================================================
 void BalanceControl::UpdateState() {
   // Read motor encoders, imu and ft and update dart skeleton
   krang_->updateSensors(dt_);
@@ -155,6 +162,8 @@ void BalanceControl::UpdateState() {
   com_(0) = com_(2) * tan(state_(0));
 }
 
+
+//============================================================================
 void BalanceControl::SetComParameters(Eigen::MatrixXd beta_params,
                                       int num_body_params) {
   Eigen::Vector3d bodyMCOM;
@@ -171,6 +180,8 @@ void BalanceControl::SetComParameters(Eigen::MatrixXd beta_params,
     robot_->getBodyNode(i)->setLocalCOM(bodyMCOM / mi);
   }
 }
+
+//============================================================================
 void BalanceControl::UpdateReference(const double& forw, const double& spin) {
   // First, set the balancing angle and velocity to zeroes
   ref_state_(0) = ref_state_(1) = 0.0;
@@ -183,10 +194,14 @@ void BalanceControl::UpdateReference(const double& forw, const double& spin) {
   ref_state_(2) += dt_ * ref_state_(3);
   ref_state_(4) += dt_ * ref_state_(5);
 }
+
+//============================================================================
 void BalanceControl::CancelPositionBuiltup() {
   ref_state_(2) = state_(2);
   ref_state_(4) = state_(4);
 }
+
+//============================================================================
 void BalanceControl::ForceModeChange(BalanceControl::BalanceMode new_mode) {
   if ((balance_mode_ == BalanceControl::GROUND_LO ||
        balance_mode_ == BalanceControl::GROUND_HI) &&
@@ -198,9 +213,13 @@ void BalanceControl::ForceModeChange(BalanceControl::BalanceMode new_mode) {
 
   balance_mode_ = new_mode;
 }
+
+//============================================================================
 void BalanceControl::ChangePdGain(int index, double change) {
   pd_gains_list_[balance_mode_](index) += change;
 }
+
+//============================================================================
 void BalanceControl::ComputeCurrent(const Eigen::Matrix<double, 6, 1>& pd_gain,
                                     const Eigen::Matrix<double, 6, 1>& error,
                                     double* control_input) {
@@ -215,6 +234,8 @@ void BalanceControl::ComputeCurrent(const Eigen::Matrix<double, 6, 1>& pd_gain,
   control_input[0] = std::max(-49.0, std::min(49.0, u_theta_ + u_x_ + u_spin_));
   control_input[1] = std::max(-49.0, std::min(49.0, u_theta_ + u_x_ - u_spin_));
 }
+
+//============================================================================
 Eigen::MatrixXd BalanceControl::ComputeLqrGains() {
   // TODO: Get rid of dynamic allocation
   Eigen::MatrixXd A = Eigen::MatrixXd::Zero(4, 4);
@@ -233,6 +254,8 @@ Eigen::MatrixXd BalanceControl::ComputeLqrGains() {
 
   return LQR_Gains;
 }
+
+//============================================================================
 void BalanceControl::BalancingController(double* control_input) {
   // The timer we use for deciding whether krang_ has stood up and needs to
   // be switched to BAL_LO mode. This timer is supposed to be zero in all
@@ -407,6 +430,8 @@ void BalanceControl::BalancingController(double* control_input) {
   }
 }
 
+
+//============================================================================
 void BalanceControl::Print() {
   std::cout << "\nstate: " << state_.transpose() << std::endl;
   std::cout << "com: " << com_.transpose() << std::endl;
@@ -420,6 +445,8 @@ void BalanceControl::Print() {
   std::cout << "Mode : " << MODE_STRINGS[balance_mode_] << "      ";
   std::cout << "dt: " << dt_ << std::endl;
 }
+
+//============================================================================
 void BalanceControl::BalHiLoEvent() {
   if (balance_mode_ == BalanceControl::BAL_LO) {
     balance_mode_ = BalanceControl::BAL_HI;
@@ -427,6 +454,8 @@ void BalanceControl::BalHiLoEvent() {
     balance_mode_ = BalanceControl::BAL_LO;
   }
 }
+
+//============================================================================
 void BalanceControl::StandSitEvent() {
   // If in ground mode and state error is not high stand up
   if (balance_mode_ == BalanceControl::GROUND_LO) {
@@ -451,5 +480,9 @@ void BalanceControl::StandSitEvent() {
     }
   }
 }
+
+//============================================================================
 void BalanceControl::SetFwdInput(double forw) { joystick_forw = forw; }
+
+//============================================================================
 void BalanceControl::SetSpinInput(double spin) { joystick_spin = spin; }
