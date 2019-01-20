@@ -78,7 +78,7 @@ class BalanceControl {
   void SetSpinInput(double spin);
 
  private:
-  void SetComParameters(Eigen::MatrixXd betaParams, int bodyParams);
+  void SetComParameters(Eigen::MatrixXd beta_params, int num_body_params);
   void UpdateReference(const double& forw, const double& spin);
   void ComputeCurrent(const Eigen::Matrix<double, 6, 1>& K,
                       const Eigen::Matrix<double, 6, 1>& error,
@@ -86,7 +86,7 @@ class BalanceControl {
   Eigen::MatrixXd ComputeLqrGains();
 
  private:
-  BalanceMode MODE;
+  BalanceMode balance_mode_;
   Eigen::Matrix<double, 4, 4> lqrHackRatios;
   Eigen::Matrix<double, 6, 1> K, refState, state, error;
   Eigen::Matrix<double, 6, 1> pdGains[NUM_MODES];
