@@ -37,8 +37,8 @@
  * @file control.h
  * @author Munzir Zafar
  * @date Oct 31, 2018
- * @brief Header file for control.cpp that implements balancing control
- * functions
+ * @brief Header file for control.cpp that implements mpc along with the
+ * legacy balancing control functions
  */
 
 #ifndef KRANG_BALANCING_CONTROL_H_
@@ -47,6 +47,8 @@
 #include <Eigen/Eigen>    // Eigen::MatrixXd, Eigen::Matrix<double, #, #>
 #include <dart/dart.hpp>  // dart::dynamics::SkeletonPtr
 #include <kore.hpp>       // Krang::Hardware
+#include <mutex>          // std::mutex
+#include <thread>         // std::thread
 
 #include "balancing_config.h"  // BalancingConfig
 
@@ -54,8 +56,8 @@ class BalanceControl {
  public:
   BalanceControl(Krang::Hardware* krang_, dart::dynamics::SkeletonPtr robot_,
                  BalancingConfig& params);
-  ~BalanceControl() {}
-
+  ~BalanceControl() { Destroy(); }
+  void Destroy();
   // The states of our state machine. We use the name "mode" instead of "state"
   // because state is already being used to name the state of the wheeled
   // inverted pendulum dynamics
@@ -139,6 +141,8 @@ class BalanceControl {
   // dtheta, x, dx respectively
   Eigen::MatrixXd ComputeLqrGains();
 
+  // DDP Thread function
+  void DdpThread();
  private:
   BalanceMode balance_mode_;  // Current mode of the state machine
   Eigen::Matrix<double, 4, 4>
@@ -171,5 +175,9 @@ class BalanceControl {
                              // automatically transitions to BAL_LO
   double imu_sit_angle_;     // if angle < value, SIT mode automatically
                              // transitions to GROUND_LO mode
+
+  std::thread* ddp_thread_;
+  bool ddp_thread_run_;
+  std::mutex ddp_thread_run_mutex_;
 };
 #endif  // KRANG_BALANCING_CONTROL_H_
