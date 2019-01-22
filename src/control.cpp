@@ -36,8 +36,8 @@
 /**
  * @file control.cpp
  * @author Munzir Zafar
- * @date Oct 31, 2018
- * @brief Implements balancing control functions
+ * @date Jan 22, 2019
+ * @brief Implements mpc along with the legacy balancing control functions
  */
 
 #include "control.h"
@@ -45,7 +45,9 @@
 #include <algorithm>  // std::max(), std::min()
 #include <cmath>      // atan2, tan
 #include <iostream>   // std::cout, std::endl
+#include <mutex>      // std::mutex
 #include <string>     // std::string
+#include <thread>     // std::thread
 
 #include <amino/time.h>  // aa_tm: _now(), _timespec2sec(), _sub()
 #include <Eigen/Eigen>  // Eigen:: MatrixXd, VectorXd, Vector3d, Matrix<double, #, #>
@@ -85,10 +87,13 @@ BalanceControl::BalanceControl(Krang::Hardware* krang,
         params.joystickGainsGroundLo[i];
     joystick_gains_list_[BalanceControl::GROUND_HI][i] =
         params.joystickGainsGroundHi[i];
-    joystick_gains_list_[BalanceControl::STAND][i] = params.joystickGainsStand[i];
+    joystick_gains_list_[BalanceControl::STAND][i] =
+        params.joystickGainsStand[i];
     joystick_gains_list_[BalanceControl::SIT][i] = params.joystickGainsSit[i];
-    joystick_gains_list_[BalanceControl::BAL_LO][i] = params.joystickGainsBalLo[i];
-    joystick_gains_list_[BalanceControl::BAL_HI][i] = params.joystickGainsBalHi[i];
+    joystick_gains_list_[BalanceControl::BAL_LO][i] =
+        params.joystickGainsBalLo[i];
+    joystick_gains_list_[BalanceControl::BAL_HI][i] =
+        params.joystickGainsBalHi[i];
   }
 
   // Parameters used for generating internal events
@@ -126,10 +131,13 @@ BalanceControl::BalanceControl(Krang::Hardware* krang,
   }
   BalanceControl::SetComParameters(beta, 4);
 
+  // Launch the DDP thread
+  ddp_thread_run_ = true;
+  ddp_thread_ = new std::thread(&BalanceControl::DdpThread, this);
+
   // time
   t_prev_ = aa_tm_now();
 }
-
 
 //============================================================================
 double BalanceControl::ElapsedTimeSinceLastCall() {
@@ -153,7 +161,8 @@ void BalanceControl::UpdateState() {
   state_(0) = atan2(com_(0), com_(2));  // - 0.3 * M_PI / 180.0;;
   state_(1) = krang_->imuSpeed;
   state_(2) = (krang_->amc->pos[0] + krang_->amc->pos[1]) / 2.0 + krang_->imu;
-  state_(3) = (krang_->amc->vel[0] + krang_->amc->vel[1]) / 2.0 + krang_->imuSpeed;
+  state_(3) =
+      (krang_->amc->vel[0] + krang_->amc->vel[1]) / 2.0 + krang_->imuSpeed;
   state_(4) = (krang_->amc->pos[1] - krang_->amc->pos[0]) / 2.0;
   state_(5) = (krang_->amc->vel[1] - krang_->amc->vel[0]) / 2.0;
 
@@ -161,7 +170,6 @@ void BalanceControl::UpdateState() {
   // state(0)
   com_(0) = com_(2) * tan(state_(0));
 }
-
 
 //============================================================================
 void BalanceControl::SetComParameters(Eigen::MatrixXd beta_params,
@@ -430,7 +438,6 @@ void BalanceControl::BalancingController(double* control_input) {
   }
 }
 
-
 //============================================================================
 void BalanceControl::Print() {
   std::cout << "\nstate: " << state_.transpose() << std::endl;
@@ -486,3 +493,25 @@ void BalanceControl::SetFwdInput(double forw) { joystick_forw = forw; }
 
 //============================================================================
 void BalanceControl::SetSpinInput(double spin) { joystick_spin = spin; }
+
+//============================================================================
+void BalanceControl::DdpThread() {
+  std::cout << "Entering DDP Thread ..." << std::endl;
+  bool run = true;
+  while (run) {
+    // Loop will exit if ddp_thread_run_ is reset
+    ddp_thread_run_mutex_.lock();
+    run = ddp_thread_run_;
+    ddp_thread_run_mutex_.unlock();
+  }
+  std::cout << "Exiting DDP Thread ..." << std::endl;
+}
+
+//============================================================================
+void BalanceControl::Destroy() {
+  ddp_thread_run_mutex_.lock();
+  ddp_thread_run_ = false;
+  ddp_thread_run_mutex_.unlock();
+  ddp_thread_->join();
+  delete ddp_thread_;
+}
