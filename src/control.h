@@ -36,7 +36,7 @@
 /**
  * @file control.h
  * @author Munzir Zafar
- * @date Oct 31, 2018
+ * @date Jan 22, 2019
  * @brief Header file for control.cpp that implements mpc along with the
  * legacy balancing control functions
  */
@@ -68,9 +68,19 @@ class BalanceControl {
     BAL_LO,
     BAL_HI,
     GROUND_HI,
-    NUM_MODES
+    MPC,
+    NUM_BAL_MODES
   };
-  static const char MODE_STRINGS[][16];
+  static const char BAL_MODE_STRINGS[][16];
+
+  enum DdpMode {
+    DDP_IDLE = 0,
+    OFFLINE_DDP,
+    DDP_OK,
+    DDP_FOR_MPC,
+    NUM_DDP_MODES
+  };
+  static const char DDP_MODE_STRINGS[][16];
 
   // Returns the time in seconds since last call to this function
   // For the first call, returns the time elapsed since the call to the
@@ -141,18 +151,24 @@ class BalanceControl {
   // dtheta, x, dx respectively
   Eigen::MatrixXd ComputeLqrGains();
 
+  // DDP Mode get and set. Mutex-based access.
+  DdpMode GetDdpMode();
+  void SetDdpMode(DdpMode ddp_mode);
+
   // DDP Thread function
   void DdpThread();
+
  private:
-  BalanceMode balance_mode_;  // Current mode of the state machine
+  BalanceMode
+      balance_mode_;  // Current mode of the balancing thread state machine
   Eigen::Matrix<double, 4, 4>
       lqr_hack_ratios_;  // gains_that_work/computed_lqr_gains
   Eigen::Matrix<double, 6, 1> pd_gains_, ref_state_, state_,
       error_;  // state: th, dth, forw, dforw, spin, dspin
   Eigen::Matrix<double, 6, 1>
-      pd_gains_list_[NUM_MODES];  // fixed pd gains for each mode specified in
-                                  // the config file
-  double joystick_gains_list_[NUM_MODES]
+      pd_gains_list_[NUM_BAL_MODES];  // fixed pd gains for each mode specified
+                                      // in the config file
+  double joystick_gains_list_[NUM_BAL_MODES]
                              [2];    // fixed joystick gains for each mode
                                      // specified in the config file
   Eigen::Matrix<double, 3, 1> com_;  // Current center of mass
@@ -176,6 +192,8 @@ class BalanceControl {
   double imu_sit_angle_;     // if angle < value, SIT mode automatically
                              // transitions to GROUND_LO mode
 
+  DdpMode ddp_mode_;  // Current mode of the ddp thread state machine
+  std::mutex ddp_mode_mutex_;
   std::thread* ddp_thread_;
   bool ddp_thread_run_;
   std::mutex ddp_thread_run_mutex_;
