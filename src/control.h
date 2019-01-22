@@ -75,12 +75,12 @@ class BalanceControl {
 
   enum DdpMode {
     DDP_IDLE = 0,
-    OFFLINE_DDP,
-    DDP_OK,
+    DDP_COMPUTE_TRAJ,
+    DDP_TRAJ_OK,
     DDP_FOR_MPC,
     NUM_DDP_MODES
   };
-  static const char DDP_MODE_STRINGS[][16];
+  static const char DDP_MODE_STRINGS[][32];
 
   // Returns the time in seconds since last call to this function
   // For the first call, returns the time elapsed since the call to the

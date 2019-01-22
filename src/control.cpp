@@ -62,8 +62,8 @@
 //============================================================================
 const char BalanceControl::BAL_MODE_STRINGS[][16] = {
     "Ground Lo", "Stand", "Sit", "Bal Lo", "Bal Hi", "Ground Hi", "MPC"};
-const char BalanceControl::DDP_MODE_STRINGS[][16] = {"DDP Idle", "Offline DDP",
-                                                     "DDP OK?", "DDP for MPC"};
+const char BalanceControl::DDP_MODE_STRINGS[][32] = {
+    "DDP Idle", "DDP Compute Traj", "DDP Traj OK?", "DDP for MPC"};
 
 //============================================================================
 BalanceControl::BalanceControl(Krang::Hardware* krang,
@@ -523,10 +523,10 @@ void BalanceControl::DdpThread() {
       case DDP_IDLE: {
         break;
       }
-      case OFFLINE_DDP: {
+      case DDP_COMPUTE_TRAJ: {
         break;
       }
-      case DDP_OK: {
+      case DDP_TRAJ_OK: {
         break;
       }
       case DDP_FOR_MPC: {
