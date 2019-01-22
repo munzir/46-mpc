@@ -81,10 +81,11 @@ int main(int argc, char* argv[]) {
   getchar();
 
   // Initialize the daemon
-  somatic_d_t daemon_cx;  ///< The context of the current daemon
   somatic_d_opts_t dopt;
   memset(&dopt, 0, sizeof(dopt));
   dopt.ident = "01-balance";
+  somatic_d_t daemon_cx;  ///< The context of the current daemon
+  memset(&daemon_cx, 0, sizeof(daemon_cx));
   somatic_d_init(&daemon_cx, &dopt);
 
   // Load the robot
