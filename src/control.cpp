@@ -60,8 +60,10 @@
 #include "lqr.hpp"             // lqr()
 
 //============================================================================
-const char BalanceControl::MODE_STRINGS[][16] = {
-    "Ground Lo", "Stand", "Sit", "Bal Lo", "Bal Hi", "Ground Hi"};
+const char BalanceControl::BAL_MODE_STRINGS[][16] = {
+    "Ground Lo", "Stand", "Sit", "Bal Lo", "Bal Hi", "Ground Hi", "MPC"};
+const char BalanceControl::DDP_MODE_STRINGS[][16] = {"DDP Idle", "Offline DDP",
+                                                     "DDP OK?", "DDP for MPC"};
 
 //============================================================================
 BalanceControl::BalanceControl(Krang::Hardware* krang,
@@ -134,6 +136,7 @@ BalanceControl::BalanceControl(Krang::Hardware* krang,
   // Launch the DDP thread
   ddp_thread_run_ = true;
   ddp_thread_ = new std::thread(&BalanceControl::DdpThread, this);
+  SetDdpMode(DDP_IDLE);
 
   // time
   t_prev_ = aa_tm_now();
@@ -449,7 +452,8 @@ void BalanceControl::Print() {
   std::cout << "error: " << error_.transpose();
   std::cout << ", imu: " << krang_->imu / M_PI * 180.0 << std::endl;
   std::cout << "PD Gains: " << pd_gains_.transpose() << std::endl;
-  std::cout << "Mode : " << MODE_STRINGS[balance_mode_] << "      ";
+  std::cout << "Mode : " << BAL_MODE_STRINGS[balance_mode_] << " - ";
+  std::cout << DDP_MODE_STRINGS[GetDdpMode()] << "     ";
   std::cout << "dt: " << dt_ << std::endl;
 }
 
@@ -495,10 +499,41 @@ void BalanceControl::SetFwdInput(double forw) { joystick_forw = forw; }
 void BalanceControl::SetSpinInput(double spin) { joystick_spin = spin; }
 
 //============================================================================
+BalanceControl::DdpMode BalanceControl::GetDdpMode() {
+  ddp_mode_mutex_.lock();
+  DdpMode ddp_mode = ddp_mode_;
+  ddp_mode_mutex_.unlock();
+  return ddp_mode;
+}
+
+//============================================================================
+void BalanceControl::SetDdpMode(DdpMode ddp_mode) {
+  ddp_mode_mutex_.lock();
+  ddp_mode_ = ddp_mode;
+  ddp_mode_mutex_.unlock();
+}
+
+//============================================================================
 void BalanceControl::DdpThread() {
   std::cout << "Entering DDP Thread ..." << std::endl;
   bool run = true;
   while (run) {
+    // Implementation for each DDP mode
+    switch (GetDdpMode()) {
+      case DDP_IDLE: {
+        break;
+      }
+      case OFFLINE_DDP: {
+        break;
+      }
+      case DDP_OK: {
+        break;
+      }
+      case DDP_FOR_MPC: {
+        break;
+      }
+    }
+
     // Loop will exit if ddp_thread_run_ is reset
     ddp_thread_run_mutex_.lock();
     run = ddp_thread_run_;
