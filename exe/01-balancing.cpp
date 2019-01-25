@@ -58,14 +58,14 @@
 #include <somatic/msg.h>    // somatic_anything_alloc(), somatic_anything_free()
 #include <somatic/util.h>   // somatic_sig_received
 
-#include "arms.h"              // ArmControl
-#include "balancing_config.h"  // BalancingConfig, ReadConfigParams()
-#include "control.h"           // BalancingControl
-#include "events.h"            // Events()
-#include "joystick.h"          // Joystick
-#include "keyboard.h"          // KbShared, KbHit
-#include "torso.h"             // TorsoState, ControlTorso()
-#include "waist.h"             // ControlWaist()
+#include "balancing/arms.h"              // ArmControl
+#include "balancing/balancing_config.h"  // BalancingConfig, ReadConfigParams()
+#include "balancing/control.h"           // BalancingControl
+#include "balancing/events.h"            // Events()
+#include "balancing/joystick.h"          // Joystick
+#include "balancing/keyboard.h"          // KbShared, KbHit
+#include "balancing/torso.h"             // TorsoState, ControlTorso()
+#include "balancing/waist.h"             // ControlWaist()
 
 /* ************************************************************************* */
 /// The main thread

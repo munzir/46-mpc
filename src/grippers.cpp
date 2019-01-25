@@ -41,7 +41,7 @@
  * @brief Implements control of grippers based on joystick Input
  */
 
-#include "grippers.h"
+#include "balancing/grippers.h"
 
 #include <somatic.h>
 #include <somatic/daemon.h>

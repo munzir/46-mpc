@@ -16,39 +16,42 @@
 # params
 !params.cfg
 
+# include
+!/include/
+/include/*
+!/include/balancing/
+/include/balancing/*
+!/include/balancing/adrc.hpp
+!/include/balancing/arms.h
+!/include/balancing/balancing.h
+!/include/balancing/balancing_config.h
+!/include/balancing/control.h
+!/include/balancing/ESO.hpp
+!/include/balancing/events.h
+!/include/balancing/file_ops.hpp
+!/include/balancing/grippers.h
+!/include/balancing/joystick.h
+!/include/balancing/keyboard.h
+!/include/balancing/lqr.hpp
+!/include/balancing/torso.h
+!/include/balancing/waist.h
+
 # src
 !/src/
 /src/*
-!/src/balancing.h
 !/src/file_ops.cpp
-!/src/file_ops.hpp
 !/src/helpers.cpp
-!/src/helpers.h
-!/src/simTab.h
-!/src/utils.h
-!/src/balancing_config.h
 !/src/balancing_config.cpp
-!/src/arms.h
 !/src/arms.cpp
-!/src/waist.h
 !/src/waist.cpp
-!/src/grippers.h
 !/src/grippers.cpp
-!/src/torso.h
 !/src/torso.cpp
-!/src/joystick.h
 !/src/joystick.cpp
 !/src/keyboard.cpp
-!/src/keyboard.h
-!/src/events.h
 !/src/events.cpp
-!/src/control.h
 !/src/control.cpp
-!/src/lqr.hpp
 !/src/lqr.cpp
-!/src/adrc.hpp
 !/src/adrc.cpp
-!/src/ESO.hpp
 
 # exe
 !/exe/
