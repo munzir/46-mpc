@@ -40,7 +40,7 @@
  * @brief Implements balancing control functions
  */
 
-#include "control.h"
+#include "balancing/control.h"
 
 #include <algorithm>  // std::max(), std::min()
 #include <cmath>      // atan2, tan
@@ -52,10 +52,10 @@
 #include <dart/dart.hpp>  // dart::dynamics::SkeletonPtr
 #include <kore.hpp>       // Krang::Hardware
 
-#include "adrc.hpp"            // computeLinearizedDynamics()
-#include "balancing_config.h"  // BalancingConfig
-#include "file_ops.hpp"        // readInputFileAsMatrix()
-#include "lqr.hpp"             // lqr()
+#include "balancing/adrc.hpp"            // computeLinearizedDynamics()
+#include "balancing/balancing_config.h"  // BalancingConfig
+#include "balancing/file_ops.hpp"        // readInputFileAsMatrix()
+#include "balancing/lqr.hpp"             // lqr()
 
 //============================================================================
 const char BalanceControl::MODE_STRINGS[][16] = {
