@@ -39,16 +39,16 @@
  * @date Oct 31, 2018
  * @brief Maps input/state events to desired control states/modes for the robot
  */
-#include "events.h"
+#include "balancing/events.h"
 
 #include <somatic.h>
 #include <Eigen/Eigen>
 #include <kore.hpp>
-#include "arms.h"
-#include "balancing_config.h"
-#include "control.h"
-#include "joystick.h"
-#include "torso.h"
+#include "balancing/arms.h"
+#include "balancing/balancing_config.h"
+#include "balancing/control.h"
+#include "balancing/joystick.h"
+#include "balancing/torso.h"
 
 /* ******************************************************************************
  */

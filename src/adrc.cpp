@@ -5,8 +5,8 @@
  * @brief This file contains helper functions pertaining to the adrc implementation of balancing
  */
 
-#include "adrc.hpp"
-#include "lqr.hpp"
+#include "balancing/adrc.hpp"
+#include "balancing/lqr.hpp"
 
 using namespace std;
 using namespace dart;

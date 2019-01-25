@@ -40,7 +40,7 @@
  * @brief Implements control of torso based on joystick Input
  */
 
-#include "torso.h"
+#include "balancing/torso.h"
 
 #include <somatic.h>
 #include <somatic/daemon.h>

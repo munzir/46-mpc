@@ -40,7 +40,7 @@
  * @brief Implements control of arms based on joystick Input
  */
 
-#include "arms.h"
+#include "balancing/arms.h"
 
 #include <math.h>
 #include <unistd.h>
@@ -52,7 +52,7 @@
 #include <kore.hpp>
 #include <kore/util.hpp>
 
-#include "balancing_config.h"
+#include "balancing/balancing_config.h"
 
 /* ************************************************************************************/
 // The preset arm configurations: forward, thriller, goodJacobian
