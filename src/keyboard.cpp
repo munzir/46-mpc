@@ -40,7 +40,7 @@
  * @brief code for thread reading keybaord input
  */
 
-#include "keyboard.h"
+#include "balancing/keyboard.h"
 
 #include <iostream>
 #include <pthread.h>

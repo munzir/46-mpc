@@ -40,7 +40,7 @@
  * @brief Implements waist control based on joystick input
  */
 
-#include "waist.h"
+#include "balancing/waist.h"
 
 #include <ach.h>
 #include <somatic.h>

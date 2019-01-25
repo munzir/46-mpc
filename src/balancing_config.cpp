@@ -40,7 +40,7 @@
  * @brief Reads configuration parameters from a cfg file
  */
 
-#include "balancing_config.h"
+#include "balancing/balancing_config.h"
 
 #include <assert.h>
 #include <iostream>

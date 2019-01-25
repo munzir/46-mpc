@@ -40,7 +40,7 @@
  * @brief Reading data from the joystick channel
  */
 
-#include "joystick.h"
+#include "balancing/joystick.h"
 
 #include <cmath>
 #include <somatic.h>

@@ -38,7 +38,7 @@ include_directories(/usr/include/dart)
 # Build the codebase library and the executables
 
 # Include the project files
-include_directories(src)
+include_directories(include)
 include_directories(../experiments/common/library)
 include_directories(../experiments/common/)
 include_directories(${DART_INCLUDE_DIRS})

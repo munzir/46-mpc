@@ -1,4 +1,4 @@
-#include "joystick.h"
+#include "balancing/joystick.h"
 #include <iomanip>
 #include <somatic.h>
 #include <somatic/daemon.h>
