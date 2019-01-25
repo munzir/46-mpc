@@ -158,6 +158,10 @@ class BalanceControl {
   // DDP Thread function
   void DdpThread();
 
+  // Update Three Dof Robot
+  void UpdateThreeDof(dart::dynamics::SkeletonPtr& robot,
+                      dart::dynamics::SkeletonPtr& three_dof_robot);
+
  private:
   BalanceMode
       balance_mode_;  // Current mode of the balancing thread state machine
@@ -197,5 +201,13 @@ class BalanceControl {
   std::thread* ddp_thread_;
   bool ddp_thread_run_;
   std::mutex ddp_thread_run_mutex_;
+  dart::dynamics::SkeletonPtr
+      ddp_robot_;  // A clone of the Skeleton in the main balancing thread so
+                   // that we don't have to share the entire Skeleton using
+                   // mutex
+  Eigen::VectorXd robot_pose_;
+  std::mutex robot_pose_mutex_;
+  dart::dynamics::SkeletonPtr three_dof_robot_;
+  std::mutex three_dof_robot_mutex_;
 };
 #endif  // KRANG_BALANCING_CONTROL_H_
