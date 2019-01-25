@@ -51,8 +51,9 @@
 
 #include <amino/time.h>  // aa_tm: _now(), _timespec2sec(), _sub()
 #include <Eigen/Eigen>  // Eigen:: MatrixXd, VectorXd, Vector3d, Matrix<double, #, #>
-#include <dart/dart.hpp>  // dart::dynamics::SkeletonPtr
-#include <kore.hpp>       // Krang::Hardware
+#include <dart/dart.hpp>             // dart::dynamics::SkeletonPtr
+#include <dart/utils/urdf/urdf.hpp>  // dart::utils::DartLoader
+#include <kore.hpp>                  // Krang::Hardware
 
 #include "adrc.hpp"            // computeLinearizedDynamics()
 #include "balancing_config.h"  // BalancingConfig
@@ -136,6 +137,9 @@ BalanceControl::BalanceControl(Krang::Hardware* krang,
   // Launch the DDP thread
   ddp_thread_run_ = true;
   ddp_thread_ = new std::thread(&BalanceControl::DdpThread, this);
+  ddp_robot_ = robot_->clone();
+  dart::utils::DartLoader loader;
+  three_dof_robot_ = loader.parseSkeleton(params.threeDofUrdfpath);
   SetDdpMode(DDP_IDLE);
 
   // time
@@ -152,9 +156,16 @@ double BalanceControl::ElapsedTimeSinceLastCall() {
 }
 
 //============================================================================
+
+//============================================================================
 void BalanceControl::UpdateState() {
   // Read motor encoders, imu and ft and update dart skeleton
   krang_->updateSensors(dt_);
+
+  // Update robot pose variable shared with the ddp thread
+  robot_pose_mutex_.lock();
+  robot_pose_ = robot_->getPositions();
+  robot_pose_mutex_.unlock();
 
   // Calculate the COM Using Skeleton
   com_ = robot_->getCOM() - robot_->getPositions().segment(3, 3);
@@ -514,8 +525,96 @@ void BalanceControl::SetDdpMode(DdpMode ddp_mode) {
 }
 
 //============================================================================
+// Update the position and velocity of a 3dof dart model with that of the global
+// krang model
+void BalanceControl::UpdateThreeDof(
+    dart::dynamics::SkeletonPtr& robot,
+    dart::dynamics::SkeletonPtr& three_dof_robot) {
+  // Body Mass
+  double full_mass = robot->getMass();
+  double lwheel_mass = robot->getBodyNode("LWheel")->getMass();
+  double rwheel_mass = robot->getBodyNode("RWheel")->getMass();
+  double body_mass = full_mass - lwheel_mass - rwheel_mass;
+
+  // Body CoM
+  Eigen::Vector3d body_com;
+  dart::dynamics::Frame* base_frame = robot->getBodyNode("Base");
+  body_com = (full_mass * robot->getCOM(base_frame) -
+              lwheel_mass * robot->getBodyNode("LWheel")->getCOM(base_frame) -
+              rwheel_mass * robot->getBodyNode("RWheel")->getCOM(base_frame)) /
+             (full_mass - lwheel_mass - rwheel_mass);
+
+  // Body inertia (axis)
+  double link_mass;
+  Eigen::Matrix3d link_inertia;
+  Eigen::Matrix3d body_inertia = Eigen::Matrix3d::Zero();
+  double ixx, iyy, izz, ixy, ixz, iyz;
+  Eigen::Matrix3d rot;
+  Eigen::Vector3d t;  // translation vector
+  Eigen::Matrix3d
+      t_mat;  // matrix from translation vector used for parallel axis theorem
+  dart::dynamics::BodyNodePtr link;
+  int num_links = robot->getNumBodyNodes();
+
+  for (int i = 0; i < num_links; i++) {
+    if (i == 1 || i == 2) continue;  // Skip wheels
+    link = robot->getBodyNode(i);
+    link->getMomentOfInertia(ixx, iyy, izz, ixy, ixz, iyz);
+    rot = link->getTransform(base_frame).rotation();
+    t = robot->getCOM(base_frame) -
+        link->getCOM(base_frame);  // Position vector from local COM to body COM
+                                   // expressed in base frame
+    link_mass = link->getMass();
+    link_inertia << ixx, ixy, ixz,  // Inertia tensor of the body around its CoM
+                                    // expressed in body frame
+        ixy, iyy, iyz, ixz, iyz, izz;
+    link_inertia = rot * link_inertia *
+                   rot.transpose();  // Inertia tensor of the body around
+                                     // its CoM expressed in base frame
+    t_mat << (t(1) * t(1) + t(2) * t(2)), (-t(0) * t(1)), (-t(0) * t(2)),
+        (-t(0) * t(1)), (t(0) * t(0) + t(2) * t(2)), (-t(1) * t(2)),
+        (-t(0) * t(2)), (-t(1) * t(2)), (t(0) * t(0) + t(1) * t(1));
+    link_inertia = link_inertia + link_mass * t_mat;  // Parallel Axis Theorem
+    body_inertia += link_inertia;
+  }
+
+  // Aligning threeDOF base frame to have the y-axis pass through the CoM
+  double th = atan2(body_com(2), body_com(1));
+  rot << 1, 0, 0, 0, cos(th), sin(th), 0, -sin(th), cos(th);
+  body_com = rot * body_com;
+  body_inertia = rot * body_inertia * rot.transpose();
+
+  // Set the 3 DOF robot parameters
+  three_dof_robot_mutex_.lock();
+  three_dof_robot->getBodyNode("Base")->setMomentOfInertia(
+      body_inertia(0, 0), body_inertia(1, 1), body_inertia(2, 2),
+      body_inertia(0, 1), body_inertia(0, 2), body_inertia(1, 2));
+  three_dof_robot->getBodyNode("Base")->setLocalCOM(body_com);
+  three_dof_robot->getBodyNode("Base")->setMass(body_mass);
+
+  // Update 3DOF state
+  // get positions
+  Eigen::Matrix3d base_rot =
+      robot->getBodyNode("Base")->getTransform().rotation();
+  base_rot = base_rot * rot.transpose();
+  Eigen::AngleAxisd aa(base_rot);
+  Eigen::Matrix<double, 8, 1> q, dq;
+
+  q << aa.angle() * aa.axis(), robot->getPositions().segment(3, 5);
+  three_dof_robot->setPositions(q);
+  // TODO: When joints are unlocked qBody1 of the 3DOF (= dth = COM angular
+  // speed) is not the same as qBody1 of the full robot
+  dq << rot * robot->getVelocities().head(3),
+      rot * robot->getVelocities().segment(3, 3),
+      robot->getVelocities().segment(6, 2);
+  three_dof_robot->setVelocities(dq);
+  three_dof_robot_mutex_.unlock();
+}
+
+//============================================================================
 void BalanceControl::DdpThread() {
   std::cout << "Entering DDP Thread ..." << std::endl;
+
   bool run = true;
   while (run) {
     // Implementation for each DDP mode
@@ -524,6 +623,10 @@ void BalanceControl::DdpThread() {
         break;
       }
       case DDP_COMPUTE_TRAJ: {
+        robot_pose_mutex_.lock();
+        ddp_robot_->setPositions(robot_pose_);
+        robot_pose_mutex_.unlock();
+        UpdateThreeDof(ddp_robot_, three_dof_robot_);
         break;
       }
       case DDP_TRAJ_OK: {

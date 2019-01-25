@@ -54,6 +54,9 @@ struct BalancingConfig {
   // Path to urdf file
   char urdfpath[1024];
 
+  // Path to urdf file
+  char threeDofUrdfpath[1024];
+
   // Path to CoM estimation model parameters
   char comParametersPath[1024];
 
