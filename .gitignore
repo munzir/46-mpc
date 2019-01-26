@@ -26,6 +26,7 @@
 !/include/balancing/balancing.h
 !/include/balancing/balancing_config.h
 !/include/balancing/control.h
+!/include/balancing/ddp_objects.h
 !/include/balancing/ESO.hpp
 !/include/balancing/events.h
 !/include/balancing/file_ops.hpp
@@ -35,6 +36,9 @@
 !/include/balancing/lqr.hpp
 !/include/balancing/torso.h
 !/include/balancing/waist.h
+
+# ddp
+!/include/ddp/
 
 # src
 !/src/
