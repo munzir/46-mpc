@@ -620,8 +620,9 @@ void BalanceControl::UpdateThreeDof(
 }
 
 //============================================================================
-TwipDynamics<double>* BalanceControl::DartSkeletonToTwipDynamics(
-    SkeletonPtr& three_dof_robot) {
+void BalanceControl::DartSkeletonToTwipDynamics(
+    dart::dynamics::SkeletonPtr& three_dof_robot,
+    TwipDynamics<double>* twip_dynamics) {
   // Wheel radius, distance between wheels and gravitational acceleration
   TwipDynamics<double>::Parameters p;
   p.R = 0.25;
@@ -678,8 +679,8 @@ TwipDynamics<double>* BalanceControl::DartSkeletonToTwipDynamics(
            // that is true)
   three_dof_robot_mutex_.unlock();
 
-  // Create and return TwipDynamics object
-  return new TwipDynamics<double>(p);
+  // Set the parameters for twip dynamics object
+  twip_dynamics->SetParameters(p);
 }
 
 //============================================================================
@@ -724,8 +725,7 @@ void BalanceControl::DdpThread() {
         ddp_robot_->setPositions(robot_pose_);
         robot_pose_mutex_.unlock();
         UpdateThreeDof(ddp_robot_, three_dof_robot_);
-        TwipDynamics<double>* ddp_dynamics =
-            DartSkeletonToTwipDynamics(three_dof_robot_);
+        DartSkeletonToTwipDynamics(three_dof_robot_, &ddp_dynamics_);
         break;
       }
       case DDP_TRAJ_OK: {

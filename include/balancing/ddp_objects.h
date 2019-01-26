@@ -34,7 +34,7 @@ struct TwipDynamics : public Dynamics<T, 8, 2> {
   using State = typename Dynamics<T, 8, 2>::State;
   using Control = typename Dynamics<T, 8, 2>::Control;
 
-  TwipDynamics(Parameters p) {
+  void SetParameters(Parameters p) {
     R = p.R, mw = p.mw, L = p.L, g = p.g;
     m_1 = p.m_1;
     MX_1 = p.MX_1, MY_1 = p.MY_1, MZ_1 = p.MZ_1;

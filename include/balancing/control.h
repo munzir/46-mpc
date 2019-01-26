@@ -50,8 +50,8 @@
 #include <mutex>          // std::mutex
 #include <thread>         // std::thread
 
-#include "balancing_config.h"  // BalancingConfig
-#include "balancing/ddp_objects.h"       // TwipDynamics...
+#include "balancing/ddp_objects.h"  // TwipDynamics...
+#include "balancing_config.h"       // BalancingConfig
 
 class BalanceControl {
  public:
@@ -164,7 +164,9 @@ class BalanceControl {
                       dart::dynamics::SkeletonPtr& three_dof_robot);
 
   // Get dynamics for ddp from 3-dof dart skeleton
-  TwipDynamics<double>* DartSkeletonToTwipDynamics(SkeletonPtr& three_dof_robot) {
+  void DartSkeletonToTwipDynamics(dart::dynamics::SkeletonPtr& three_dof_robot,
+                                  TwipDynamics<double>* twip_dynamics);
+
  private:
   BalanceMode
       balance_mode_;  // Current mode of the balancing thread state machine
@@ -173,8 +175,8 @@ class BalanceControl {
   Eigen::Matrix<double, 6, 1> pd_gains_, ref_state_, state_,
       error_;  // state: th, dth, forw, dforw, spin, dspin
   Eigen::Matrix<double, 6, 1>
-      pd_gains_list_[NUM_BAL_MODES];  // fixed pd gains for each mode specified
-                                      // in the config file
+      pd_gains_list_[NUM_BAL_MODES];  // fixed pd gains for each mode
+                                      // specified in the config file
   double joystick_gains_list_[NUM_BAL_MODES]
                              [2];    // fixed joystick gains for each mode
                                      // specified in the config file
@@ -183,14 +185,16 @@ class BalanceControl {
       joystick_spin;  // forw and spin motion control references
   struct timespec t_now_, t_prev_;
   double dt_;
-  double u_theta_, u_x_, u_spin_;  // individual components of the wheel current
+  double u_theta_, u_x_,
+      u_spin_;  // individual components of the wheel current
 
   Krang::Hardware*
       krang_;  // interface to hardware components (sensors and motors)
   dart::dynamics::SkeletonPtr robot_;  // dart object with krang's skeleton
 
   bool dynamic_lqr_;  // if true, online pose-dependent lqr gains will be used
-                      // instead of the fixed gains specified in the config file
+                      // instead of the fixed gains specified in the config
+                      // file
   Eigen::Matrix<double, 4, 4> lqrQ_;  // Q matrix for LQR
   Eigen::Matrix<double, 1, 1> lqrR_;  // R matrix for LQR
 
@@ -226,5 +230,6 @@ class BalanceControl {
       ddp_bal_state_;  // copy of main thread's state variable to be
                        // mutex-shared by ddp thread
   std::mutex ddp_bal_state_mutex_;
+  TwipDynamics<double> ddp_dynamics_;
 };
 #endif  // KRANG_BALANCING_CONTROL_H_
