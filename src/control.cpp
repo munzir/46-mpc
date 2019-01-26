@@ -57,6 +57,7 @@
 
 #include "balancing/adrc.hpp"            // computeLinearizedDynamics()
 #include "balancing/balancing_config.h"  // BalancingConfig
+#include "balancing/ddp_objects.h"       // TwipDynamics...
 #include "balancing/file_ops.hpp"        // readInputFileAsMatrix()
 #include "balancing/lqr.hpp"             // lqr()
 
@@ -140,6 +141,8 @@ BalanceControl::BalanceControl(Krang::Hardware* krang,
   ddp_robot_ = robot_->clone();
   dart::utils::DartLoader loader;
   three_dof_robot_ = loader.parseSkeleton(params.threeDofUrdfpath);
+  three_dof_robot_->getJoint(0)->setDampingCoefficient(0, 0.5);
+  three_dof_robot_->getJoint(1)->setDampingCoefficient(0, 0.5);
   SetDdpMode(DDP_IDLE);
 
   // time
@@ -183,6 +186,11 @@ void BalanceControl::UpdateState() {
   // Making adjustment in com to make it consistent with the hack above for
   // state(0)
   com_(0) = com_(2) * tan(state_(0));
+
+  // copy of state for the ddp thread
+  ddp_bal_state_mutex_.lock();
+  ddp_bal_state_ << state_;
+  ddp_bal_state_mutex_.unlock();
 }
 
 //============================================================================
@@ -612,6 +620,69 @@ void BalanceControl::UpdateThreeDof(
 }
 
 //============================================================================
+TwipDynamics<double>* BalanceControl::DartSkeletonToTwipDynamics(
+    SkeletonPtr& three_dof_robot) {
+  // Wheel radius, distance between wheels and gravitational acceleration
+  TwipDynamics<double>::Parameters p;
+  p.R = 0.25;
+  p.L = 0.68;
+  p.g = 9.800000e+00;
+
+  // Wheel mass
+  three_dof_robot_mutex_.lock();
+  p.mw = three_dof_robot->getBodyNode("LWheel")->getMass();
+
+  // Wheel inertia
+  double ixx, iyy, izz, ixy, ixz, iyz;
+  three_dof_robot->getBodyNode("LWheel")->getMomentOfInertia(ixx, iyy, izz, ixy,
+                                                             ixz, iyz);
+  p.YYw = ixx;
+  p.ZZw = izz;
+  p.XXw = iyy;  // Wheel frame of reference in ddp dynamic model is different
+                // from the one in DART
+
+  // Body mass
+  p.m_1 = three_dof_robot->getBodyNode("Base")->getMass();
+
+  // Body CoM
+  dart::dynamics::Frame* base_frame = three_dof_robot->getBodyNode("Base");
+  Eigen::Vector3d com =
+      three_dof_robot->getBodyNode("Base")->getCOM(base_frame);
+  p.MX_1 = p.m_1 * com(0);
+  p.MY_1 = p.m_1 * com(1);
+  p.MZ_1 = p.m_1 * com(2);
+
+  // Body inertia
+  three_dof_robot->getBodyNode("Base")->getMomentOfInertia(ixx, iyy, izz, ixy,
+                                                           ixz, iyz);
+  Eigen::Vector3d s = -com;  // Position vector from local COM to body COM
+                             // expressed in base frame
+  Eigen::Matrix3d inertia;
+  inertia << ixx, ixy, ixz, ixy, iyy, iyz, ixz, iyz,
+      izz;  // Inertia tensor of the body around its CoM expressed in body frame
+  Eigen::Matrix3d tMat;
+  tMat << (s(1) * s(1) + s(2) * s(2)), (-s(0) * s(1)), (-s(0) * s(2)),
+      (-s(0) * s(1)), (s(0) * s(0) + s(2) * s(2)), (-s(1) * s(2)),
+      (-s(0) * s(2)), (-s(1) * s(2)), (s(0) * s(0) + s(1) * s(1));
+  inertia = inertia + p.m_1 * tMat;  // Parallel Axis Theorem
+  p.XX_1 = inertia(0, 0);
+  p.YY_1 = inertia(1, 1);
+  p.ZZ_1 = inertia(2, 2);
+  p.XY_1 = inertia(0, 1);
+  p.YZ_1 = inertia(1, 2);
+  p.XZ_1 = inertia(0, 2);
+
+  // Friction
+  p.fric_1 = three_dof_robot->getJoint(0)->getDampingCoefficient(
+      0);  // Assuming both joints have same friction coeff (Please make sure
+           // that is true)
+  three_dof_robot_mutex_.unlock();
+
+  // Create and return TwipDynamics object
+  return new TwipDynamics<double>(p);
+}
+
+//============================================================================
 void BalanceControl::DdpThread() {
   std::cout << "Entering DDP Thread ..." << std::endl;
 
@@ -623,10 +694,38 @@ void BalanceControl::DdpThread() {
         break;
       }
       case DDP_COMPUTE_TRAJ: {
+        // Lock mutexes
+        ddp_bal_state_mutex_.lock();
+        ddp_init_heading_mutex_.lock();
+        ddp_augmented_state_mutex_.lock();
+
+        // Define initial heading for computation of future mpc states
+        ddp_init_heading_.distance_ = 0.25 * ddp_bal_state_(2);
+        ddp_init_heading_.direction_ = ddp_bal_state_(4);
+
+        // Reset augmented state
+        ddp_augmented_state_.x0_ = 0.0;
+        ddp_augmented_state_.y0_ = 0.0;
+
+        // Initial state for ddp trajectory computation
+        TwipDynamics<double>::State x0;
+        x0 << 0.25 * ddp_bal_state_(2) - ddp_init_heading_.distance_,
+            ddp_bal_state_(4) - ddp_init_heading_.direction_, ddp_bal_state_(0),
+            0.25 * ddp_bal_state_(3), ddp_bal_state_(5), ddp_bal_state_(1),
+            ddp_augmented_state_.x0_, ddp_augmented_state_.y0_;
+
+        // Unlock mutexes
+        ddp_augmented_state_mutex_.unlock();
+        ddp_init_heading_mutex_.unlock();
+        ddp_bal_state_mutex_.unlock();
+
+        // Get the dynamic model for ddp
         robot_pose_mutex_.lock();
         ddp_robot_->setPositions(robot_pose_);
         robot_pose_mutex_.unlock();
         UpdateThreeDof(ddp_robot_, three_dof_robot_);
+        TwipDynamics<double>* ddp_dynamics =
+            DartSkeletonToTwipDynamics(three_dof_robot_);
         break;
       }
       case DDP_TRAJ_OK: {

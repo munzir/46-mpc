@@ -51,6 +51,7 @@
 #include <thread>         // std::thread
 
 #include "balancing_config.h"  // BalancingConfig
+#include "balancing/ddp_objects.h"       // TwipDynamics...
 
 class BalanceControl {
  public:
@@ -162,6 +163,8 @@ class BalanceControl {
   void UpdateThreeDof(dart::dynamics::SkeletonPtr& robot,
                       dart::dynamics::SkeletonPtr& three_dof_robot);
 
+  // Get dynamics for ddp from 3-dof dart skeleton
+  TwipDynamics<double>* DartSkeletonToTwipDynamics(SkeletonPtr& three_dof_robot) {
  private:
   BalanceMode
       balance_mode_;  // Current mode of the balancing thread state machine
@@ -209,5 +212,19 @@ class BalanceControl {
   std::mutex robot_pose_mutex_;
   dart::dynamics::SkeletonPtr three_dof_robot_;
   std::mutex three_dof_robot_mutex_;
+  struct Heading {
+    double distance_;
+    double direction_;
+  } ddp_init_heading_;
+  std::mutex ddp_init_heading_mutex_;
+  struct AugmentedState {
+    double x0_;
+    double y0_;
+  } ddp_augmented_state_;
+  std::mutex ddp_augmented_state_mutex_;
+  Eigen::Matrix<double, 6, 1>
+      ddp_bal_state_;  // copy of main thread's state variable to be
+                       // mutex-shared by ddp thread
+  std::mutex ddp_bal_state_mutex_;
 };
 #endif  // KRANG_BALANCING_CONTROL_H_
