@@ -47,6 +47,8 @@
 #include <memory>
 #include <Eigen/Eigen>
 
+#include "balancing/ddp_objects.h"       // TwipDynamics...
+
 // Structure in which all configurable parameters are read at the beginning of
 // the program
 struct BalancingConfig {
@@ -95,18 +97,18 @@ struct BalancingConfig {
     double final_time_;
     Eigen::Matrix<double, 8, 1> goal_state_;
     int max_iter_;
-    Eigen::Matrix<double, 8, 8> state_penalties_;
-    Eigen::Matrix<double, 2, 2> control_penalties_;
-    Eigen::Matrix<double, 8, 8> terminal_state_penalties_;
+    TwipDynamicsCost<double>::StateHessian state_hessian_;
+    TwipDynamicsCost<double>::ControlHessian control_hessian_;
+    TwipDynamicsTerminalCost<double>::Hessian terminal_state_hessian_;
   } ddp_;
 
   // MPC Parameters
   struct MpcParameters {
     int max_iter_;
     int horizon_;
-    Eigen::Matrix<double, 8, 8> state_penalties_;
-    Eigen::Matrix<double, 2, 2> control_penalties_;
-    Eigen::Matrix<double, 8, 8> terminal_state_penalties_;
+    TwipDynamicsCost<double>::StateHessian state_hessian_;
+    TwipDynamicsCost<double>::ControlHessian control_hessian_;
+    TwipDynamicsTerminalCost<double>::Hessian terminal_state_hessian_;
     double dt_;
   } mpc_;
 };
