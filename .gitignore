@@ -10,11 +10,10 @@
 # CMakelists
 !CMakeLists.txt
 
-# beta vector
-!convergedBetaVector104PosesHardwareTrained.txt
-
 # params
-!params.cfg
+!/cfg/
+/cfg/*
+!/cfg/balancing_params.cfg
 
 # include
 !/include/
