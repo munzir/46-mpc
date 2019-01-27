@@ -52,7 +52,8 @@
 // Function for reading configuration parameters. First argument is the location
 // of cfg file from the parameters are to be read. Second argument is the output
 // where the parameters are stored
-void ReadConfigParams(const char* config_file, BalancingConfig* params) {
+void ReadConfigParams(const char* balancing_config_file,
+                      const char* mpc_config_file, BalancingConfig* params) {
   // Initialize the reader of the cfg file
   config4cpp::Configuration* cfg = config4cpp::Configuration::create();
   const char* scope = "";
@@ -61,10 +62,11 @@ void ReadConfigParams(const char* config_file, BalancingConfig* params) {
   const char* str;
   std::istringstream stream;
 
-  std::cout << "Reading configuration parameters ..." << std::endl;
+  std::cout << std::endl
+            << "Reading balancing configuration parameters ..." << std::endl;
   try {
     // Parse the cfg file
-    cfg->parse(config_file);
+    cfg->parse(balancing_config_file);
 
     // Read the path to Krang urdf file
     strcpy(params->urdfpath, cfg->lookupString(scope, "urdfpath"));
@@ -151,8 +153,103 @@ void ReadConfigParams(const char* config_file, BalancingConfig* params) {
   } catch (const config4cpp::ConfigurationException& ex) {
     std::cerr << ex.c_str() << std::endl;
     cfg->destroy();
-    assert(false && "Problem reading config parameters");
+    assert(false && "Problem reading balancing config parameters");
   }
+
+  std::cout << std::endl
+            << "Reading MPC configuration parameters ..." << std::endl;
+  try {
+    // Parse the cfg file
+    cfg->parse(mpc_config_file);
+
+    // =======================
+    // DDP Parameters
+    params->ddp_.final_time_ = cfg->lookupFloat(scope, "ddp_final_time");
+    std::cout << "ddp_final_time:" << params->ddp_.final_time_ << std::endl;
+
+    str = cfg->lookupString(scope, "ddp_goal_state");
+    stream.str(str);
+    for (int i = 0; i < 8; i++) stream >> params->ddp_.goal_state_(i);
+    stream.clear();
+    std::cout << "ddp_goal_state: " << params->ddp_.goal_state_.transpose()
+              << std::endl;
+
+    params->ddp_.max_iter_ = cfg->lookupInt(scope, "ddp_max_iter");
+    std::cout << "ddp_max_iter:" << params->ddp_.max_iter_ << std::endl;
+
+    params->ddp_.state_penalties_.setZero();
+    str = cfg->lookupString(scope, "ddp_state_penalties");
+    stream.str(str);
+    for (int i = 0; i < 8; i++) stream >> params->ddp_.state_penalties_(i, i);
+    stream.clear();
+    std::cout << "ddp_state_penalties: "
+              << params->ddp_.state_penalties_.diagonal().transpose()
+              << std::endl;
+
+    params->ddp_.control_penalties_.setZero();
+    str = cfg->lookupString(scope, "ddp_control_penalties");
+    stream.str(str);
+    for (int i = 0; i < 2; i++) stream >> params->ddp_.control_penalties_(i, i);
+    stream.clear();
+    std::cout << "ddp_control_penalties: "
+              << params->ddp_.control_penalties_.diagonal().transpose()
+              << std::endl;
+
+    params->ddp_.terminal_state_penalties_.setZero();
+    str = cfg->lookupString(scope, "ddp_terminal_state_penalties");
+    stream.str(str);
+    for (int i = 0; i < 8; i++)
+      stream >> params->ddp_.terminal_state_penalties_(i, i);
+    stream.clear();
+    std::cout << "ddp_terminal_state_penalties: "
+              << params->ddp_.terminal_state_penalties_.diagonal().transpose()
+              << std::endl;
+
+    // =======================
+    // MPC Parameters
+    params->mpc_.max_iter_ = cfg->lookupInt(scope, "mpc_max_iter");
+    std::cout << "mpc_max_iter:" << params->mpc_.max_iter_ << std::endl;
+
+    params->mpc_.horizon_ = cfg->lookupInt(scope, "mpc_horizon");
+    std::cout << "mpc_horizon:" << params->mpc_.horizon_ << std::endl;
+
+    params->mpc_.state_penalties_.setZero();
+    str = cfg->lookupString(scope, "mpc_state_penalties");
+    stream.str(str);
+    for (int i = 0; i < 8; i++) stream >> params->mpc_.state_penalties_(i, i);
+    stream.clear();
+    std::cout << "mpc_state_penalties: "
+              << params->mpc_.state_penalties_.diagonal().transpose()
+              << std::endl;
+
+    params->mpc_.control_penalties_.setZero();
+    str = cfg->lookupString(scope, "mpc_control_penalties");
+    stream.str(str);
+    for (int i = 0; i < 2; i++) stream >> params->mpc_.control_penalties_(i, i);
+    stream.clear();
+    std::cout << "mpc_control_penalties: "
+              << params->mpc_.control_penalties_.diagonal().transpose()
+              << std::endl;
+
+    params->mpc_.terminal_state_penalties_.setZero();
+    str = cfg->lookupString(scope, "mpc_terminal_state_penalties");
+    stream.str(str);
+    for (int i = 0; i < 8; i++)
+      stream >> params->mpc_.terminal_state_penalties_(i, i);
+    stream.clear();
+    std::cout << "mpc_terminal_state_penalties: "
+              << params->mpc_.terminal_state_penalties_.diagonal().transpose()
+              << std::endl;
+
+    params->mpc_.dt_ = cfg->lookupFloat(scope, "mpc_dt");
+    std::cout << "mpc_dt:" << params->mpc_.dt_ << std::endl;
+
+  } catch (const config4cpp::ConfigurationException& ex) {
+    std::cerr << ex.c_str() << std::endl;
+    cfg->destroy();
+    assert(false && "Problem reading mpc config parameters");
+  }
+
   std::cout << std::endl;
 }
 
