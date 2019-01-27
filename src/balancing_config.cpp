@@ -177,32 +177,32 @@ void ReadConfigParams(const char* balancing_config_file,
     params->ddp_.max_iter_ = cfg->lookupInt(scope, "ddp_max_iter");
     std::cout << "ddp_max_iter:" << params->ddp_.max_iter_ << std::endl;
 
-    params->ddp_.state_penalties_.setZero();
+    params->ddp_.state_hessian_.setZero();
     str = cfg->lookupString(scope, "ddp_state_penalties");
     stream.str(str);
-    for (int i = 0; i < 8; i++) stream >> params->ddp_.state_penalties_(i, i);
+    for (int i = 0; i < 8; i++) stream >> params->ddp_.state_hessian_(i, i);
     stream.clear();
     std::cout << "ddp_state_penalties: "
-              << params->ddp_.state_penalties_.diagonal().transpose()
+              << params->ddp_.state_hessian_.diagonal().transpose()
               << std::endl;
 
-    params->ddp_.control_penalties_.setZero();
+    params->ddp_.control_hessian_.setZero();
     str = cfg->lookupString(scope, "ddp_control_penalties");
     stream.str(str);
-    for (int i = 0; i < 2; i++) stream >> params->ddp_.control_penalties_(i, i);
+    for (int i = 0; i < 2; i++) stream >> params->ddp_.control_hessian_(i, i);
     stream.clear();
     std::cout << "ddp_control_penalties: "
-              << params->ddp_.control_penalties_.diagonal().transpose()
+              << params->ddp_.control_hessian_.diagonal().transpose()
               << std::endl;
 
-    params->ddp_.terminal_state_penalties_.setZero();
+    params->ddp_.terminal_state_hessian_.setZero();
     str = cfg->lookupString(scope, "ddp_terminal_state_penalties");
     stream.str(str);
     for (int i = 0; i < 8; i++)
-      stream >> params->ddp_.terminal_state_penalties_(i, i);
+      stream >> params->ddp_.terminal_state_hessian_(i, i);
     stream.clear();
     std::cout << "ddp_terminal_state_penalties: "
-              << params->ddp_.terminal_state_penalties_.diagonal().transpose()
+              << params->ddp_.terminal_state_hessian_.diagonal().transpose()
               << std::endl;
 
     // =======================
@@ -213,32 +213,32 @@ void ReadConfigParams(const char* balancing_config_file,
     params->mpc_.horizon_ = cfg->lookupInt(scope, "mpc_horizon");
     std::cout << "mpc_horizon:" << params->mpc_.horizon_ << std::endl;
 
-    params->mpc_.state_penalties_.setZero();
+    params->mpc_.state_hessian_.setZero();
     str = cfg->lookupString(scope, "mpc_state_penalties");
     stream.str(str);
-    for (int i = 0; i < 8; i++) stream >> params->mpc_.state_penalties_(i, i);
+    for (int i = 0; i < 8; i++) stream >> params->mpc_.state_hessian_(i, i);
     stream.clear();
     std::cout << "mpc_state_penalties: "
-              << params->mpc_.state_penalties_.diagonal().transpose()
+              << params->mpc_.state_hessian_.diagonal().transpose()
               << std::endl;
 
-    params->mpc_.control_penalties_.setZero();
+    params->mpc_.control_hessian_.setZero();
     str = cfg->lookupString(scope, "mpc_control_penalties");
     stream.str(str);
-    for (int i = 0; i < 2; i++) stream >> params->mpc_.control_penalties_(i, i);
+    for (int i = 0; i < 2; i++) stream >> params->mpc_.control_hessian_(i, i);
     stream.clear();
     std::cout << "mpc_control_penalties: "
-              << params->mpc_.control_penalties_.diagonal().transpose()
+              << params->mpc_.control_hessian_.diagonal().transpose()
               << std::endl;
 
-    params->mpc_.terminal_state_penalties_.setZero();
+    params->mpc_.terminal_state_hessian_.setZero();
     str = cfg->lookupString(scope, "mpc_terminal_state_penalties");
     stream.str(str);
     for (int i = 0; i < 8; i++)
-      stream >> params->mpc_.terminal_state_penalties_(i, i);
+      stream >> params->mpc_.terminal_state_hessian_(i, i);
     stream.clear();
     std::cout << "mpc_terminal_state_penalties: "
-              << params->mpc_.terminal_state_penalties_.diagonal().transpose()
+              << params->mpc_.terminal_state_hessian_.diagonal().transpose()
               << std::endl;
 
     params->mpc_.dt_ = cfg->lookupFloat(scope, "mpc_dt");
