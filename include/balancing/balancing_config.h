@@ -89,11 +89,32 @@ struct BalancingConfig {
   // if this flag is set, arms have to be unhalted by a joystick-based event
   // before use, and have to be halted in order to lock them
   bool manualArmLockUnlock;
+
+  // DDP Parameters
+  struct DdpParameters {
+    double final_time_;
+    Eigen::Matrix<double, 8, 1> goal_state_;
+    int max_iter_;
+    Eigen::Matrix<double, 8, 8> state_penalties_;
+    Eigen::Matrix<double, 2, 2> control_penalties_;
+    Eigen::Matrix<double, 8, 8> terminal_state_penalties_;
+  } ddp_;
+
+  // MPC Parameters
+  struct MpcParameters {
+    int max_iter_;
+    int horizon_;
+    Eigen::Matrix<double, 8, 8> state_penalties_;
+    Eigen::Matrix<double, 2, 2> control_penalties_;
+    Eigen::Matrix<double, 8, 8> terminal_state_penalties_;
+    double dt_;
+  } mpc_;
 };
 
 // Function for reading configuration parameters. First argument is the location of
 // cfg file from the parameters are to be read. Second argument is the output where
 // the parameters are stored
-void ReadConfigParams (const char* config_file, BalancingConfig* params);
+void ReadConfigParams(const char* balancing_config_file,
+                      const char* mpc_config_file, BalancingConfig* params);
 
 #endif // KRANG_BALANCING_CONFIG_H_
