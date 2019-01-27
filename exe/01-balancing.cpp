@@ -72,7 +72,7 @@
 int main(int argc, char* argv[]) {
   // Read config parameters
   BalancingConfig params;
-  ReadConfigParams("../params.cfg", &params);
+  ReadConfigParams("../cfg/balancing_params.cfg", &params);
 
   // Wait for a character input before starting the program
   std::cout << std::endl
