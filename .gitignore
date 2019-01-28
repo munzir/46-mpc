@@ -34,6 +34,7 @@
 !/include/balancing/joystick.h
 !/include/balancing/keyboard.h
 !/include/balancing/lqr.hpp
+!/include/balancing/mpc.h
 !/include/balancing/torso.h
 !/include/balancing/waist.h
 
@@ -43,19 +44,20 @@
 # src
 !/src/
 /src/*
-!/src/file_ops.cpp
-!/src/helpers.cpp
-!/src/balancing_config.cpp
+!/src/adrc.cpp
 !/src/arms.cpp
-!/src/waist.cpp
+!/src/balancing_config.cpp
+!/src/control.cpp
+!/src/events.cpp
+!/src/file_ops.cpp
 !/src/grippers.cpp
-!/src/torso.cpp
+!/src/helpers.cpp
 !/src/joystick.cpp
 !/src/keyboard.cpp
-!/src/events.cpp
-!/src/control.cpp
 !/src/lqr.cpp
-!/src/adrc.cpp
+!/src/mpc.cpp
+!/src/torso.cpp
+!/src/waist.cpp
 
 # exe
 !/exe/

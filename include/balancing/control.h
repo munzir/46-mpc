@@ -47,18 +47,14 @@
 #include <Eigen/Eigen>    // Eigen::MatrixXd, Eigen::Matrix<double, #, #>
 #include <dart/dart.hpp>  // dart::dynamics::SkeletonPtr
 #include <kore.hpp>       // Krang::Hardware
-#include <mutex>          // std::mutex
-#include <thread>         // std::thread
 
-#include "balancing/ddp_objects.h"  // TwipDynamics...
-#include "balancing_config.h"       // BalancingConfig
+#include "balancing/balancing_config.h"       // BalancingConfig
+#include "balancing/mpc.h"       // Mpc
 
 class BalanceControl {
  public:
   BalanceControl(Krang::Hardware* krang_, dart::dynamics::SkeletonPtr robot_,
                  BalancingConfig& params);
-  ~BalanceControl() { Destroy(); }
-  void Destroy();
   // The states of our state machine. We use the name "mode" instead of "state"
   // because state is already being used to name the state of the wheeled
   // inverted pendulum dynamics
@@ -73,15 +69,6 @@ class BalanceControl {
     NUM_BAL_MODES
   };
   static const char BAL_MODE_STRINGS[][16];
-
-  enum DdpMode {
-    DDP_IDLE = 0,
-    DDP_COMPUTE_TRAJ,
-    DDP_TRAJ_OK,
-    DDP_FOR_MPC,
-    NUM_DDP_MODES
-  };
-  static const char DDP_MODE_STRINGS[][32];
 
   // Returns the time in seconds since last call to this function
   // For the first call, returns the time elapsed since the call to the
@@ -152,21 +139,6 @@ class BalanceControl {
   // dtheta, x, dx respectively
   Eigen::MatrixXd ComputeLqrGains();
 
-  // DDP Mode get and set. Mutex-based access.
-  DdpMode GetDdpMode();
-  void SetDdpMode(DdpMode ddp_mode);
-
-  // DDP Thread function
-  void DdpThread();
-
-  // Update Three Dof Robot
-  void UpdateThreeDof(dart::dynamics::SkeletonPtr& robot,
-                      dart::dynamics::SkeletonPtr& three_dof_robot);
-
-  // Get dynamics for ddp from 3-dof dart skeleton
-  void DartSkeletonToTwipDynamics(dart::dynamics::SkeletonPtr& three_dof_robot,
-                                  TwipDynamics<double>* twip_dynamics);
-
  private:
   BalanceMode
       balance_mode_;  // Current mode of the balancing thread state machine
@@ -203,33 +175,6 @@ class BalanceControl {
   double imu_sit_angle_;     // if angle < value, SIT mode automatically
                              // transitions to GROUND_LO mode
 
-  DdpMode ddp_mode_;  // Current mode of the ddp thread state machine
-  std::mutex ddp_mode_mutex_;
-  std::thread* ddp_thread_;
-  bool ddp_thread_run_;
-  std::mutex ddp_thread_run_mutex_;
-  dart::dynamics::SkeletonPtr
-      ddp_robot_;  // A clone of the Skeleton in the main balancing thread so
-                   // that we don't have to share the entire Skeleton using
-                   // mutex
-  Eigen::VectorXd robot_pose_;
-  std::mutex robot_pose_mutex_;
-  dart::dynamics::SkeletonPtr three_dof_robot_;
-  std::mutex three_dof_robot_mutex_;
-  struct Heading {
-    double distance_;
-    double direction_;
-  } ddp_init_heading_;
-  std::mutex ddp_init_heading_mutex_;
-  struct AugmentedState {
-    double x0_;
-    double y0_;
-  } ddp_augmented_state_;
-  std::mutex ddp_augmented_state_mutex_;
-  Eigen::Matrix<double, 6, 1>
-      ddp_bal_state_;  // copy of main thread's state variable to be
-                       // mutex-shared by ddp thread
-  std::mutex ddp_bal_state_mutex_;
-  TwipDynamics<double> ddp_dynamics_;
+  Mpc mpc_;
 };
 #endif  // KRANG_BALANCING_CONTROL_H_

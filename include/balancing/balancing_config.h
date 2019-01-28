@@ -44,20 +44,16 @@
 #ifndef KRANG_BALANCING_CONFIG_H_
 #define KRANG_BALANCING_CONFIG_H_
 
-#include <memory>
 #include <Eigen/Eigen>
+#include <memory>
 
-#include "balancing/ddp_objects.h"       // TwipDynamics...
+#include "balancing/ddp_objects.h"  // TwipDynamics...
 
 // Structure in which all configurable parameters are read at the beginning of
 // the program
 struct BalancingConfig {
-
   // Path to urdf file
   char urdfpath[1024];
-
-  // Path to urdf file
-  char threeDofUrdfpath[1024];
 
   // Path to CoM estimation model parameters
   char comParametersPath[1024];
@@ -91,32 +87,12 @@ struct BalancingConfig {
   // if this flag is set, arms have to be unhalted by a joystick-based event
   // before use, and have to be halted in order to lock them
   bool manualArmLockUnlock;
-
-  // DDP Parameters
-  struct DdpParameters {
-    double final_time_;
-    Eigen::Matrix<double, 8, 1> goal_state_;
-    int max_iter_;
-    TwipDynamicsCost<double>::StateHessian state_hessian_;
-    TwipDynamicsCost<double>::ControlHessian control_hessian_;
-    TwipDynamicsTerminalCost<double>::Hessian terminal_state_hessian_;
-  } ddp_;
-
-  // MPC Parameters
-  struct MpcParameters {
-    int max_iter_;
-    int horizon_;
-    TwipDynamicsCost<double>::StateHessian state_hessian_;
-    TwipDynamicsCost<double>::ControlHessian control_hessian_;
-    TwipDynamicsTerminalCost<double>::Hessian terminal_state_hessian_;
-    double dt_;
-  } mpc_;
 };
 
-// Function for reading configuration parameters. First argument is the location of
-// cfg file from the parameters are to be read. Second argument is the output where
-// the parameters are stored
+// Function for reading configuration parameters. First argument is the location
+// of cfg file from the parameters are to be read. Second argument is the output
+// where the parameters are stored
 void ReadConfigParams(const char* balancing_config_file,
-                      const char* mpc_config_file, BalancingConfig* params);
+                      BalancingConfig* params);
 
-#endif // KRANG_BALANCING_CONFIG_H_
+#endif  // KRANG_BALANCING_CONFIG_H_

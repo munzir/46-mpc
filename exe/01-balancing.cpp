@@ -72,7 +72,7 @@
 int main(int argc, char* argv[]) {
   // Read config parameters
   BalancingConfig params;
-  ReadConfigParams("../cfg/balancing_params.cfg", "../cfg/mpc_params.cfg",
+  ReadConfigParams("/usr/local/share/krang/balancing/cfg/balancing_params.cfg",
                    &params);
 
   // Wait for a character input before starting the program

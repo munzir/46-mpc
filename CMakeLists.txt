@@ -58,8 +58,8 @@ file(GLOB scripts_source "exe/*.cpp" "exe/tests/*.cpp")
 list(SORT scripts_source)
 
 # Build the library and set the executables that use it (have to hardcode for now)
-add_library(Main SHARED ${main_source})
-set(MainDependents kore balancing)
+add_library(krangbalancing SHARED ${main_source})
+set(krangbalancingDependents kore balancing)
 
 # Build scripts
 message(STATUS "\n-- SCRIPTS: ")
@@ -67,10 +67,17 @@ foreach(script_src_file ${scripts_source})
 	get_filename_component(script_base ${script_src_file} NAME_WE)
 	message(STATUS "Adding script ${script_src_file} with base name ${script_base}" )
 	add_executable(${script_base} ${script_src_file})
-	target_link_libraries(${script_base} Main)
+	target_link_libraries(${script_base} krangbalancing)
 	#target_link_libraries(${script_base} ${GRIP_LIBRARIES} ${DART_LIBRARIES} ${DARTExt_LIBRARIES} ${wxWidgets_LIBRARIES})
 	target_link_libraries(${script_base} ${DART_LIBRARIES} ${wxWidgets_LIBRARIES})
 	add_custom_target(${script_base}.run ${script_base} ${ARGN})
 endforeach(script_src_file)
-message(STATUS " ")
 
+# Install
+install(TARGETS krangbalancing  DESTINATION /usr/local/lib)
+FILE(GLOB headers "include/balancing/*.h" "include/balancing/*.hpp")
+install(FILES ${headers} DESTINATION /usr/local/include/krang/balancing)
+install(DIRECTORY cfg DESTINATION /usr/local/share/krang/balancing)
+install(PROGRAMS build/01-balancing DESTINATION /usr/local/bin)
+
+message(STATUS " ")
