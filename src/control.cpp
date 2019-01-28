@@ -45,9 +45,7 @@
 #include <algorithm>  // std::max(), std::min()
 #include <cmath>      // atan2, tan
 #include <iostream>   // std::cout, std::endl
-#include <mutex>      // std::mutex
 #include <string>     // std::string
-#include <thread>     // std::thread
 
 #include <amino/time.h>  // aa_tm: _now(), _timespec2sec(), _sub()
 #include <Eigen/Eigen>  // Eigen:: MatrixXd, VectorXd, Vector3d, Matrix<double, #, #>
@@ -57,21 +55,20 @@
 
 #include "balancing/adrc.hpp"            // computeLinearizedDynamics()
 #include "balancing/balancing_config.h"  // BalancingConfig
-#include "balancing/ddp_objects.h"       // TwipDynamics...
 #include "balancing/file_ops.hpp"        // readInputFileAsMatrix()
 #include "balancing/lqr.hpp"             // lqr()
+#include "balancing/mpc.h"               // Mpc
 
 //============================================================================
 const char BalanceControl::BAL_MODE_STRINGS[][16] = {
     "Ground Lo", "Stand", "Sit", "Bal Lo", "Bal Hi", "Ground Hi", "MPC"};
-const char BalanceControl::DDP_MODE_STRINGS[][32] = {
-    "DDP Idle", "DDP Compute Traj", "DDP Traj OK?", "DDP for MPC"};
-
 //============================================================================
 BalanceControl::BalanceControl(Krang::Hardware* krang,
                                dart::dynamics::SkeletonPtr robot,
                                BalancingConfig& params)
-    : krang_(krang), robot_(robot) {
+    : krang_(krang),
+      robot_(robot),
+      mpc_("/usr/local/share/krang/balancing/cfg/mpc_params.cfg") {
   // LQR Gains
   dynamic_lqr_ = params.dynamicLQR;
   lqrQ_ = params.lqrQ;
@@ -135,15 +132,9 @@ BalanceControl::BalanceControl(Krang::Hardware* krang,
   }
   BalanceControl::SetComParameters(beta, 4);
 
-  // Launch the DDP thread
-  ddp_thread_run_ = true;
-  ddp_thread_ = new std::thread(&BalanceControl::DdpThread, this);
-  ddp_robot_ = robot_->clone();
-  dart::utils::DartLoader loader;
-  three_dof_robot_ = loader.parseSkeleton(params.threeDofUrdfpath);
-  three_dof_robot_->getJoint(0)->setDampingCoefficient(0, 0.5);
-  three_dof_robot_->getJoint(1)->setDampingCoefficient(0, 0.5);
-  SetDdpMode(DDP_IDLE);
+  // Cloning the robot so that mutex sharing is not necessary among
+  // threads
+  mpc_.ddp_robot_ = robot_->clone();
 
   // time
   t_prev_ = aa_tm_now();
@@ -159,16 +150,14 @@ double BalanceControl::ElapsedTimeSinceLastCall() {
 }
 
 //============================================================================
-
-//============================================================================
 void BalanceControl::UpdateState() {
   // Read motor encoders, imu and ft and update dart skeleton
   krang_->updateSensors(dt_);
 
   // Update robot pose variable shared with the ddp thread
-  robot_pose_mutex_.lock();
-  robot_pose_ = robot_->getPositions();
-  robot_pose_mutex_.unlock();
+  mpc_.robot_pose_mutex_.lock();
+  mpc_.robot_pose_ = robot_->getPositions();
+  mpc_.robot_pose_mutex_.unlock();
 
   // Calculate the COM Using Skeleton
   com_ = robot_->getCOM() - robot_->getPositions().segment(3, 3);
@@ -188,9 +177,9 @@ void BalanceControl::UpdateState() {
   com_(0) = com_(2) * tan(state_(0));
 
   // copy of state for the ddp thread
-  ddp_bal_state_mutex_.lock();
-  ddp_bal_state_ << state_;
-  ddp_bal_state_mutex_.unlock();
+  mpc_.ddp_bal_state_mutex_.lock();
+  mpc_.ddp_bal_state_ << state_;
+  mpc_.ddp_bal_state_mutex_.unlock();
 }
 
 //============================================================================
@@ -472,7 +461,7 @@ void BalanceControl::Print() {
   std::cout << ", imu: " << krang_->imu / M_PI * 180.0 << std::endl;
   std::cout << "PD Gains: " << pd_gains_.transpose() << std::endl;
   std::cout << "Mode : " << BAL_MODE_STRINGS[balance_mode_] << " - ";
-  std::cout << DDP_MODE_STRINGS[GetDdpMode()] << "     ";
+  std::cout << mpc_.DDP_MODE_STRINGS[mpc_.GetDdpMode()] << "     ";
   std::cout << "dt: " << dt_ << std::endl;
 }
 
@@ -516,239 +505,3 @@ void BalanceControl::SetFwdInput(double forw) { joystick_forw = forw; }
 
 //============================================================================
 void BalanceControl::SetSpinInput(double spin) { joystick_spin = spin; }
-
-//============================================================================
-BalanceControl::DdpMode BalanceControl::GetDdpMode() {
-  ddp_mode_mutex_.lock();
-  DdpMode ddp_mode = ddp_mode_;
-  ddp_mode_mutex_.unlock();
-  return ddp_mode;
-}
-
-//============================================================================
-void BalanceControl::SetDdpMode(DdpMode ddp_mode) {
-  ddp_mode_mutex_.lock();
-  ddp_mode_ = ddp_mode;
-  ddp_mode_mutex_.unlock();
-}
-
-//============================================================================
-// Update the position and velocity of a 3dof dart model with that of the global
-// krang model
-void BalanceControl::UpdateThreeDof(
-    dart::dynamics::SkeletonPtr& robot,
-    dart::dynamics::SkeletonPtr& three_dof_robot) {
-  // Body Mass
-  double full_mass = robot->getMass();
-  double lwheel_mass = robot->getBodyNode("LWheel")->getMass();
-  double rwheel_mass = robot->getBodyNode("RWheel")->getMass();
-  double body_mass = full_mass - lwheel_mass - rwheel_mass;
-
-  // Body CoM
-  Eigen::Vector3d body_com;
-  dart::dynamics::Frame* base_frame = robot->getBodyNode("Base");
-  body_com = (full_mass * robot->getCOM(base_frame) -
-              lwheel_mass * robot->getBodyNode("LWheel")->getCOM(base_frame) -
-              rwheel_mass * robot->getBodyNode("RWheel")->getCOM(base_frame)) /
-             (full_mass - lwheel_mass - rwheel_mass);
-
-  // Body inertia (axis)
-  double link_mass;
-  Eigen::Matrix3d link_inertia;
-  Eigen::Matrix3d body_inertia = Eigen::Matrix3d::Zero();
-  double ixx, iyy, izz, ixy, ixz, iyz;
-  Eigen::Matrix3d rot;
-  Eigen::Vector3d t;  // translation vector
-  Eigen::Matrix3d
-      t_mat;  // matrix from translation vector used for parallel axis theorem
-  dart::dynamics::BodyNodePtr link;
-  int num_links = robot->getNumBodyNodes();
-
-  for (int i = 0; i < num_links; i++) {
-    if (i == 1 || i == 2) continue;  // Skip wheels
-    link = robot->getBodyNode(i);
-    link->getMomentOfInertia(ixx, iyy, izz, ixy, ixz, iyz);
-    rot = link->getTransform(base_frame).rotation();
-    t = robot->getCOM(base_frame) -
-        link->getCOM(base_frame);  // Position vector from local COM to body COM
-                                   // expressed in base frame
-    link_mass = link->getMass();
-    link_inertia << ixx, ixy, ixz,  // Inertia tensor of the body around its CoM
-                                    // expressed in body frame
-        ixy, iyy, iyz, ixz, iyz, izz;
-    link_inertia = rot * link_inertia *
-                   rot.transpose();  // Inertia tensor of the body around
-                                     // its CoM expressed in base frame
-    t_mat << (t(1) * t(1) + t(2) * t(2)), (-t(0) * t(1)), (-t(0) * t(2)),
-        (-t(0) * t(1)), (t(0) * t(0) + t(2) * t(2)), (-t(1) * t(2)),
-        (-t(0) * t(2)), (-t(1) * t(2)), (t(0) * t(0) + t(1) * t(1));
-    link_inertia = link_inertia + link_mass * t_mat;  // Parallel Axis Theorem
-    body_inertia += link_inertia;
-  }
-
-  // Aligning threeDOF base frame to have the y-axis pass through the CoM
-  double th = atan2(body_com(2), body_com(1));
-  rot << 1, 0, 0, 0, cos(th), sin(th), 0, -sin(th), cos(th);
-  body_com = rot * body_com;
-  body_inertia = rot * body_inertia * rot.transpose();
-
-  // Set the 3 DOF robot parameters
-  three_dof_robot_mutex_.lock();
-  three_dof_robot->getBodyNode("Base")->setMomentOfInertia(
-      body_inertia(0, 0), body_inertia(1, 1), body_inertia(2, 2),
-      body_inertia(0, 1), body_inertia(0, 2), body_inertia(1, 2));
-  three_dof_robot->getBodyNode("Base")->setLocalCOM(body_com);
-  three_dof_robot->getBodyNode("Base")->setMass(body_mass);
-
-  // Update 3DOF state
-  // get positions
-  Eigen::Matrix3d base_rot =
-      robot->getBodyNode("Base")->getTransform().rotation();
-  base_rot = base_rot * rot.transpose();
-  Eigen::AngleAxisd aa(base_rot);
-  Eigen::Matrix<double, 8, 1> q, dq;
-
-  q << aa.angle() * aa.axis(), robot->getPositions().segment(3, 5);
-  three_dof_robot->setPositions(q);
-  // TODO: When joints are unlocked qBody1 of the 3DOF (= dth = COM angular
-  // speed) is not the same as qBody1 of the full robot
-  dq << rot * robot->getVelocities().head(3),
-      rot * robot->getVelocities().segment(3, 3),
-      robot->getVelocities().segment(6, 2);
-  three_dof_robot->setVelocities(dq);
-  three_dof_robot_mutex_.unlock();
-}
-
-//============================================================================
-void BalanceControl::DartSkeletonToTwipDynamics(
-    dart::dynamics::SkeletonPtr& three_dof_robot,
-    TwipDynamics<double>* twip_dynamics) {
-  // Wheel radius, distance between wheels and gravitational acceleration
-  TwipDynamics<double>::Parameters p;
-  p.R = 0.25;
-  p.L = 0.68;
-  p.g = 9.800000e+00;
-
-  // Wheel mass
-  three_dof_robot_mutex_.lock();
-  p.mw = three_dof_robot->getBodyNode("LWheel")->getMass();
-
-  // Wheel inertia
-  double ixx, iyy, izz, ixy, ixz, iyz;
-  three_dof_robot->getBodyNode("LWheel")->getMomentOfInertia(ixx, iyy, izz, ixy,
-                                                             ixz, iyz);
-  p.YYw = ixx;
-  p.ZZw = izz;
-  p.XXw = iyy;  // Wheel frame of reference in ddp dynamic model is different
-                // from the one in DART
-
-  // Body mass
-  p.m_1 = three_dof_robot->getBodyNode("Base")->getMass();
-
-  // Body CoM
-  dart::dynamics::Frame* base_frame = three_dof_robot->getBodyNode("Base");
-  Eigen::Vector3d com =
-      three_dof_robot->getBodyNode("Base")->getCOM(base_frame);
-  p.MX_1 = p.m_1 * com(0);
-  p.MY_1 = p.m_1 * com(1);
-  p.MZ_1 = p.m_1 * com(2);
-
-  // Body inertia
-  three_dof_robot->getBodyNode("Base")->getMomentOfInertia(ixx, iyy, izz, ixy,
-                                                           ixz, iyz);
-  Eigen::Vector3d s = -com;  // Position vector from local COM to body COM
-                             // expressed in base frame
-  Eigen::Matrix3d inertia;
-  inertia << ixx, ixy, ixz, ixy, iyy, iyz, ixz, iyz,
-      izz;  // Inertia tensor of the body around its CoM expressed in body frame
-  Eigen::Matrix3d tMat;
-  tMat << (s(1) * s(1) + s(2) * s(2)), (-s(0) * s(1)), (-s(0) * s(2)),
-      (-s(0) * s(1)), (s(0) * s(0) + s(2) * s(2)), (-s(1) * s(2)),
-      (-s(0) * s(2)), (-s(1) * s(2)), (s(0) * s(0) + s(1) * s(1));
-  inertia = inertia + p.m_1 * tMat;  // Parallel Axis Theorem
-  p.XX_1 = inertia(0, 0);
-  p.YY_1 = inertia(1, 1);
-  p.ZZ_1 = inertia(2, 2);
-  p.XY_1 = inertia(0, 1);
-  p.YZ_1 = inertia(1, 2);
-  p.XZ_1 = inertia(0, 2);
-
-  // Friction
-  p.fric_1 = three_dof_robot->getJoint(0)->getDampingCoefficient(
-      0);  // Assuming both joints have same friction coeff (Please make sure
-           // that is true)
-  three_dof_robot_mutex_.unlock();
-
-  // Set the parameters for twip dynamics object
-  twip_dynamics->SetParameters(p);
-}
-
-//============================================================================
-void BalanceControl::DdpThread() {
-  std::cout << "Entering DDP Thread ..." << std::endl;
-
-  bool run = true;
-  while (run) {
-    // Implementation for each DDP mode
-    switch (GetDdpMode()) {
-      case DDP_IDLE: {
-        break;
-      }
-      case DDP_COMPUTE_TRAJ: {
-        // Lock mutexes
-        ddp_bal_state_mutex_.lock();
-        ddp_init_heading_mutex_.lock();
-        ddp_augmented_state_mutex_.lock();
-
-        // Define initial heading for computation of future mpc states
-        ddp_init_heading_.distance_ = 0.25 * ddp_bal_state_(2);
-        ddp_init_heading_.direction_ = ddp_bal_state_(4);
-
-        // Reset augmented state
-        ddp_augmented_state_.x0_ = 0.0;
-        ddp_augmented_state_.y0_ = 0.0;
-
-        // Initial state for ddp trajectory computation
-        TwipDynamics<double>::State x0;
-        x0 << 0.25 * ddp_bal_state_(2) - ddp_init_heading_.distance_,
-            ddp_bal_state_(4) - ddp_init_heading_.direction_, ddp_bal_state_(0),
-            0.25 * ddp_bal_state_(3), ddp_bal_state_(5), ddp_bal_state_(1),
-            ddp_augmented_state_.x0_, ddp_augmented_state_.y0_;
-
-        // Unlock mutexes
-        ddp_augmented_state_mutex_.unlock();
-        ddp_init_heading_mutex_.unlock();
-        ddp_bal_state_mutex_.unlock();
-
-        // Get the dynamic model for ddp
-        robot_pose_mutex_.lock();
-        ddp_robot_->setPositions(robot_pose_);
-        robot_pose_mutex_.unlock();
-        UpdateThreeDof(ddp_robot_, three_dof_robot_);
-        DartSkeletonToTwipDynamics(three_dof_robot_, &ddp_dynamics_);
-        break;
-      }
-      case DDP_TRAJ_OK: {
-        break;
-      }
-      case DDP_FOR_MPC: {
-        break;
-      }
-    }
-
-    // Loop will exit if ddp_thread_run_ is reset
-    ddp_thread_run_mutex_.lock();
-    run = ddp_thread_run_;
-    ddp_thread_run_mutex_.unlock();
-  }
-  std::cout << "Exiting DDP Thread ..." << std::endl;
-}
-
-//============================================================================
-void BalanceControl::Destroy() {
-  ddp_thread_run_mutex_.lock();
-  ddp_thread_run_ = false;
-  ddp_thread_run_mutex_.unlock();
-  ddp_thread_->join();
-  delete ddp_thread_;
-}
