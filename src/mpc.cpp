@@ -44,6 +44,8 @@
 #include "balancing/mpc.h"
 
 #include <config4cpp/Configuration.h>  // config4cpp::Configuration
+#include <ddp/ddp.hpp> // optimizer, OptimizerResult
+#include <ddp/util.hpp> // util::DefaultLogger, util::time_steps
 #include <Eigen/Eigen>    // Eigen::MatrixXd, Eigen::Matrix<double, #, #>
 #include <dart/dart.hpp>  // dart::dynamics::SkeletonPtr
 #include <dart/utils/urdf/urdf.hpp>  // dart::utils::DartLoader
@@ -357,6 +359,7 @@ void Mpc::DdpThread() {
         break;
       }
       case DDP_COMPUTE_TRAJ: {
+        ////// Initial State
         // Lock mutexes
         ddp_bal_state_mutex_.lock();
         ddp_init_heading_mutex_.lock();
@@ -382,7 +385,7 @@ void Mpc::DdpThread() {
         ddp_init_heading_mutex_.unlock();
         ddp_bal_state_mutex_.unlock();
 
-        // Get the dynamic model for ddp
+        ////// Dynamics
         robot_pose_mutex_.lock();
         ddp_robot_->setPositions(robot_pose_);
         robot_pose_mutex_.unlock();
@@ -390,12 +393,30 @@ void Mpc::DdpThread() {
         TwipDynamics<double> ddp_dynamics;
         DartSkeletonToTwipDynamics(three_dof_robot_, &ddp_dynamics);
 
-        // Costs
+        ////// Costs
         TwipDynamicsCost<double> ddp_cost(param_.ddp_.goal_state_,
                                           param_.ddp_.state_hessian_,
                                           param_.ddp_.control_hessian_);
         TwipDynamicsTerminalCost<double> ddp_terminal_cost(
             param_.ddp_.goal_state_, param_.ddp_.terminal_state_hessian_);
+
+        ////// Time steps
+        int time_steps =
+            util::time_steps(param_.ddp_.final_time_, param_.mpc_.dt_);
+
+        ////// Nominal trajectory
+        auto nominal_traj =
+            TwipDynamics<double>::ControlTrajectory::Zero(2, time_steps);
+
+        ////// Perform optimization
+        util::DefaultLogger logger;
+        bool verbose = true;
+        optimizer::DDP<TwipDynamics<double>> ddp_optimizer(
+            param_.mpc_.dt_, time_steps, param_.mpc_.max_iter_, &logger,
+            verbose);
+        OptimizerResult<TwipDynamics<double>> optimizer_result =
+            ddp_optimizer.run(x0, nominal_traj, ddp_dynamics, ddp_cost,
+                              ddp_terminal_cost);
         break;
       }
       case DDP_TRAJ_OK: {
