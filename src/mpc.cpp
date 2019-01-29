@@ -425,11 +425,14 @@ void Mpc::DdpThread() {
         ////// Change the mode to DDP_TRAJ_OK that waits for the user to give
         ////// a green signal. But before that, see if we are still in the
         ////// current mode, lest an external event has forced us out
-        if (ddp_mode_ == DDP_COMPUTE_TRAJ) ddp_mode_ = DDP_TRAJ_OK;
+        if (GetDdpMode() == DDP_COMPUTE_TRAJ) SetDdpMode(DDP_TRAJ_OK);
 
         break;
       }
       case DDP_TRAJ_OK: {
+        // mpc_trajectory_main, mpc_trajectory_backup and mpc init time. These
+        // were done previously in the compute-traj mode's end. Now we want to
+        // do these in the beginning of MPC-Opt or at the end of DDP_TRAJ_OK.
         break;
       }
       case DDP_FOR_MPC: {
