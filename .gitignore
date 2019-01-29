@@ -64,3 +64,4 @@
 /exe/*
 !/exe/01-balancing.cpp
 !/exe/02-joystick_testing.cpp
+!/exe/plot_script.py

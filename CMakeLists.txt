@@ -78,6 +78,7 @@ install(TARGETS krangbalancing  DESTINATION /usr/local/lib)
 FILE(GLOB headers "include/balancing/*.h" "include/balancing/*.hpp")
 install(FILES ${headers} DESTINATION /usr/local/include/krang/balancing)
 install(DIRECTORY cfg DESTINATION /usr/local/share/krang/balancing)
-install(PROGRAMS build/01-balancing DESTINATION /usr/local/bin)
+install(PROGRAMS build/01-balancing DESTINATION /usr/local/bin/krang/mpc)
+install(PROGRAMS build/plot_script.py DESTINATION /usr/local/bin/krang/mpc)
 
 message(STATUS " ")
