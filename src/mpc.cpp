@@ -417,6 +417,11 @@ void Mpc::DdpThread() {
         OptimizerResult<TwipDynamics<double>> optimizer_result =
             ddp_optimizer.run(x0, nominal_traj, ddp_dynamics, ddp_cost,
                               ddp_terminal_cost);
+
+        ////// Save the trajectory
+        ddp_trajectory_.state_ = optimizer_result.state_trajectory;
+        ddp_trajectory_.control_ = optimizer_result.control_trajectory;
+
         break;
       }
       case DDP_TRAJ_OK: {
