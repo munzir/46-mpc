@@ -44,11 +44,11 @@
 #include "balancing/mpc.h"
 
 #include <config4cpp/Configuration.h>  // config4cpp::Configuration
-#include <ddp/ddp.hpp> // optimizer, OptimizerResult
-#include <ddp/util.hpp> // util::DefaultLogger, util::time_steps
 #include <Eigen/Eigen>    // Eigen::MatrixXd, Eigen::Matrix<double, #, #>
 #include <dart/dart.hpp>  // dart::dynamics::SkeletonPtr
 #include <dart/utils/urdf/urdf.hpp>  // dart::utils::DartLoader
+#include <ddp/ddp.hpp>               // optimizer, OptimizerResult
+#include <ddp/util.hpp>              // util::DefaultLogger, util::time_steps
 #include <mutex>                     // std::mutex
 #include <thread>                    // std::thread
 
@@ -421,6 +421,11 @@ void Mpc::DdpThread() {
         ////// Save the trajectory
         ddp_trajectory_.state_ = optimizer_result.state_trajectory;
         ddp_trajectory_.control_ = optimizer_result.control_trajectory;
+
+        ////// Change the mode to DDP_TRAJ_OK that waits for the user to give
+        ////// a green signal. But before that, see if we are still in the
+        ////// current mode, lest an external event has forced us out
+        if (ddp_mode_ == DDP_COMPUTE_TRAJ) ddp_mode_ = DDP_TRAJ_OK;
 
         break;
       }
