@@ -50,6 +50,7 @@
 #include <ddp/ddp.hpp>               // optimizer, OptimizerResult
 #include <ddp/util.hpp>              // util::DefaultLogger, util::time_steps
 #include <mutex>                     // std::mutex
+#include <sstream>                   // std::stringstream
 #include <thread>                    // std::thread
 
 #include "balancing/ddp_objects.h"  // TwipDynamics...
@@ -136,7 +137,7 @@ void Mpc::ReadConfigParameters(const char* mpc_config_file) {
               << param_.ddp_.terminal_state_hessian_.diagonal().transpose()
               << std::endl;
 
-    // Read the path to save initial trajectory
+    // Read the path to save initial trajector
     strcpy(param_.initial_trajectory_output_path_,
            cfg->lookupString(scope, "initial_trajectory_output_path"));
     std::cout << "initial_trajectory_output_path: "
@@ -439,6 +440,13 @@ void Mpc::DdpThread() {
         break;
       }
       case DDP_TRAJ_OK: {
+        // Display the plot
+        std::stringstream python_plot_command;
+        python_plot_command
+            << "python3 /usr/local/bin/krang/mpc/plot_script.py "
+            << param_.initial_trajectory_output_path_ << " &";
+        system(python_plot_command.str().c_str());
+
         // mpc_trajectory_main, mpc_trajectory_backup and mpc init time. These
         // were done previously in the compute-traj mode's end. Now we want to
         // do these in the beginning of MPC-Opt or at the end of DDP_TRAJ_OK.
