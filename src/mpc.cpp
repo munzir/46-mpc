@@ -136,6 +136,12 @@ void Mpc::ReadConfigParameters(const char* mpc_config_file) {
               << param_.ddp_.terminal_state_hessian_.diagonal().transpose()
               << std::endl;
 
+    // Read the path to save initial trajectory
+    strcpy(param_.initial_trajectory_output_path_,
+           cfg->lookupString(scope, "initial_trajectory_output_path"));
+    std::cout << "initial_trajectory_output_path: "
+              << param_.initial_trajectory_output_path_ << std::endl;
+
     // =======================
     // MPC Parameters
     param_.mpc_.max_iter_ = cfg->lookupInt(scope, "mpc_max_iter");
@@ -421,6 +427,9 @@ void Mpc::DdpThread() {
         ////// Save the trajectory
         ddp_trajectory_.state_ = optimizer_result.state_trajectory;
         ddp_trajectory_.control_ = optimizer_result.control_trajectory;
+        CsvWriter<double> writer;
+        writer.SaveTrajectory(ddp_trajectory_.state_, ddp_trajectory_.control_,
+                              param_.initial_trajectory_output_path_);
 
         ////// Change the mode to DDP_TRAJ_OK that waits for the user to give
         ////// a green signal. But before that, see if we are still in the

@@ -80,6 +80,9 @@ class Mpc {
       TwipDynamicsTerminalCost<double>::Hessian terminal_state_hessian_;
     } ddp_;
 
+    // Output file for saving initial trajectory
+    char initial_trajectory_output_path_[1024];
+
     // MPC Parameters
     struct MpcParameters {
       int max_iter_;
