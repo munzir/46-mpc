@@ -139,6 +139,10 @@ class Mpc {
       ddp_bal_state_;  // copy of main thread's state variable to be
                        // mutex-shared by ddp thread
   std::mutex ddp_bal_state_mutex_;
+  struct DdpTrajectory {
+    TwipDynamics<double>::StateTrajectory state_;
+    TwipDynamics<double>::ControlTrajectory control_;
+  } ddp_trajectory_;
 };
 
 #endif  // KRANG_BALANCING_MPC_H_
