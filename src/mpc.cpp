@@ -200,8 +200,10 @@ Mpc::DdpMode Mpc::GetDdpMode() {
 //============================================================================
 void Mpc::SetDdpMode(DdpMode ddp_mode) {
   ddp_mode_mutex_.lock();
+  DdpMode last_ddp_mode = ddp_mode_;
   ddp_mode_ = ddp_mode;
   ddp_mode_mutex_.unlock();
+  if (last_ddp_mode != ddp_mode_) ddp_mode_change_signal_.notify_all();
 }
 
 //============================================================================
@@ -447,9 +449,14 @@ void Mpc::DdpThread() {
             << param_.initial_trajectory_output_path_ << " &";
         system(python_plot_command.str().c_str());
 
+        // Stay here until an external event changes the ddp_mode_
+        std::unique_lock<std::mutex> lock(ddp_mode_mutex_);
+        while (ddp_mode_ == DDP_TRAJ_OK) ddp_mode_change_signal_.wait(lock);
+
         // mpc_trajectory_main, mpc_trajectory_backup and mpc init time. These
         // were done previously in the compute-traj mode's end. Now we want to
         // do these in the beginning of MPC-Opt or at the end of DDP_TRAJ_OK.
+
         break;
       }
       case DDP_FOR_MPC: {

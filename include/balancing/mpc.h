@@ -44,10 +44,11 @@
 #ifndef KRANG_BALANCING_MPC_H_
 #define KRANG_BALANCING_MPC_H_
 
-#include <Eigen/Eigen>    // Eigen::MatrixXd, Eigen::Matrix<double, #, #>
-#include <dart/dart.hpp>  // dart::dynamics::SkeletonPtr
-#include <mutex>          // std::mutex
-#include <thread>         // std::thread
+#include <Eigen/Eigen>         // Eigen::MatrixXd, Eigen::Matrix<double, #, #>
+#include <condition_variable>  // std::condition_variable
+#include <dart/dart.hpp>       // dart::dynamics::SkeletonPtr
+#include <mutex>               // std::mutex
+#include <thread>              // std::thread
 
 #include "balancing/ddp_objects.h"  // TwipDynamics...
 
@@ -117,6 +118,7 @@ class Mpc {
   ConfigParameters param_;
   DdpMode ddp_mode_;  // Current mode of the ddp thread state machine
   std::mutex ddp_mode_mutex_;
+  std::condition_variable ddp_mode_change_signal_;
   std::thread* ddp_thread_;
   bool ddp_thread_run_;
   std::mutex ddp_thread_run_mutex_;
