@@ -516,6 +516,15 @@ void Mpc::DdpThread() {
         TwipDynamics<double> ddp_dynamics;
         DartSkeletonToTwipDynamics(three_dof_robot_, &ddp_dynamics);
 
+        // Costs
+        TwipDynamics<double>::State terminal_state =
+            ddp_trajectory_.state_.col(current_step + horizon);
+        TwipDynamicsCost<double> ddp_cost(terminal_state,
+                                          param_.mpc_.state_hessian_,
+                                          param_.mpc_.control_hessian_);
+        TwipDynamicsTerminalCost<double> ddp_terminal_cost(
+            terminal_state, param_.mpc_.terminal_state_hessian_);
+
         break;
       }
     }
