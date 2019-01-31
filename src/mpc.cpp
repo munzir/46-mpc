@@ -495,6 +495,18 @@ void Mpc::DdpThread() {
         int horizon = (current_step + param_.mpc_.horizon_ < trajectory_size)
                           ? param_.mpc_.horizon_
                           : trajectory_size - current_step;
+        ////// Initial State
+        ddp_bal_state_mutex_.lock();
+        ddp_init_heading_mutex_.lock();
+        ddp_augmented_state_mutex_.lock();
+        TwipDynamics<double>::State x0;
+        x0 << 0.25 * ddp_bal_state_(2) - ddp_init_heading_.distance_,
+            ddp_bal_state_(4) - ddp_init_heading_.direction_, ddp_bal_state_(0),
+            0.25 * ddp_bal_state_(3), ddp_bal_state_(5), ddp_bal_state_(1),
+            ddp_augmented_state_.x0_, ddp_augmented_state_.y0_;
+        ddp_augmented_state_mutex_.unlock();
+        ddp_init_heading_mutex_.unlock();
+        ddp_bal_state_mutex_.unlock();
 
         break;
       }
