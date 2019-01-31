@@ -102,6 +102,12 @@ class Mpc {
   // DDP Thread function
   void DdpThread();
 
+  // Set current time as init_time_
+  void SetInitTime();
+
+  // Get init_time_
+  double GetInitTime();
+
  private:
   // Read configuration parameters
   void ReadConfigParameters(const char* mpc_config_file);
@@ -148,6 +154,10 @@ class Mpc {
     TwipDynamics<double>::StateTrajectory state_;
     TwipDynamics<double>::ControlTrajectory control_;
   } ddp_trajectory_;
+  bool done_; // When mpc has finished following the trajectory
+  std::mutex done_mutex_;
+  double init_time_;
+  std::mutex init_time_mutex_;
 };
 
 #endif  // KRANG_BALANCING_MPC_H_
