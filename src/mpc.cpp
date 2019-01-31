@@ -495,7 +495,7 @@ void Mpc::DdpThread() {
         int horizon = (current_step + param_.mpc_.horizon_ < trajectory_size)
                           ? param_.mpc_.horizon_
                           : trajectory_size - current_step;
-        ////// Initial State
+        // Initial State
         ddp_bal_state_mutex_.lock();
         ddp_init_heading_mutex_.lock();
         ddp_augmented_state_mutex_.lock();
@@ -507,6 +507,14 @@ void Mpc::DdpThread() {
         ddp_augmented_state_mutex_.unlock();
         ddp_init_heading_mutex_.unlock();
         ddp_bal_state_mutex_.unlock();
+
+        // Dynamics
+        robot_pose_mutex_.lock();
+        ddp_robot_->setPositions(robot_pose_);
+        robot_pose_mutex_.unlock();
+        UpdateThreeDof(ddp_robot_, three_dof_robot_);
+        TwipDynamics<double> ddp_dynamics;
+        DartSkeletonToTwipDynamics(three_dof_robot_, &ddp_dynamics);
 
         break;
       }
