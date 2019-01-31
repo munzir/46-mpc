@@ -43,7 +43,7 @@
 
 #include "balancing/mpc.h"
 
-#include <amino.h> // aa_tm_now(), struct timespec
+#include <amino.h>                     // aa_tm_now(), struct timespec
 #include <config4cpp/Configuration.h>  // config4cpp::Configuration
 #include <Eigen/Eigen>    // Eigen::MatrixXd, Eigen::Matrix<double, #, #>
 #include <dart/dart.hpp>  // dart::dynamics::SkeletonPtr
@@ -387,6 +387,10 @@ void Mpc::DdpThread() {
         break;
       }
       case DDP_COMPUTE_TRAJ: {
+        ////// Time steps
+        int time_steps =
+            util::time_steps(param_.ddp_.final_time_, param_.mpc_.dt_);
+
         ////// Initial State
         // Lock mutexes
         ddp_bal_state_mutex_.lock();
@@ -428,10 +432,6 @@ void Mpc::DdpThread() {
         TwipDynamicsTerminalCost<double> ddp_terminal_cost(
             param_.ddp_.goal_state_, param_.ddp_.terminal_state_hessian_);
 
-        ////// Time steps
-        int time_steps =
-            util::time_steps(param_.ddp_.final_time_, param_.mpc_.dt_);
-
         ////// Nominal trajectory
         auto nominal_traj =
             TwipDynamics<double>::ControlTrajectory::Zero(2, time_steps);
@@ -472,17 +472,13 @@ void Mpc::DdpThread() {
         std::unique_lock<std::mutex> lock(ddp_mode_mutex_);
         while (ddp_mode_ == DDP_TRAJ_OK) ddp_mode_change_signal_.wait(lock);
 
-        // mpc_trajectory_main, mpc_trajectory_backup and mpc init time. These
-        // were done previously in the compute-traj mode's end. Now we want to
-        // do these in the beginning of MPC-Opt or at the end of DDP_TRAJ_OK.
-
         break;
       }
       case DDP_FOR_MPC: {
         // Check exit condition
         struct timespec t_now = aa_tm_now();
         double time_now = (double)aa_tm_timespec2sec(t_now);
-        if(time_now >= GetInitTime() + param_.ddp_.final_time_) {
+        if (time_now >= GetInitTime() + param_.ddp_.final_time_) {
           // Let the main thread know that mpc is done
           done_mutex_.lock();
           done_ = true;
@@ -492,6 +488,13 @@ void Mpc::DdpThread() {
           SetDdpMode(DDP_IDLE);
           break;
         }
+
+        // Time-steps (or horizon)
+        int current_step = floor((time_now - GetInitTime()) / param_.mpc_.dt_);
+        int trajectory_size = ddp_trajectory_.state_.cols() - 1;
+        int horizon = (current_step + param_.mpc_.horizon_ < trajectory_size)
+                          ? param_.mpc_.horizon_
+                          : trajectory_size - current_step;
 
         break;
       }
