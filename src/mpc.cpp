@@ -547,6 +547,16 @@ void Mpc::DdpThread() {
             x0, nominal_traj, reference_traj, ddp_dynamics, ddp_cost,
             ddp_terminal_cost);
 
+        // Save the trajectory
+        mpc_trajectory_main_mutex_.lock();
+        mpc_trajectory_main_.block(current_step, 0, 2, horizon) =
+            optimizer_result.control_trajectory;
+        mpc_trajectory_main_mutex_.unlock();
+        mpc_trajectory_backup_mutex_.lock();
+        mpc_trajectory_backup_.block(current_step, 0, 2, horizon) =
+            optimizer_result.control_trajectory;
+        mpc_trajectory_backup_mutex_.unlock();
+
         break;
       }
     }
