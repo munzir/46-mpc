@@ -43,6 +43,7 @@
 
 #include "balancing/mpc.h"
 
+#include <amino.h> // aa_tm_now(), struct timespec
 #include <config4cpp/Configuration.h>  // config4cpp::Configuration
 #include <Eigen/Eigen>    // Eigen::MatrixXd, Eigen::Matrix<double, #, #>
 #include <dart/dart.hpp>  // dart::dynamics::SkeletonPtr
@@ -357,6 +358,24 @@ void Mpc::DartSkeletonToTwipDynamics(
 }
 
 //============================================================================
+void Mpc::SetInitTime() {
+  init_time_mutex_.lock();
+  struct timespec t_now = aa_tm_now();
+  double init_time_ = (double)aa_tm_timespec2sec(t_now);
+  init_time_mutex_.unlock();
+}
+
+//============================================================================
+// return ddp init time
+double Mpc::GetInitTime() {
+  double temp;
+  init_time_mutex_.lock();
+  temp = init_time_;
+  init_time_mutex_.unlock();
+  return temp;
+}
+
+//============================================================================
 void Mpc::DdpThread() {
   std::cout << "Entering DDP Thread ..." << std::endl;
 
@@ -460,6 +479,20 @@ void Mpc::DdpThread() {
         break;
       }
       case DDP_FOR_MPC: {
+        // Check exit condition
+        struct timespec t_now = aa_tm_now();
+        double time_now = (double)aa_tm_timespec2sec(t_now);
+        if(time_now >= GetInitTime() + param_.ddp_.final_time_) {
+          // Let the main thread know that mpc is done
+          done_mutex_.lock();
+          done_ = true;
+          done_mutex_.unlock();
+
+          // Change to idle mode and get out
+          SetDdpMode(DDP_IDLE);
+          break;
+        }
+
         break;
       }
     }
