@@ -525,6 +525,28 @@ void Mpc::DdpThread() {
         TwipDynamicsTerminalCost<double> ddp_terminal_cost(
             terminal_state, param_.mpc_.terminal_state_hessian_);
 
+        // Nominal trajectory
+        // TODO: Warm start
+        auto nominal_traj =
+            TwipDynamics<double>::ControlTrajectory::Zero(2, horizon);
+        OptimizerResult<TwipDynamics<double>> optimizer_result;
+        optimizer_result.control_trajectory =
+            nominal_traj;  // I don't see why this is needed. For now just
+                           // copying Shimin's logic
+
+        // Reference trajectory
+        TwipDynamics<double>::StateTrajectory reference_traj =
+            ddp_trajectory_.state_.block(0, current_step, 8, horizon);
+
+        // Perform optimization
+        util::DefaultLogger logger;
+        bool verbose = true;
+        optimizer::DDP<TwipDynamics<double>> ddp_optimizer(
+            param_.mpc_.dt_, horizon, param_.mpc_.max_iter_, &logger, verbose);
+        optimizer_result = ddp_optimizer.run_horizon(
+            x0, nominal_traj, reference_traj, ddp_dynamics, ddp_cost,
+            ddp_terminal_cost);
+
         break;
       }
     }
