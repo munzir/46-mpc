@@ -125,16 +125,16 @@ class Mpc {
 
  public:
   ConfigParameters param_;
-  DdpMode ddp_mode_;  // Current mode of the ddp thread state machine
-  std::mutex ddp_mode_mutex_;
-  std::condition_variable ddp_mode_change_signal_;
-  std::thread* ddp_thread_;
-  bool ddp_thread_run_;
-  std::mutex ddp_thread_run_mutex_;
+  DdpMode mode_;  // Current mode of the ddp thread state machine
+  std::mutex mode_mutex_;
+  std::condition_variable mode_change_signal_;
+  std::thread* thread_;
+  bool thread_run_;
+  std::mutex thread_run_mutex_;
   dart::dynamics::SkeletonPtr
-      ddp_robot_;  // A clone of the Skeleton in the main balancing thread so
-                   // that we don't have to share the entire Skeleton using
-                   // mutex
+      robot_;  // A clone of the Skeleton in the main balancing thread so
+               // that we don't have to share the entire Skeleton using
+               // mutex
   Eigen::VectorXd robot_pose_;
   std::mutex robot_pose_mutex_;
   dart::dynamics::SkeletonPtr three_dof_robot_;
@@ -142,17 +142,16 @@ class Mpc {
   struct Heading {
     double distance_;
     double direction_;
-  } ddp_init_heading_;
-  std::mutex ddp_init_heading_mutex_;
+  } init_heading_;
+  std::mutex init_heading_mutex_;
   struct AugmentedState {
     double x0_;
     double y0_;
-  } ddp_augmented_state_;
-  std::mutex ddp_augmented_state_mutex_;
-  Eigen::Matrix<double, 6, 1>
-      ddp_bal_state_;  // copy of main thread's state variable to be
-                       // mutex-shared by ddp thread
-  std::mutex ddp_bal_state_mutex_;
+  } augmented_state_;
+  std::mutex augmented_state_mutex_;
+  Eigen::Matrix<double, 6, 1> state_;  // copy of main thread's state variable
+                                       // to be mutex-shared by ddp thread
+  std::mutex state_mutex_;
   struct DdpTrajectory {
     TwipDynamics<double>::StateTrajectory state_;
     TwipDynamics<double>::ControlTrajectory control_;
