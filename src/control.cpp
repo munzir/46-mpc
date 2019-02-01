@@ -507,6 +507,26 @@ void BalanceControl::StandSitEvent() {
       std::cout << "[ERR ] Can't sit down, Waist is too high! " << std::endl;
     }
   }
+
+  // If in MPC mode, waist not too high sit down. IF waist is high,
+  // go to Bal Hi mode
+  else if (balance_mode_ == BalanceControl::MPC) {
+    if ((krang_->waist->pos[0] - krang_->waist->pos[1]) / 2.0 >
+        150.0 * M_PI / 180.0) {
+      balance_mode_ = BalanceControl::SIT;
+      std::cout << "[MODE] SIT " << std::endl;
+    } else {
+      balance_mode_ = BalanceControl::BAL_HI;
+      std::cout << "[MODE] BAL HI " << std::endl;
+    }
+  }
+
+  // Go to DDP_IDLE mode
+  Mpc::DdpMode ddp_mode = mpc_.GetDdpMode();
+  if (ddp_mode == Mpc::DDP_COMPUTE_TRAJ || ddp_mode == Mpc::DDP_TRAJ_OK ||
+      ddp_mode == Mpc::DDP_FOR_MPC) {
+    mpc_.SetDdpMode(Mpc::DDP_IDLE);
+  }
 }
 
 //============================================================================
