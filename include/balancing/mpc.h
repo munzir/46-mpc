@@ -108,6 +108,13 @@ class Mpc {
   // Get init_time_
   double GetInitTime();
 
+  // Get dynamics for ddp from 3-dof dart skeleton
+  void DartSkeletonToTwipDynamics(dart::dynamics::SkeletonPtr& three_dof_robot,
+                                  TwipDynamics<double>* twip_dynamics);
+
+  // MPC control. This is to be used by the main thread in mpc mode
+  void Control(double* control_input);
+
  private:
   // Read configuration parameters
   void ReadConfigParameters(const char* mpc_config_file);
@@ -115,10 +122,6 @@ class Mpc {
   // Update Three Dof Robot
   void UpdateThreeDof(dart::dynamics::SkeletonPtr& robot,
                       dart::dynamics::SkeletonPtr& three_dof_robot);
-
-  // Get dynamics for ddp from 3-dof dart skeleton
-  void DartSkeletonToTwipDynamics(dart::dynamics::SkeletonPtr& three_dof_robot,
-                                  TwipDynamics<double>* twip_dynamics);
 
  public:
   ConfigParameters param_;
@@ -159,6 +162,7 @@ class Mpc {
   TwipDynamics<double>::ControlTrajectory mpc_trajectory_main_,
       mpc_trajectory_backup_;
   std::mutex mpc_trajectory_main_mutex_, mpc_trajectory_backup_mutex_;
+  bool done_;
 };
 
 #endif  // KRANG_BALANCING_MPC_H_
