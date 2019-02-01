@@ -154,8 +154,6 @@ class Mpc {
     TwipDynamics<double>::StateTrajectory state_;
     TwipDynamics<double>::ControlTrajectory control_;
   } ddp_trajectory_;
-  bool done_;  // When mpc has finished following the trajectory
-  std::mutex done_mutex_;
   double init_time_;
   std::mutex init_time_mutex_;
   TwipDynamics<double>::ControlTrajectory mpc_trajectory_main_,
