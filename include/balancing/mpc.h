@@ -69,6 +69,9 @@ class Mpc {
   DdpMode GetDdpMode();
   void SetDdpMode(DdpMode ddp_mode);
 
+  // Prepare to enter Mpc mode
+  void InitializeMpcObjects();
+
   // MPC control. This is to be used by the main thread in mpc mode
   void Control(double* control_input);
 
@@ -124,11 +127,11 @@ class Mpc {
   // DDP Thread function
   void DdpThread();
 
-  // Set current time as init_time_
-  void SetInitTime();
-
   // Get init_time_
   double GetInitTime();
+
+  // Set current time as init_time_
+  void SetInitTime();
 
   // Get dynamics for ddp from 3-dof dart skeleton
   void DartSkeletonToTwipDynamics(dart::dynamics::SkeletonPtr& three_dof_robot,
