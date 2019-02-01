@@ -46,6 +46,7 @@
 #include <amino.h>                     // aa_tm_now(), struct timespec
 #include <config4cpp/Configuration.h>  // config4cpp::Configuration
 #include <Eigen/Eigen>    // Eigen::MatrixXd, Eigen::Matrix<double, #, #>
+#include <algorithm>      // std::max(), std::min()
 #include <dart/dart.hpp>  // dart::dynamics::SkeletonPtr
 #include <dart/utils/urdf/urdf.hpp>  // dart::utils::DartLoader
 #include <ddp/ddp.hpp>               // optimizer, OptimizerResult
@@ -466,7 +467,7 @@ void Mpc::DdpThread() {
         python_plot_command
             << "python3 /usr/local/bin/krang/mpc/plot_script.py "
             << param_.initial_trajectory_output_path_ << " &";
-        system(python_plot_command.str().c_str());
+        int e = system(python_plot_command.str().c_str());
 
         // Stay here until an external event changes the ddp_mode_
         std::unique_lock<std::mutex> lock(ddp_mode_mutex_);
@@ -563,6 +564,83 @@ void Mpc::DdpThread() {
     ddp_thread_run_mutex_.unlock();
   }
   std::cout << "Exiting DDP Thread ..." << std::endl;
+}
+
+//============================================================================
+void Mpc::Control(double* control_input) {
+  // Check exit condition
+  struct timespec t_now = aa_tm_now();
+  double time_now = (double)aa_tm_timespec2sec(t_now);
+  double init_time = GetInitTime();
+  done_ = (time_now >= init_time + param_.ddp_.final_time_);
+  if (done_) return;
+
+  // Current step
+  int current_step = floor((time_now - init_time) / param_.mpc_.dt_);
+
+  // Read mpc control step
+  bool mpc_reading_done = false;
+  TwipDynamics<double>::Control u;
+  while (!mpc_reading_done) {
+    if (mpc_trajectory_main_mutex_.try_lock()) {
+      u = mpc_trajectory_main_.col(current_step);
+      mpc_trajectory_main_mutex_.unlock();
+      mpc_reading_done = true;
+    } else if (mpc_trajectory_backup_mutex_.try_lock()) {
+      u = mpc_trajectory_backup_.col(current_step);
+      mpc_trajectory_backup_mutex_.unlock();
+      mpc_reading_done = true;
+    }
+  }
+
+  // Spin Torque tau_0
+  double tau_0 = u(1);
+
+  // dq
+  ddp_bal_state_mutex_.lock();
+  ddp_init_heading_mutex_.lock();
+  ddp_augmented_state_mutex_.lock();
+  TwipDynamics<double>::State current_state;
+  current_state << 0.25 * ddp_bal_state_(2) - ddp_init_heading_.distance_,
+      ddp_bal_state_(4) - ddp_init_heading_.direction_, ddp_bal_state_(0),
+      0.25 * ddp_bal_state_(3), ddp_bal_state_(5), ddp_bal_state_(1),
+      ddp_augmented_state_.x0_, ddp_augmented_state_.y0_;
+  ddp_augmented_state_mutex_.unlock();
+  ddp_init_heading_mutex_.unlock();
+  ddp_bal_state_mutex_.unlock();
+  Eigen::Vector3d dq = current_state.segment(3, 3);
+
+  // ddq
+  TwipDynamics<double> ddp_dynamics;
+  DartSkeletonToTwipDynamics(three_dof_robot_, &ddp_dynamics);
+  TwipDynamics<double>::State xdot = ddp_dynamics.f(current_state, u);
+  double ddx = xdot(3);
+  double ddpsi = xdot(4);
+  double ddth = u(0);
+  Eigen::Vector3d ddq;
+  ddq << ddx, ddpsi, ddth;
+
+  // A, C, Q and Gamma_fric
+  TwipDynamics<double>::Forces dynamic_forces =
+      ddp_dynamics.ComputeForces(current_state, u);
+
+  // tau_1
+  double tau_1 = dynamic_forces.A.row(2) * ddq;
+  tau_1 += dynamic_forces.C.row(2) * dq;
+  tau_1 += dynamic_forces.Q(2);
+  tau_1 -= dynamic_forces.Gamma_fric(2);
+
+  // Wheel Torques
+  double tau_L = -0.5 * (tau_1 + tau_0);
+  double tau_R = -0.5 * (tau_1 - tau_0);
+
+  // Torque to current conversion
+  const double motor_constant = 12.0 * 0.00706;
+  const double gear_ratio = 15;
+  control_input[0] =
+      std::min(49.5, std::max(-49.5, tau_L / gear_ratio / motor_constant));
+  control_input[1] =
+      std::min(49.5, std::max(-49.5, tau_R / gear_ratio / motor_constant));
 }
 
 //============================================================================
