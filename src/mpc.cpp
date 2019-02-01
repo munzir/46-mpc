@@ -565,6 +565,13 @@ void Mpc::DdpThread() {
 }
 
 //============================================================================
+void Mpc::InitializeMpcObjects() {
+  mpc_trajectory_main_ = ddp_trajectory_.control_;
+  mpc_trajectory_backup_ = ddp_trajectory_.control_;
+  SetInitTime();
+}
+
+//============================================================================
 void Mpc::Control(double* control_input) {
   // Check exit condition
   struct timespec t_now = aa_tm_now();

@@ -539,6 +539,28 @@ void BalanceControl::StartMpcEvent() {
 }
 
 //============================================================================
+void BalanceControl::UserAcceptsTrajectoryEvent() {
+  Mpc::DdpMode ddp_mode = mpc_.GetDdpMode();
+  if (ddp_mode == Mpc::DDP_TRAJ_OK &&
+      (balance_mode_ == BAL_LO || balance_mode_ == BAL_HI)) {
+    // Initializes mpc control trajectory with the ddp control trajectory
+    // and also sets the initial time that will be used as reference for
+    // determining the current step during MPC execution
+    mpc_.InitializeMpcObjects();
+
+    // Change mode of the ddp_thread to DDP_FOR_MPC
+    mpc_.SetDdpMode(Mpc::DDP_FOR_MPC);
+
+    // Note the current balance mode, so that this where we revert after
+    // MPC is done
+    previous_balance_mode_ = balance_mode_;
+
+    // Change mode of the main thread to MPC
+    balance_mode_ = MPC;
+  }
+}
+
+//============================================================================
 void BalanceControl::SetFwdInput(double forw) { joystick_forw = forw; }
 
 //============================================================================

@@ -113,6 +113,10 @@ class BalanceControl {
   // should be BAL_LO or BAL_HI
   void StartMpcEvent();
 
+  // If in DDP_TRAJ_OK mode, switches balance_mode_ to MPC and mpc_.mode_
+  // to DDP_FOR_MPC
+  void UserAcceptsTrajectoryEvent();
+
   // Sets the forward speed control reference
   void SetFwdInput(double forw);
 
