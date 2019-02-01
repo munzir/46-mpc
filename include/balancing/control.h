@@ -100,12 +100,18 @@ class BalanceControl {
   void Print();
 
   // Triggers Stand/Sit event. If in Ground Lo mode, switches to Stand mode. If
-  // in Bal Lo mode, switches to Sit mode. If some guards are satisfied.
+  // in Bal Lo/Stand/Mpc mode, switches to Sit mode. If some guards are
+  // satisfied.
+  // Also, switches to DDP_IDLE if it wasn't already DDP_IDLE
   void StandSitEvent();
 
   // Triggers Bal Hi/Lo event. If in Bal Lo mode, switches to Bal Hi mode and
   // vice versa
   void BalHiLoEvent();
+
+  // Switches from DDP_IDLE to DDP_COMPUTE_TRAJ mode. Guard: balance_mode_
+  // should be BAL_LO or BAL_HI
+  void StartMpcEvent();
 
   // Sets the forward speed control reference
   void SetFwdInput(double forw);

@@ -530,6 +530,15 @@ void BalanceControl::StandSitEvent() {
 }
 
 //============================================================================
+void BalanceControl::StartMpcEvent() {
+  if (balance_mode_ == BAL_LO || balance_mode_ == BAL_HI) {
+    if (mpc_.GetDdpMode() == Mpc::DDP_IDLE) {
+      mpc_.SetDdpMode(Mpc::DDP_COMPUTE_TRAJ);
+    }
+  }
+}
+
+//============================================================================
 void BalanceControl::SetFwdInput(double forw) { joystick_forw = forw; }
 
 //============================================================================
