@@ -540,8 +540,7 @@ void BalanceControl::StartMpcEvent() {
 
 //============================================================================
 void BalanceControl::UserAcceptsTrajectoryEvent() {
-  Mpc::DdpMode ddp_mode = mpc_.GetDdpMode();
-  if (ddp_mode == Mpc::DDP_TRAJ_OK &&
+  if (mpc_.GetDdpMode() == Mpc::DDP_TRAJ_OK &&
       (balance_mode_ == BAL_LO || balance_mode_ == BAL_HI)) {
     // Initializes mpc control trajectory with the ddp control trajectory
     // and also sets the initial time that will be used as reference for
@@ -557,6 +556,13 @@ void BalanceControl::UserAcceptsTrajectoryEvent() {
 
     // Change mode of the main thread to MPC
     balance_mode_ = MPC;
+  }
+}
+
+//============================================================================
+void BalanceControl::UserDemandsRecomputationEvent() {
+  if (mpc_.GetDdpMode() == Mpc::DDP_TRAJ_OK) {
+    mpc_.SetDdpMode(Mpc::DDP_COMPUTE_TRAJ);
   }
 }
 
