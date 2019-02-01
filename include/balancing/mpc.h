@@ -54,10 +54,6 @@
 
 class Mpc {
  public:
-  Mpc(const char* mpc_config_file);
-  ~Mpc() { Destroy(); }
-  void Destroy();
-
   enum DdpMode {
     DDP_IDLE = 0,
     DDP_COMPUTE_TRAJ,
@@ -65,8 +61,35 @@ class Mpc {
     DDP_FOR_MPC,
     NUM_DDP_MODES
   };
+
+  Mpc(const char* mpc_config_file);
+  ~Mpc() { Destroy(); }
+
+  // DDP Mode get and set. Mutex-based access.
+  DdpMode GetDdpMode();
+  void SetDdpMode(DdpMode ddp_mode);
+
+  // MPC control. This is to be used by the main thread in mpc mode
+  void Control(double* control_input);
+
+  // For printing the current mode
   static const char DDP_MODE_STRINGS[][32];
 
+  // A clone of the Skeleton in the main balancing thread so that we don't have
+  // to share the entire Skeleton using mutex
+  dart::dynamics::SkeletonPtr robot_;
+
+  // Shared variables to update the dynamics and state of the 3-dof robot in the
+  // ddp thread
+  Eigen::VectorXd robot_pose_;
+  std::mutex robot_pose_mutex_;
+  Eigen::Matrix<double, 6, 1> state_;
+  std::mutex state_mutex_;
+
+  // If mpc is done, this variable will let the main thread know
+  bool done_;
+
+ private:
   struct ConfigParameters {
     // Path to urdf file
     char three_dof_urdf_path_[1024];
@@ -95,9 +118,8 @@ class Mpc {
     } mpc_;
   };
 
-  // DDP Mode get and set. Mutex-based access.
-  DdpMode GetDdpMode();
-  void SetDdpMode(DdpMode ddp_mode);
+  // Destroy function called by the destructor
+  void Destroy();
 
   // DDP Thread function
   void DdpThread();
@@ -112,10 +134,6 @@ class Mpc {
   void DartSkeletonToTwipDynamics(dart::dynamics::SkeletonPtr& three_dof_robot,
                                   TwipDynamics<double>* twip_dynamics);
 
-  // MPC control. This is to be used by the main thread in mpc mode
-  void Control(double* control_input);
-
- private:
   // Read configuration parameters
   void ReadConfigParameters(const char* mpc_config_file);
 
@@ -123,7 +141,6 @@ class Mpc {
   void UpdateThreeDof(dart::dynamics::SkeletonPtr& robot,
                       dart::dynamics::SkeletonPtr& three_dof_robot);
 
- public:
   ConfigParameters param_;
   DdpMode mode_;  // Current mode of the ddp thread state machine
   std::mutex mode_mutex_;
@@ -131,12 +148,6 @@ class Mpc {
   std::thread* thread_;
   bool thread_run_;
   std::mutex thread_run_mutex_;
-  dart::dynamics::SkeletonPtr
-      robot_;  // A clone of the Skeleton in the main balancing thread so
-               // that we don't have to share the entire Skeleton using
-               // mutex
-  Eigen::VectorXd robot_pose_;
-  std::mutex robot_pose_mutex_;
   dart::dynamics::SkeletonPtr three_dof_robot_;
   std::mutex three_dof_robot_mutex_;
   struct Heading {
@@ -149,9 +160,6 @@ class Mpc {
     double y0_;
   } augmented_state_;
   std::mutex augmented_state_mutex_;
-  Eigen::Matrix<double, 6, 1> state_;  // copy of main thread's state variable
-                                       // to be mutex-shared by ddp thread
-  std::mutex state_mutex_;
   struct DdpTrajectory {
     TwipDynamics<double>::StateTrajectory state_;
     TwipDynamics<double>::ControlTrajectory control_;
@@ -161,7 +169,6 @@ class Mpc {
   TwipDynamics<double>::ControlTrajectory mpc_trajectory_main_,
       mpc_trajectory_backup_;
   std::mutex mpc_trajectory_main_mutex_, mpc_trajectory_backup_mutex_;
-  bool done_;
 };
 
 #endif  // KRANG_BALANCING_MPC_H_
