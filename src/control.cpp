@@ -134,7 +134,7 @@ BalanceControl::BalanceControl(Krang::Hardware* krang,
 
   // Cloning the robot so that mutex sharing is not necessary among
   // threads
-  mpc_.ddp_robot_ = robot_->clone();
+  mpc_.robot_ = robot_->clone();
 
   // time
   t_prev_ = aa_tm_now();
@@ -177,9 +177,9 @@ void BalanceControl::UpdateState() {
   com_(0) = com_(2) * tan(state_(0));
 
   // copy of state for the ddp thread
-  mpc_.ddp_bal_state_mutex_.lock();
-  mpc_.ddp_bal_state_ << state_;
-  mpc_.ddp_bal_state_mutex_.unlock();
+  mpc_.state_mutex_.lock();
+  mpc_.state_ << state_;
+  mpc_.state_mutex_.unlock();
 }
 
 //============================================================================

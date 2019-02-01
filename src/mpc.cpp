@@ -70,9 +70,9 @@ Mpc::Mpc(const char* mpc_config_file) {
   three_dof_robot_ = loader.parseSkeleton(param_.three_dof_urdf_path_);
   three_dof_robot_->getJoint(0)->setDampingCoefficient(0, 0.5);
   three_dof_robot_->getJoint(1)->setDampingCoefficient(0, 0.5);
-  ddp_thread_run_ = true;
+  thread_run_ = true;
   SetDdpMode(DDP_IDLE);
-  ddp_thread_ = new std::thread(&Mpc::DdpThread, this);
+  thread_ = new std::thread(&Mpc::DdpThread, this);
 }
 
 //============================================================================
@@ -193,19 +193,19 @@ void Mpc::ReadConfigParameters(const char* mpc_config_file) {
 
 //============================================================================
 Mpc::DdpMode Mpc::GetDdpMode() {
-  ddp_mode_mutex_.lock();
-  DdpMode ddp_mode = ddp_mode_;
-  ddp_mode_mutex_.unlock();
-  return ddp_mode;
+  mode_mutex_.lock();
+  DdpMode mode = mode_;
+  mode_mutex_.unlock();
+  return mode;
 }
 
 //============================================================================
 void Mpc::SetDdpMode(DdpMode ddp_mode) {
-  ddp_mode_mutex_.lock();
-  DdpMode last_ddp_mode = ddp_mode_;
-  ddp_mode_ = ddp_mode;
-  ddp_mode_mutex_.unlock();
-  if (last_ddp_mode != ddp_mode_) ddp_mode_change_signal_.notify_all();
+  mode_mutex_.lock();
+  DdpMode last_mode = mode_;
+  mode_ = ddp_mode;
+  mode_mutex_.unlock();
+  if (last_mode != mode_) mode_change_signal_.notify_all();
 }
 
 //============================================================================
@@ -394,35 +394,34 @@ void Mpc::DdpThread() {
 
         ////// Initial State
         // Lock mutexes
-        ddp_bal_state_mutex_.lock();
-        ddp_init_heading_mutex_.lock();
-        ddp_augmented_state_mutex_.lock();
+        state_mutex_.lock();
+        init_heading_mutex_.lock();
+        augmented_state_mutex_.lock();
 
         // Define initial heading for computation of future mpc states
-        ddp_init_heading_.distance_ = 0.25 * ddp_bal_state_(2);
-        ddp_init_heading_.direction_ = ddp_bal_state_(4);
+        init_heading_.distance_ = 0.25 * state_(2);
+        init_heading_.direction_ = state_(4);
 
         // Reset augmented state
-        ddp_augmented_state_.x0_ = 0.0;
-        ddp_augmented_state_.y0_ = 0.0;
+        augmented_state_.x0_ = 0.0;
+        augmented_state_.y0_ = 0.0;
 
         // Initial state for ddp trajectory computation
         TwipDynamics<double>::State x0;
-        x0 << 0.25 * ddp_bal_state_(2) - ddp_init_heading_.distance_,
-            ddp_bal_state_(4) - ddp_init_heading_.direction_, ddp_bal_state_(0),
-            0.25 * ddp_bal_state_(3), ddp_bal_state_(5), ddp_bal_state_(1),
-            ddp_augmented_state_.x0_, ddp_augmented_state_.y0_;
+        x0 << 0.25 * state_(2) - init_heading_.distance_,
+            state_(4) - init_heading_.direction_, state_(0), 0.25 * state_(3),
+            state_(5), state_(1), augmented_state_.x0_, augmented_state_.y0_;
 
         // Unlock mutexes
-        ddp_augmented_state_mutex_.unlock();
-        ddp_init_heading_mutex_.unlock();
-        ddp_bal_state_mutex_.unlock();
+        augmented_state_mutex_.unlock();
+        init_heading_mutex_.unlock();
+        state_mutex_.unlock();
 
         ////// Dynamics
         robot_pose_mutex_.lock();
-        ddp_robot_->setPositions(robot_pose_);
+        robot_->setPositions(robot_pose_);
         robot_pose_mutex_.unlock();
-        UpdateThreeDof(ddp_robot_, three_dof_robot_);
+        UpdateThreeDof(robot_, three_dof_robot_);
         TwipDynamics<double> ddp_dynamics;
         DartSkeletonToTwipDynamics(three_dof_robot_, &ddp_dynamics);
 
@@ -469,9 +468,9 @@ void Mpc::DdpThread() {
             << param_.initial_trajectory_output_path_ << " &";
         int e = system(python_plot_command.str().c_str());
 
-        // Stay here until an external event changes the ddp_mode_
-        std::unique_lock<std::mutex> lock(ddp_mode_mutex_);
-        while (ddp_mode_ == DDP_TRAJ_OK) ddp_mode_change_signal_.wait(lock);
+        // Stay here until an external event changes the mode_
+        std::unique_lock<std::mutex> lock(mode_mutex_);
+        while (mode_ == DDP_TRAJ_OK) mode_change_signal_.wait(lock);
 
         break;
       }
@@ -493,23 +492,22 @@ void Mpc::DdpThread() {
                           ? param_.mpc_.horizon_
                           : trajectory_size - current_step;
         // Initial State
-        ddp_bal_state_mutex_.lock();
-        ddp_init_heading_mutex_.lock();
-        ddp_augmented_state_mutex_.lock();
+        state_mutex_.lock();
+        init_heading_mutex_.lock();
+        augmented_state_mutex_.lock();
         TwipDynamics<double>::State x0;
-        x0 << 0.25 * ddp_bal_state_(2) - ddp_init_heading_.distance_,
-            ddp_bal_state_(4) - ddp_init_heading_.direction_, ddp_bal_state_(0),
-            0.25 * ddp_bal_state_(3), ddp_bal_state_(5), ddp_bal_state_(1),
-            ddp_augmented_state_.x0_, ddp_augmented_state_.y0_;
-        ddp_augmented_state_mutex_.unlock();
-        ddp_init_heading_mutex_.unlock();
-        ddp_bal_state_mutex_.unlock();
+        x0 << 0.25 * state_(2) - init_heading_.distance_,
+            state_(4) - init_heading_.direction_, state_(0), 0.25 * state_(3),
+            state_(5), state_(1), augmented_state_.x0_, augmented_state_.y0_;
+        augmented_state_mutex_.unlock();
+        init_heading_mutex_.unlock();
+        state_mutex_.unlock();
 
         // Dynamics
         robot_pose_mutex_.lock();
-        ddp_robot_->setPositions(robot_pose_);
+        robot_->setPositions(robot_pose_);
         robot_pose_mutex_.unlock();
-        UpdateThreeDof(ddp_robot_, three_dof_robot_);
+        UpdateThreeDof(robot_, three_dof_robot_);
         TwipDynamics<double> ddp_dynamics;
         DartSkeletonToTwipDynamics(three_dof_robot_, &ddp_dynamics);
 
@@ -558,10 +556,10 @@ void Mpc::DdpThread() {
       }
     }
 
-    // Loop will exit if ddp_thread_run_ is reset
-    ddp_thread_run_mutex_.lock();
-    run = ddp_thread_run_;
-    ddp_thread_run_mutex_.unlock();
+    // Loop will exit if thread_run_ is reset
+    thread_run_mutex_.lock();
+    run = thread_run_;
+    thread_run_mutex_.unlock();
   }
   std::cout << "Exiting DDP Thread ..." << std::endl;
 }
@@ -597,17 +595,16 @@ void Mpc::Control(double* control_input) {
   double tau_0 = u(1);
 
   // dq
-  ddp_bal_state_mutex_.lock();
-  ddp_init_heading_mutex_.lock();
-  ddp_augmented_state_mutex_.lock();
+  state_mutex_.lock();
+  init_heading_mutex_.lock();
+  augmented_state_mutex_.lock();
   TwipDynamics<double>::State current_state;
-  current_state << 0.25 * ddp_bal_state_(2) - ddp_init_heading_.distance_,
-      ddp_bal_state_(4) - ddp_init_heading_.direction_, ddp_bal_state_(0),
-      0.25 * ddp_bal_state_(3), ddp_bal_state_(5), ddp_bal_state_(1),
-      ddp_augmented_state_.x0_, ddp_augmented_state_.y0_;
-  ddp_augmented_state_mutex_.unlock();
-  ddp_init_heading_mutex_.unlock();
-  ddp_bal_state_mutex_.unlock();
+  current_state << 0.25 * state_(2) - init_heading_.distance_,
+      state_(4) - init_heading_.direction_, state_(0), 0.25 * state_(3),
+      state_(5), state_(1), augmented_state_.x0_, augmented_state_.y0_;
+  augmented_state_mutex_.unlock();
+  init_heading_mutex_.unlock();
+  state_mutex_.unlock();
   Eigen::Vector3d dq = current_state.segment(3, 3);
 
   // ddq
@@ -645,9 +642,9 @@ void Mpc::Control(double* control_input) {
 
 //============================================================================
 void Mpc::Destroy() {
-  ddp_thread_run_mutex_.lock();
-  ddp_thread_run_ = false;
-  ddp_thread_run_mutex_.unlock();
-  ddp_thread_->join();
-  delete ddp_thread_;
+  thread_run_mutex_.lock();
+  thread_run_ = false;
+  thread_run_mutex_.unlock();
+  thread_->join();
+  delete thread_;
 }

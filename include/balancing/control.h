@@ -48,8 +48,8 @@
 #include <dart/dart.hpp>  // dart::dynamics::SkeletonPtr
 #include <kore.hpp>       // Krang::Hardware
 
-#include "balancing/balancing_config.h"       // BalancingConfig
-#include "balancing/mpc.h"       // Mpc
+#include "balancing/balancing_config.h"  // BalancingConfig
+#include "balancing/mpc.h"               // Mpc
 
 class BalanceControl {
  public:
