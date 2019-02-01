@@ -55,6 +55,7 @@
 
 #include "balancing/adrc.hpp"            // computeLinearizedDynamics()
 #include "balancing/balancing_config.h"  // BalancingConfig
+#include "balancing/ddp_objects.h"       // TwipDynamics..
 #include "balancing/file_ops.hpp"        // readInputFileAsMatrix()
 #include "balancing/lqr.hpp"             // lqr()
 #include "balancing/mpc.h"               // Mpc
@@ -460,25 +461,21 @@ void BalanceControl::BalancingController(double* control_input) {
       // Current step
       int current_step = floor((time_now - init_time)/mpc_.param_.mpc_.dt_);
 
-      /*
       // =============== Read mpc control step
       bool mpc_reading_done = false;
-      Control u;
+      TwipDynamics<double>::Control u;
       while (!mpc_reading_done) {
-        if (pthread_mutex_trylock(&g_mpc_trajectory_main_mutex) == 0) {
-          u = g_mpc_trajectory_main.col(
-              MPCStepIdx);  // Using counter to get the correct reference
-          pthread_mutex_unlock(&g_mpc_trajectory_main_mutex);
+        if (mpc_.mpc_trajectory_main_mutex_.try_lock()) {
+          u = mpc_.mpc_trajectory_main_.col(current_step);
+          mpc_.mpc_trajectory_main_mutex_.unlock();
           mpc_reading_done = true;
-        } else if (pthread_mutex_trylock(&g_mpc_trajectory_backup_mutex) ==
-                   0) {
-          u = g_mpc_trajectory_main.col(
-              MPCStepIdx);  // Using counter to get the correct reference
-          pthread_mutex_unlock(&g_mpc_trajectory_backup_mutex);
+        } else if (mpc_.mpc_trajectory_backup_mutex_.try_lock()) {
+          u = mpc_.mpc_trajectory_backup_.col(current_step);
+          mpc_.mpc_trajectory_backup_mutex_.unlock();
           mpc_reading_done = true;
         }
       }
-
+      /*
       // =============== Spin Torque tau_0
       double tau_0 = u(1);
 
