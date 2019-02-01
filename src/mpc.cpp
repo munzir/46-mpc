@@ -478,19 +478,15 @@ void Mpc::DdpThread() {
         // Check exit condition
         struct timespec t_now = aa_tm_now();
         double time_now = (double)aa_tm_timespec2sec(t_now);
-        if (time_now >= GetInitTime() + param_.ddp_.final_time_) {
-          // Let the main thread know that mpc is done
-          done_mutex_.lock();
-          done_ = true;
-          done_mutex_.unlock();
-
+        double init_time = GetInitTime();
+        if (time_now >= init_time + param_.ddp_.final_time_) {
           // Change to idle mode and get out
           SetDdpMode(DDP_IDLE);
           break;
         }
 
         // Time-steps (or horizon)
-        int current_step = floor((time_now - GetInitTime()) / param_.mpc_.dt_);
+        int current_step = floor((time_now - init_time) / param_.mpc_.dt_);
         int trajectory_size = ddp_trajectory_.state_.cols() - 1;
         int horizon = (current_step + param_.mpc_.horizon_ < trajectory_size)
                           ? param_.mpc_.horizon_

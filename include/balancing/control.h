@@ -176,5 +176,6 @@ class BalanceControl {
                              // transitions to GROUND_LO mode
 
   Mpc mpc_;
+  BalanceMode previous_balance_mode_;
 };
 #endif  // KRANG_BALANCING_CONTROL_H_

@@ -446,6 +446,105 @@ void BalanceControl::BalancingController(double* control_input) {
 
       break;
     }
+    case BalanceControl::MPC: {
+      // Check exit condition
+      struct timespec t_now = aa_tm_now();
+      double time_now = (double)aa_tm_timespec2sec(t_now);
+      double init_time = mpc_.GetInitTime();
+      if (time_now >= init_time + mpc_.param_.ddp_.final_time_) {
+        // Change to idle mode and get out
+        balance_mode_ = previous_balance_mode_;
+        break;
+      }
+
+      // Current step
+      int current_step = floor((time_now - init_time)/mpc_.param_.mpc_.dt_);
+
+      /*
+      // =============== Read mpc control step
+      bool mpc_reading_done = false;
+      Control u;
+      while (!mpc_reading_done) {
+        if (pthread_mutex_trylock(&g_mpc_trajectory_main_mutex) == 0) {
+          u = g_mpc_trajectory_main.col(
+              MPCStepIdx);  // Using counter to get the correct reference
+          pthread_mutex_unlock(&g_mpc_trajectory_main_mutex);
+          mpc_reading_done = true;
+        } else if (pthread_mutex_trylock(&g_mpc_trajectory_backup_mutex) ==
+                   0) {
+          u = g_mpc_trajectory_main.col(
+              MPCStepIdx);  // Using counter to get the correct reference
+          pthread_mutex_unlock(&g_mpc_trajectory_backup_mutex);
+          mpc_reading_done = true;
+        }
+      }
+
+      // =============== Spin Torque tau_0
+      double tau_0 = u(1);
+
+      // =============== Forward Torque tau_1
+
+      // ddthref from High-level Control
+      double ddth = u(0);
+
+      // Get dynamics object
+      DDPDynamics* mpc_dynamics = getDynamics(g_threeDOF);
+
+      // current state
+      pthread_mutex_lock(&g_state_mutex);
+      pthread_mutex_lock(&g_augstate_mutex);
+      State cur_state;
+      cur_state << 0.25 * g_state(2) - g_xInit, g_state(4) - g_psiInit,
+          g_state(0), 0.25 * g_state(3), g_state(5), g_state(1),
+          g_augstate(0), g_augstate(1);
+      pthread_mutex_unlock(&g_state_mutex);
+      pthread_mutex_unlock(&g_augstate_mutex);
+
+      State xdot = mpc_dynamics->f(cur_state, u);
+      double ddx = xdot(3);
+      double ddpsi = xdot(4);
+      Eigen::Vector3d ddq;
+      ddq << ddx, ddpsi, ddth;
+
+      // dq
+      Eigen::Vector3d dq = cur_state.segment(3, 3);
+
+      // A, C, Q and Gamma_fric
+      c_forces dy_forces = mpc_dynamics->dynamic_forces(cur_state, u);
+
+      // tau_1
+      double tau_1 = dy_forces.A.block<1, 3>(2, 0) * ddq;
+      tau_1 += dy_forces.C.block<1, 3>(2, 0) * dq;
+      tau_1 += dy_forces.Q(2);
+      tau_1 -= dy_forces.Gamma_fric(2);
+
+      // =============== Wheel Torques
+      double tau_L = -0.5 * (tau_1 + tau_0);
+      double tau_R = -0.5 * (tau_1 - tau_0);
+
+      // =============== Torque to current conversion
+
+      // Motor Constant
+      // page 2, row "BLY343D-24V-2000" of:
+      // https://www.anaheimautomation.com/manuals/brushless/L010350%20-%20BLY34%20Series%20Product%20Sheet.pdf
+      double km = 12.0 * 0.00706;  // 12 (oz-in/A) * 0.00706 (Nm/oz-in)
+
+      // Gear Ratio
+      // page 2, row "GBPH-0902-NS-015-xxxxx-yyy" of:
+      // https://www.anaheimautomation.com/manuals/gearbox/L010455%20-%20GBPH-090x-NS%20Series%20Spec%20Sheet.pdf
+      double GR = 15;
+
+      double input[2];
+      input[0] = min(49.5, max(-49.5, tau_L / GR / km));
+      input[1] = min(49.5, max(-49.5, tau_R / GR / km));
+      lastUleft = input[0], lastUright = input[1];
+
+      // =============== Set the Motor Currents
+      controlWheels(debug, input);
+      */
+
+      break;
+    }
   }
 }
 
