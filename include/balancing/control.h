@@ -120,6 +120,10 @@ class BalanceControl {
   // If in DDP_TRAJ_OK mode, switches to DDP_COMPUTE_TRAJ mode
   void UserDemandsRecomputationEvent();
 
+  // If balance_mode_ is MPC, switches to previous_balance_mode_
+  // And switches mpc_.mode_ to DDP_IDLE
+  void StopMpcEvent();
+
   // Sets the forward speed control reference
   void SetFwdInput(double forw);
 

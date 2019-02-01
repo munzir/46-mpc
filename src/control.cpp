@@ -567,6 +567,20 @@ void BalanceControl::UserDemandsRecomputationEvent() {
 }
 
 //============================================================================
+void BalanceControl::StopMpcEvent() {
+  if (balance_mode_ == MPC) {
+    balance_mode_ = previous_balance_mode_;
+  }
+
+  // Go to DDP_IDLE mode
+  Mpc::DdpMode ddp_mode = mpc_.GetDdpMode();
+  if (ddp_mode == Mpc::DDP_COMPUTE_TRAJ || ddp_mode == Mpc::DDP_TRAJ_OK ||
+      ddp_mode == Mpc::DDP_FOR_MPC) {
+    mpc_.SetDdpMode(Mpc::DDP_IDLE);
+  }
+}
+
+//============================================================================
 void BalanceControl::SetFwdInput(double forw) { joystick_forw = forw; }
 
 //============================================================================
