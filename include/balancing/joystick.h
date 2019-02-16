@@ -44,8 +44,8 @@
 #ifndef KRANG_BALANCING_JOYSTICK_H_
 #define KRANG_BALANCING_JOYSTICK_H_
 
-#include <somatic.h>
 #include <ach.h>
+#include <somatic.h>
 
 class Joystick {
  public:
@@ -69,31 +69,52 @@ class Joystick {
   };
 
   enum RightThumb {
-    B1_PRESS, B1_HOLD, B1_RELEASE,
-    B2_PRESS, B2_HOLD, B2_RELEASE,
-    B3_PRESS, B3_HOLD, B3_RELEASE,
-    B4_PRESS, B4_HOLD, B4_RELEASE,
-    B10_PRESS, B10_HOLD, B10_RELEASE,
-    RIGHT_THUMB_HORZ_PRESS, RIGHT_THUMB_HORZ_HOLD, RIGHT_THUMB_HORZ_RELEASE,
-    RIGHT_THUMB_VERT_PRESS, RIGHT_THUMB_VERT_HOLD, RIGHT_THUMB_VERT_RELEASE,
+    B1_PRESS,
+    B1_HOLD,
+    B1_RELEASE,
+    B2_PRESS,
+    B2_HOLD,
+    B2_RELEASE,
+    B3_PRESS,
+    B3_HOLD,
+    B3_RELEASE,
+    B4_PRESS,
+    B4_HOLD,
+    B4_RELEASE,
+    B10_PRESS,
+    B10_HOLD,
+    B10_RELEASE,
+    RIGHT_THUMB_HORZ_PRESS,
+    RIGHT_THUMB_HORZ_HOLD,
+    RIGHT_THUMB_HORZ_RELEASE,
+    RIGHT_THUMB_VERT_PRESS,
+    RIGHT_THUMB_VERT_HOLD,
+    RIGHT_THUMB_VERT_RELEASE,
     RIGHT_THUMB_FREE
   };
 
   enum LeftThumb {
-    B9_PRESS, B9_HOLD, B9_RELEASE,
-    LEFT_THUMB_HORZ_PRESS, LEFT_THUMB_HORZ_HOLD, LEFT_THUMB_HORZ_RELEASE,
-    LEFT_THUMB_VERT_PRESS, LEFT_THUMB_VERT_HOLD, LEFT_THUMB_VERT_RELEASE,
-    CURSOR_HORZ_PRESS, CURSOR_HORZ_HOLD, CURSOR_HORZ_RELEASE,
-    CURSOR_VERT_PRESS, CURSOR_VERT_HOLD, CURSOR_VERT_RELEASE,
+    B9_PRESS,
+    B9_HOLD,
+    B9_RELEASE,
+    LEFT_THUMB_HORZ_PRESS,
+    LEFT_THUMB_HORZ_HOLD,
+    LEFT_THUMB_HORZ_RELEASE,
+    LEFT_THUMB_VERT_PRESS,
+    LEFT_THUMB_VERT_HOLD,
+    LEFT_THUMB_VERT_RELEASE,
+    CURSOR_HORZ_PRESS,
+    CURSOR_HORZ_HOLD,
+    CURSOR_HORZ_RELEASE,
+    CURSOR_VERT_PRESS,
+    CURSOR_VERT_HOLD,
+    CURSOR_VERT_RELEASE,
     LEFT_THUMB_FREE
   };
 
-  enum {
-    LEFT,
-    RIGHT
-  };
+  enum { LEFT, RIGHT };
   Joystick();
-  ~Joystick() {};
+  ~Joystick(){};
 
   FingerButtons fingerMode;
   RightThumb rightMode;
@@ -109,11 +130,10 @@ class Joystick {
   // Opens ach channel to read joystick data
   void OpenJoystickChannel();
 
-
   /* ************************************************************************ */
   // Maps the data read from ach channels to JoystickState
   void MapToJoystickState(char* b, double* x);
 
-  ach_channel_t ach_chan;				///< Read joystick data on this channel
+  ach_channel_t ach_chan;  ///< Read joystick data on this channel
 };
-#endif // KRANG_BALANCING_JOYSTICK_H_
+#endif  // KRANG_BALANCING_JOYSTICK_H_

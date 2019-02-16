@@ -1,7 +1,7 @@
 // Author Akash Patel (apatel435@gatech.edu)
 //
-// Purpose: Helper source code file for determining optimal gain matrix using lqr
-// Returns true if successful and outputs caluclated gain matrix in input
+// Purpose: Helper source code file for determining optimal gain matrix using
+// lqr Returns true if successful and outputs caluclated gain matrix in input
 // pointer
 
 // Includes
@@ -24,7 +24,11 @@
 
 // TODO
 // // LQR Method (full)
-//bool lqr(const Eigen::MatrixXd& A, const Eigen::MatrixXd& B, const Eigen::MatrixXd& Q, const Eigen::MatrixXd& R, const Eigen::MatrixXd& N, Eigen::MatrixXd& K);
+// bool lqr(const Eigen::MatrixXd& A, const Eigen::MatrixXd& B, const
+// Eigen::MatrixXd& Q, const Eigen::MatrixXd& R, const Eigen::MatrixXd& N,
+// Eigen::MatrixXd& K);
 
 // // LQR Method (without n)
-bool lqr(const Eigen::MatrixXd& A, const Eigen::MatrixXd& B, const Eigen::MatrixXd& Q, const Eigen::MatrixXd& R, Eigen::VectorXd& K);
+bool lqr(const Eigen::MatrixXd& A, const Eigen::MatrixXd& B,
+         const Eigen::MatrixXd& Q, const Eigen::MatrixXd& R,
+         Eigen::VectorXd& K);

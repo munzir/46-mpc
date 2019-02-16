@@ -44,13 +44,12 @@
 #ifndef KRANG_BALANCING_CONFIG_H_
 #define KRANG_BALANCING_CONFIG_H_
 
-#include <memory>
 #include <Eigen/Eigen>
+#include <memory>
 
 // Structure in which all configurable parameters are read at the beginning of
 // the program
 struct BalancingConfig {
-
   // Path to urdf file
   char urdfpath[1024];
 
@@ -88,9 +87,9 @@ struct BalancingConfig {
   bool manualArmLockUnlock;
 };
 
-// Function for reading configuration parameters. First argument is the location of
-// cfg file from the parameters are to be read. Second argument is the output where
-// the parameters are stored
-void ReadConfigParams (const char* config_file, BalancingConfig* params);
+// Function for reading configuration parameters. First argument is the location
+// of cfg file from the parameters are to be read. Second argument is the output
+// where the parameters are stored
+void ReadConfigParams(const char* config_file, BalancingConfig* params);
 
-#endif // KRANG_BALANCING_CONFIG_H_
+#endif  // KRANG_BALANCING_CONFIG_H_

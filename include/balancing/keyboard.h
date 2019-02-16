@@ -37,12 +37,12 @@
  * @file keyboard.h
  * @author Munzir Zafar
  * @date Oct 30, 2018
- * @brief Header file for keyboard.cpp that has code for thread reading keyboard input
+ * @brief Header file for keyboard.cpp that has code for thread reading keyboard
+ * input
  */
 
 #ifndef KRANG_BALANCING_KEYBOARD_H_
 #define KRANG_BALANCING_KEYBOARD_H_
-
 
 #include <pthread.h>
 
@@ -53,9 +53,9 @@ struct KbShared {
 };
 
 // Thread that reads keyboard input
-void *KbHit(void *);
+void* KbHit(void*);
 
 // For other threads to read the character input
 bool KbCharReceived(KbShared& kb_shared, char* input);
 
-#endif // KRANG_BALANCING_KEYBOARD_H_
+#endif  // KRANG_BALANCING_KEYBOARD_H_

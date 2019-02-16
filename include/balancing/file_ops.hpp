@@ -4,15 +4,15 @@
 
 // Includes
 #include <dart/dart.hpp>
-#include <iostream>
 #include <fstream>
+#include <iostream>
 
 // Namespaces
 using namespace std;
 using namespace dart::math;
 
 // Defines
-#define MAXBUFSIZE ((int) 1e6)
+#define MAXBUFSIZE ((int)1e6)
 
 // Function Prototypes
 // // Read file as matrix

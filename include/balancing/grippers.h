@@ -37,8 +37,8 @@
  * @file grippers.h
  * @author Munzir Zafar
  * @date Oct 30, 2018
- * @brief Header for grippers.cpp that controls grippers in the balancing code based on
- * input
+ * @brief Header for grippers.cpp that controls grippers in the balancing code
+ * based on input
  */
 
 #ifndef KRANG_BALANCING_GRIPPERS_H_
@@ -49,7 +49,7 @@
 #include <kore.hpp>
 
 /// Controls the grippers
-void controlSchunkGrippers (somatic_d_t& daemon_cx, const char* b, const double* x,
-                            Krang::Hardware* krang);
+void controlSchunkGrippers(somatic_d_t& daemon_cx, const char* b,
+                           const double* x, Krang::Hardware* krang);
 
-#endif // KRANG_BALANCING_GRIPPERS_H_
+#endif  // KRANG_BALANCING_GRIPPERS_H_
