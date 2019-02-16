@@ -32,7 +32,7 @@ set(EIGEN_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/lib/eigen)
 # in /usr/lib or /usr/local/lib
 #link_libraries(amino ntcan protobuf-c ach somatic stdc++ filter pcio pthread ncurses dart fcl tinyxml tinyxml2 kore assimp GL)
 link_libraries(amino protobuf-c ach somatic stdc++ filter pthread ncurses dart fcl tinyxml tinyxml2 kore assimp GL config4cpp)
-include_directories(/usr/include/dart)
+#include_directories(/usr/include/dart)
 
 # ================================================================================================
 # Build the codebase library and the executables
@@ -73,4 +73,3 @@ foreach(script_src_file ${scripts_source})
 	add_custom_target(${script_base}.run ${script_base} ${ARGN})
 endforeach(script_src_file)
 message(STATUS " ")
-

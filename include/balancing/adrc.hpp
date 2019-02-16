@@ -8,7 +8,6 @@
 #include <dart/dart.hpp>
 #include "ESO.hpp"
 
-
 using namespace dart;
 using namespace dart::dynamics;
 
@@ -16,25 +15,33 @@ using namespace dart::dynamics;
 Eigen::Vector3d getBodyCOM(SkeletonPtr robot);
 
 // compute linearized dynamics
-void computeLinearizedDynamics(const SkeletonPtr robot, \
-  Eigen::MatrixXd& A, Eigen::MatrixXd& B, Eigen::VectorXd& B_thWheel, Eigen::VectorXd& B_thCOM);
+void computeLinearizedDynamics(const SkeletonPtr robot, Eigen::MatrixXd& A,
+                               Eigen::MatrixXd& B, Eigen::VectorXd& B_thWheel,
+                               Eigen::VectorXd& B_thCOM);
 
 // perform ADRC
 void activeDisturbanceRejectionControl(
-  //inputs
-  const Eigen::MatrixXd& A, const Eigen::MatrixXd& B, const Eigen::MatrixXd& Q, const Eigen::MatrixXd& R,
-  ESO* EthWheel, ESO* EthCOM, const Eigen::VectorXd& B_thWheel, const Eigen::VectorXd& B_thCOM,
-  const Eigen::VectorXd& state, const Eigen::VectorXd& refState, //refState is (thCOM, dthCOM, thWheels, dthWheels, thSpin, dthSpin)
-  const double& dt,
-  // outputs
-  Eigen::VectorXd& u_thWheel, Eigen::VectorXd& u_thCOM);
+    // inputs
+    const Eigen::MatrixXd& A, const Eigen::MatrixXd& B,
+    const Eigen::MatrixXd& Q, const Eigen::MatrixXd& R, ESO* EthWheel,
+    ESO* EthCOM, const Eigen::VectorXd& B_thWheel,
+    const Eigen::VectorXd& B_thCOM, const Eigen::VectorXd& state,
+    const Eigen::VectorXd& refState,  // refState is (thCOM, dthCOM, thWheels,
+                                      // dthWheels, thSpin, dthSpin)
+    const double& dt,
+    // outputs
+    Eigen::VectorXd& u_thWheel, Eigen::VectorXd& u_thCOM);
 
 // perform ADRC with lqr hacks
 void activeDisturbanceRejectionControl(
-  //inputs
-  const Eigen::MatrixXd& A, const Eigen::MatrixXd& B, const Eigen::MatrixXd& Q, const Eigen::MatrixXd& R, const Eigen::MatrixXd& lqrHackRatios,
-  ESO* EthWheel, ESO* EthCOM, const Eigen::VectorXd& B_thWheel, const Eigen::VectorXd& B_thCOM,
-  const Eigen::VectorXd& state, const Eigen::VectorXd& refState, //refState is (thCOM, dthCOM, thWheels, dthWheels, thSpin, dthSpin)
-  const double& dt,
-  // outputs
-  Eigen::VectorXd& K, Eigen::VectorXd& u_thWheel, Eigen::VectorXd& u_thCOM);
+    // inputs
+    const Eigen::MatrixXd& A, const Eigen::MatrixXd& B,
+    const Eigen::MatrixXd& Q, const Eigen::MatrixXd& R,
+    const Eigen::MatrixXd& lqrHackRatios, ESO* EthWheel, ESO* EthCOM,
+    const Eigen::VectorXd& B_thWheel, const Eigen::VectorXd& B_thCOM,
+    const Eigen::VectorXd& state,
+    const Eigen::VectorXd& refState,  // refState is (thCOM, dthCOM, thWheels,
+                                      // dthWheels, thSpin, dthSpin)
+    const double& dt,
+    // outputs
+    Eigen::VectorXd& K, Eigen::VectorXd& u_thWheel, Eigen::VectorXd& u_thCOM);

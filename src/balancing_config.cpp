@@ -49,11 +49,10 @@
 #include <config4cpp/Configuration.h>
 #include <Eigen/Eigen>
 
-// Function for reading configuration parameters. First argument is the location of
-// cfg file from the parameters are to be read. Second argument is the output where
-// the parameters are stored
+// Function for reading configuration parameters. First argument is the location
+// of cfg file from the parameters are to be read. Second argument is the output
+// where the parameters are stored
 void ReadConfigParams(const char* config_file, BalancingConfig* params) {
-
   // Initialize the reader of the cfg file
   config4cpp::Configuration* cfg = config4cpp::Configuration::create();
   const char* scope = "";
@@ -71,24 +70,21 @@ void ReadConfigParams(const char* config_file, BalancingConfig* params) {
     strcpy(params->urdfpath, cfg->lookupString(scope, "urdfpath"));
 
     // Read the path to com estimation model parameters
-    strcpy(params->comParametersPath, cfg->lookupString(scope, "comParametersPath"));
+    strcpy(params->comParametersPath,
+           cfg->lookupString(scope, "comParametersPath"));
 
     // Read PD Gains
-    const char* pdGainsStrings[] = {
-      "pdGainsGroundLo", "pdGainsGroundHi",
-      "pdGainsStand", "pdGainsSit",
-      "pdGainsBalLo", "pdGainsBalHi"
-    };
+    const char* pdGainsStrings[] = {"pdGainsGroundLo", "pdGainsGroundHi",
+                                    "pdGainsStand",    "pdGainsSit",
+                                    "pdGainsBalLo",    "pdGainsBalHi"};
     Eigen::Matrix<double, 6, 1>* pdGains[] = {
-      &params->pdGainsGroundLo, &params->pdGainsGroundHi,
-      &params->pdGainsStand, &params->pdGainsSit,
-      &params->pdGainsBalLo, &params->pdGainsBalHi
-    };
-    for(int i = 0; i<6; i++) {
+        &params->pdGainsGroundLo, &params->pdGainsGroundHi,
+        &params->pdGainsStand,    &params->pdGainsSit,
+        &params->pdGainsBalLo,    &params->pdGainsBalHi};
+    for (int i = 0; i < 6; i++) {
       str = cfg->lookupString(scope, pdGainsStrings[i]);
       stream.str(str);
-      for(int j = 0; j < 6; j++)
-        stream >> (*(pdGains[i]))(j);
+      for (int j = 0; j < 6; j++) stream >> (*(pdGains[i]))(j);
       stream.clear();
       std::cout << pdGainsStrings[i] << ": ";
       std::cout << (*(pdGains[i])).transpose() << std::endl;
@@ -96,20 +92,16 @@ void ReadConfigParams(const char* config_file, BalancingConfig* params) {
 
     // Read Joystick Gains
     const char* joystickGainsStrings[] = {
-      "joystickGainsGroundLo", "joystickGainsGroundHi",
-      "joystickGainsStand", "joystickGainsSit",
-      "joystickGainsBalLo", "joystickGainsBalHi"
-    };
+        "joystickGainsGroundLo", "joystickGainsGroundHi", "joystickGainsStand",
+        "joystickGainsSit",      "joystickGainsBalLo",    "joystickGainsBalHi"};
     double* joystickGains[] = {
-      params->joystickGainsGroundLo, params->joystickGainsGroundHi,
-      params->joystickGainsStand, params->joystickGainsSit,
-      params->joystickGainsBalLo, params->joystickGainsBalHi
-    };
-    for(int i = 0; i<6; i++) {
+        params->joystickGainsGroundLo, params->joystickGainsGroundHi,
+        params->joystickGainsStand,    params->joystickGainsSit,
+        params->joystickGainsBalLo,    params->joystickGainsBalHi};
+    for (int i = 0; i < 6; i++) {
       str = cfg->lookupString(scope, joystickGainsStrings[i]);
       stream.str(str);
-      for(int j = 0; j < 2; j++)
-        stream >> joystickGains[i][j];
+      for (int j = 0; j < 2; j++) stream >> joystickGains[i][j];
       stream.clear();
       std::cout << joystickGainsStrings[i] << ": ";
       std::cout << joystickGains[i][0] << "  ";
@@ -118,13 +110,13 @@ void ReadConfigParams(const char* config_file, BalancingConfig* params) {
 
     // Dynamic LQR?
     params->dynamicLQR = cfg->lookupBoolean(scope, "dynamicLQR");
-    std::cout << "dynamicLQR: " << (params->dynamicLQR? "true":"false") << std::endl;
+    std::cout << "dynamicLQR: " << (params->dynamicLQR ? "true" : "false")
+              << std::endl;
     // Read the Q matrix for LQR
     params->lqrQ.setZero();
     str = cfg->lookupString(scope, "lqrQ");
     stream.str(str);
-    for(int i = 0; i < 4; i++)
-      stream >> params->lqrQ(i, i);
+    for (int i = 0; i < 4; i++) stream >> params->lqrQ(i, i);
     stream.clear();
     std::cout << "lqrQ: " << params->lqrQ << std::endl;
 
@@ -132,8 +124,7 @@ void ReadConfigParams(const char* config_file, BalancingConfig* params) {
     params->lqrR.setZero();
     str = cfg->lookupString(scope, "lqrR");
     stream.str(str);
-    for(int i = 0; i < 1; i++)
-      stream >> params->lqrR(i, i);
+    for (int i = 0; i < 1; i++) stream >> params->lqrR(i, i);
     stream.clear();
     std::cout << "lqrR: " << params->lqrR << std::endl;
 
@@ -144,9 +135,10 @@ void ReadConfigParams(const char* config_file, BalancingConfig* params) {
     std::cout << "toBalThreshold :" << params->toBalThreshold << std::endl;
 
     // Halt arm to stop
-    params->manualArmLockUnlock = cfg->lookupBoolean(scope, "manualArmLockUnlock");
+    params->manualArmLockUnlock =
+        cfg->lookupBoolean(scope, "manualArmLockUnlock");
     std::cout << "manualArmLockUnlock: ";
-    std::cout << (params->manualArmLockUnlock? "true":"false") << std::endl;
+    std::cout << (params->manualArmLockUnlock ? "true" : "false") << std::endl;
 
   } catch (const config4cpp::ConfigurationException& ex) {
     std::cerr << ex.c_str() << std::endl;
@@ -155,4 +147,3 @@ void ReadConfigParams(const char* config_file, BalancingConfig* params) {
   }
   std::cout << std::endl;
 }
-
