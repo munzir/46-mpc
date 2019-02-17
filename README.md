@@ -38,6 +38,9 @@ This repo contains code for balancing krang. Aim is to implement original balanc
 
 - [37-somatic](https://github.gatech.edu/WholeBodyControlAttempt1/37-somatic)
  Install the repository.
+ 
+- [44a-krach](https://github.gatech.edu/WholeBodyControlAttempt1/44a-krach)
+ Install the repository.
 
 ### Optional Dependency
 
