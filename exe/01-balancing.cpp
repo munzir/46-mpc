@@ -147,6 +147,7 @@ int main(int argc, char* argv[]) {
   torso_state.mode = TorsoState::kStop;
   Somatic__WaistMode waist_mode;
   BalanceControl balance_control(krang, robot, params);
+  if (is_simulation) balance_control.set_dt(sim_dt);
 
   // Flag to enable wheel control. Control inputs are not sent to the wheels
   // until this flag is set
@@ -164,7 +165,8 @@ int main(int argc, char* argv[]) {
     bool debug = (debug_iter++ % 20 == 0);
 
     // Read time, state and joystick inputs
-    time += balance_control.ElapsedTimeSinceLastCall();
+    time +=
+        (is_simulation ? sim_dt : balance_control.ElapsedTimeSinceLastCall());
     balance_control.UpdateState();
     bool joystick_msg_received = false;
     while (!joystick_msg_received) joystick_msg_received = joystick.Update();
