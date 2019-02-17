@@ -147,3 +147,29 @@ void ReadConfigParams(const char* config_file, BalancingConfig* params) {
   }
   std::cout << std::endl;
 }
+
+// Read the parameter named "time_step" from the give config file
+double ReadConfigTimeStep(const char* config_file) {
+  // Initialize the reader of the cfg file
+  config4cpp::Configuration* cfg = config4cpp::Configuration::create();
+  const char* scope = "";
+
+  double time_step = -1.0;
+  std::cout << "Reading simulation time step ..." << std::endl;
+  try {
+    // Parse the cfg file
+    cfg->parse(config_file);
+
+    // Read parameters for bal control mode transition
+    time_step = cfg->lookupFloat(scope, "time_step");
+    std::cout << "simulation time step:" << time_step << std::endl;
+
+  } catch (const config4cpp::ConfigurationException& ex) {
+    std::cerr << ex.c_str() << std::endl;
+    cfg->destroy();
+    assert(false && "Problem reading simulation config parameters");
+  }
+  std::cout << std::endl;
+
+  return time_step;
+}

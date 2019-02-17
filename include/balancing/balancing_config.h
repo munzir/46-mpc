@@ -92,4 +92,7 @@ struct BalancingConfig {
 // where the parameters are stored
 void ReadConfigParams(const char* config_file, BalancingConfig* params);
 
+// Read the parameter named "time_step" from the give config file
+double ReadConfigTimeStep(const char* config_file);
+
 #endif  // KRANG_BALANCING_CONFIG_H_
