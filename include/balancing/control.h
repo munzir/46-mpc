@@ -75,6 +75,9 @@ class BalanceControl {
   // constructor
   double ElapsedTimeSinceLastCall();
 
+  // Set a value for dt (to be used with simulation)
+  void set_dt(double dt) { dt_ = dt; }
+
   // Reads the sensors of the robot and updates the state of the wheeled
   // inverted pendulum. Involves computation of the center of mass
   void UpdateState();
