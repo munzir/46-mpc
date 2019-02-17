@@ -47,6 +47,7 @@
 #include <iostream>  // std::cout, std::endl
 #include <memory>    // std::make_shared
 
+#include <krach/krach.h> // InterfaceContext, WorldInterface
 #include <somatic.h>      // has the correct order of other somatic includes
 #include <dart/dart.hpp>  // dart::dynamics, dart::simulation
 #include <dart/utils/urdf/urdf.hpp>  // dart::utils::DartLoader
@@ -86,6 +87,14 @@ int main(int argc, char* argv[]) {
     is_simulation = false;
   else
     return 0;
+
+  // If simulation mode, create interface to the world of simulation
+  InterfaceContext* interface_context;
+  WorldInterface* world_interface;
+  if (is_simulation) {
+    interface_context = new InterfaceContext("01-balance-sim-interface");
+    world_interface = new WorldInterface(*interface_context, "sim-cmd", "sim-state");
+  }
 
   // Initialize the daemon
   somatic_d_opts_t dopt;
@@ -173,6 +182,12 @@ int main(int argc, char* argv[]) {
     ControlWaist(waist_mode, krang);
     ControlTorso(daemon_cx, torso_state, krang);
 
+    // If in simulation world, make the simulation time step forward
+    if (is_simulation) {
+      bool success = world_interface->Step();
+      if (!success) break;
+    }
+
     // Print the mode
     if (debug) {
       std::cout << "vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv\n" << std::endl;
@@ -188,6 +203,10 @@ int main(int argc, char* argv[]) {
 
   std::cout << "destroying" << std::endl;
   delete krang;
+	if (is_simulation) {
+  	delete interface_context;
+  	delete world_interface;
+	}
   somatic_d_destroy(&daemon_cx);
   return 0;
 }
