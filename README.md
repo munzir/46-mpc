@@ -38,7 +38,7 @@ This repo contains code for balancing krang. Aim is to implement original balanc
 
 - [37-somatic](https://github.gatech.edu/WholeBodyControlAttempt1/37-somatic)
  Install the repository.
- 
+
 - [44a-krach](https://github.gatech.edu/WholeBodyControlAttempt1/44a-krach)
  Install the repository.
 
@@ -48,11 +48,6 @@ For simulation:
 
 - [41-krang-sim-ach](https://github.gatech.edu/WholeBodyControlAttempt1/41-krang-sim-ach)
  Install the repository.
-
-TODO: Think about this
-- Update the dynamic linker, in case it is not automatically updated, by using:
-
-      sudo ldconfig
 
 ## Compilation
 
