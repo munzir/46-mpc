@@ -39,7 +39,7 @@ This repo contains code for balancing krang. Aim is to implement original balanc
 - [36-kore (newdart branch)](https://github.gatech.edu/WholeBodyControlAttempt1/36-kore/tree/newdart)
  Install the repository.
 
-# Optional Dependency
+### Optional Dependency
 
 For simulation:
 
