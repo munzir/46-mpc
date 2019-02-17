@@ -47,7 +47,7 @@
 #include <iostream>  // std::cout, std::endl
 #include <memory>    // std::make_shared
 
-#include <krach/krach.h> // InterfaceContext, WorldInterface
+#include <krach/krach.h>  // InterfaceContext, WorldInterface
 #include <somatic.h>      // has the correct order of other somatic includes
 #include <dart/dart.hpp>  // dart::dynamics, dart::simulation
 #include <dart/utils/urdf/urdf.hpp>  // dart::utils::DartLoader
@@ -59,14 +59,14 @@
 #include <somatic/msg.h>    // somatic_anything_alloc(), somatic_anything_free()
 #include <somatic/util.h>   // somatic_sig_received
 
-#include "balancing/arms.h"              // ArmControl
-#include "balancing/balancing_config.h"  // BalancingConfig, ReadConfigParams()
-#include "balancing/control.h"           // BalancingControl
-#include "balancing/events.h"            // Events()
-#include "balancing/joystick.h"          // Joystick
-#include "balancing/keyboard.h"          // KbShared, KbHit
-#include "balancing/torso.h"             // TorsoState, ControlTorso()
-#include "balancing/waist.h"             // ControlWaist()
+#include "balancing/arms.h"  // ArmControl
+#include "balancing/balancing_config.h"  // BalancingConfig, ReadConfigParams(), ReadConfigTimeStep()
+#include "balancing/control.h"   // BalancingControl
+#include "balancing/events.h"    // Events()
+#include "balancing/joystick.h"  // Joystick
+#include "balancing/keyboard.h"  // KbShared, KbHit
+#include "balancing/torso.h"     // TorsoState, ControlTorso()
+#include "balancing/waist.h"     // ControlWaist()
 
 /* ************************************************************************* */
 /// The main thread
@@ -91,9 +91,17 @@ int main(int argc, char* argv[]) {
   // If simulation mode, create interface to the world of simulation
   InterfaceContext* interface_context;
   WorldInterface* world_interface;
+  double sim_dt;
   if (is_simulation) {
     interface_context = new InterfaceContext("01-balance-sim-interface");
-    world_interface = new WorldInterface(*interface_context, "sim-cmd", "sim-state");
+    world_interface =
+        new WorldInterface(*interface_context, "sim-cmd", "sim-state");
+    sim_dt = ReadConfigTimeStep(
+        "/usr/local/share/krang-sim-ach/cfg/dart_params.cfg");
+    if (sim_dt < 0.0) {
+      std::cout << "Error reading time step" << std::endl;
+      return 0;
+    }
   }
 
   // Initialize the daemon
@@ -203,10 +211,10 @@ int main(int argc, char* argv[]) {
 
   std::cout << "destroying" << std::endl;
   delete krang;
-	if (is_simulation) {
-  	delete interface_context;
-  	delete world_interface;
-	}
+  if (is_simulation) {
+    delete interface_context;
+    delete world_interface;
+  }
   somatic_d_destroy(&daemon_cx);
   return 0;
 }
