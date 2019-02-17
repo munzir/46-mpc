@@ -74,11 +74,18 @@ int main(int argc, char* argv[]) {
   BalancingConfig params;
   ReadConfigParams("../cfg/balancing_params.cfg", &params);
 
-  // Wait for a character input before starting the program
+  // Ask user whether we are interfacing with simulation or hardware
   std::cout << std::endl
             << std::endl
-            << "Press any key to continue ..." << std::endl;
-  getchar();
+            << "Simulation mode or hardware mode (s/h)? ";
+  char key = getchar();
+  bool is_simulation;
+  if (key == 's')
+    is_simulation = true;
+  else if (key == 'h')
+    is_simulation = false;
+  else
+    return 0;
 
   // Initialize the daemon
   somatic_d_opts_t dopt;
@@ -169,6 +176,7 @@ int main(int argc, char* argv[]) {
     // Print the mode
     if (debug) {
       std::cout << "vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv\n" << std::endl;
+      std::cout << "Interface: " << (is_simulation ? "simulation" : "hardware");
       balance_control.Print();
       if (start) std::cout << "Started..." << std::endl;
     }
