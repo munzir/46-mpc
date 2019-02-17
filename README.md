@@ -33,7 +33,7 @@ This repo contains code for balancing krang. Aim is to implement original balanc
       cmake ..
       sudo make install
 - [37-somatic](https://github.gatech.edu/WholeBodyControlAttempt1/37-somatic) - Follow installation instructions on the git readme.
-- [36-kore (newdart branch)](https://github.gatech.edu/WholeBodyControlAttempt1/36-kore/tree/newdart) - Follow installation instructions on the git readme
+- [36-kore](https://github.gatech.edu/WholeBodyControlAttempt1/36-kore/tree/newdart) - Follow installation instructions on the git readme
 - Update the dynamic linker, in case it is not automatically updated, by using:
 
       sudo ldconfig
