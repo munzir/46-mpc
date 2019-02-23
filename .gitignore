@@ -21,25 +21,20 @@
 /include/*
 !/include/balancing/
 /include/balancing/*
-!/include/balancing/adrc.hpp
 !/include/balancing/arms.h
 !/include/balancing/balancing.h
 !/include/balancing/balancing_config.h
 !/include/balancing/control.h
-!/include/balancing/ESO.hpp
 !/include/balancing/events.h
-!/include/balancing/file_ops.hpp
 !/include/balancing/grippers.h
 !/include/balancing/joystick.h
 !/include/balancing/keyboard.h
-!/include/balancing/lqr.hpp
 !/include/balancing/torso.h
 !/include/balancing/waist.h
 
 # src
 !/src/
 /src/*
-!/src/file_ops.cpp
 !/src/helpers.cpp
 !/src/balancing_config.cpp
 !/src/arms.cpp
@@ -50,8 +45,6 @@
 !/src/keyboard.cpp
 !/src/events.cpp
 !/src/control.cpp
-!/src/lqr.cpp
-!/src/adrc.cpp
 
 # exe
 !/exe/
