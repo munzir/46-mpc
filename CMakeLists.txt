@@ -31,7 +31,7 @@ set(EIGEN_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/lib/eigen)
 # NOTE: Ideally we would like to 'find' these packages but for now, we assume they are either
 # in /usr/lib or /usr/local/lib
 #link_libraries(amino ntcan protobuf-c ach somatic stdc++ filter pcio pthread ncurses dart fcl tinyxml tinyxml2 kore assimp GL)
-link_libraries(amino protobuf-c ach somatic stdc++ filter pthread ncurses dart fcl tinyxml tinyxml2 kore assimp GL config4cpp krach)
+link_libraries(amino protobuf-c ach somatic stdc++ filter pthread ncurses dart fcl tinyxml tinyxml2 kore assimp GL config4cpp krach nlopt krang-utils)
 #include_directories(/usr/include/dart)
 
 # ================================================================================================
@@ -69,7 +69,7 @@ foreach(script_src_file ${scripts_source})
 	add_executable(${script_base} ${script_src_file})
 	target_link_libraries(${script_base} Main)
 	#target_link_libraries(${script_base} ${GRIP_LIBRARIES} ${DART_LIBRARIES} ${DARTExt_LIBRARIES} ${wxWidgets_LIBRARIES})
-	target_link_libraries(${script_base} ${DART_LIBRARIES} ${wxWidgets_LIBRARIES})
+	target_link_libraries(${script_base} ${DART_LIBRARIES} ${wxWidgets_LIBRARIES} krang-utils)
 	add_custom_target(${script_base}.run ${script_base} ${ARGN})
 endforeach(script_src_file)
 message(STATUS " ")

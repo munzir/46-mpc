@@ -52,11 +52,11 @@
 #include <Eigen/Eigen>  // Eigen:: MatrixXd, VectorXd, Vector3d, Matrix<double, #, #>
 #include <dart/dart.hpp>  // dart::dynamics::SkeletonPtr
 #include <kore.hpp>       // Krang::Hardware
+#include <krang-utils/adrc.hpp> // computeLinearizedDynamics()
+#include <krang-utils/file_ops.hpp>        // readInputFileAsMatrix()
+#include <krang-utils/lqr.hpp>             // lqr()
 
-#include "balancing/adrc.hpp"            // computeLinearizedDynamics()
 #include "balancing/balancing_config.h"  // BalancingConfig
-#include "balancing/file_ops.hpp"        // readInputFileAsMatrix()
-#include "balancing/lqr.hpp"             // lqr()
 
 //============================================================================
 const char BalanceControl::MODE_STRINGS[][16] = {
