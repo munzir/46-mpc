@@ -85,6 +85,10 @@ struct BalancingConfig {
   // if this flag is set, arms have to be unhalted by a joystick-based event
   // before use, and have to be halted in order to lock them
   bool manualArmLockUnlock;
+
+  bool is_simulation_;
+  double sim_dt_;
+  double sim_max_input_current_;
 };
 
 // Function for reading configuration parameters. First argument is the location
