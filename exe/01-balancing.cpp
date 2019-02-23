@@ -132,12 +132,12 @@ int main(int argc, char* argv[]) {
                 Krang::Hardware::MODE_WAIST;
   Krang::Hardware*
       krang;  ///< Interface for the motor and sensors on the hardware
-  // krang =
-  //    new Krang::Hardware((Krang::Hardware::Mode)hw_mode, &daemon_cx, robot);
+  krang =
+     new Krang::Hardware((Krang::Hardware::Mode)hw_mode, &daemon_cx, robot);
   //    Akash made the following edits to add filter_imu option
-  bool filter_imu = (params.is_simulation_ ? false : true);
-  krang = new Krang::Hardware((Krang::Hardware::Mode)hw_mode, &daemon_cx, robot,
-                              filter_imu);
+  // bool filter_imu = (params.is_simulation_ ? false : true);
+  // krang = new Krang::Hardware((Krang::Hardware::Mode)hw_mode, &daemon_cx, robot,
+  //                            filter_imu);
 
   // Create a thread that processes keyboard inputs when keys are pressed
   KbShared kb_shared;  ///< info shared by keyboard thread here
