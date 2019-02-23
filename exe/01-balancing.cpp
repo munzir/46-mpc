@@ -61,7 +61,7 @@
 
 #include "balancing/arms.h"  // ArmControl
 #include "balancing/balancing_config.h"  // BalancingConfig, ReadConfigParams(), ReadConfigTimeStep()
-#include "balancing/control.h"   // BalancingControl
+#include "balancing/control.h"   // BalanceControl
 #include "balancing/events.h"    // Events()
 #include "balancing/joystick.h"  // Joystick
 #include "balancing/keyboard.h"  // KbShared, KbHit
@@ -71,34 +71,36 @@
 /* ************************************************************************* */
 /// The main thread
 int main(int argc, char* argv[]) {
-  // Read config parameters
   BalancingConfig params;
-  ReadConfigParams("../cfg/balancing_params.cfg", &params);
 
   // Ask user whether we are interfacing with simulation or hardware
   std::cout << std::endl
             << std::endl
             << "Simulation mode or hardware mode (s/h)? ";
   char key = getchar();
-  bool is_simulation;
   if (key == 's')
-    is_simulation = true;
+    params.is_simulation_ = true;
   else if (key == 'h')
-    is_simulation = false;
+    params.is_simulation_ = false;
   else
     return 0;
+
+  // Read config parameters
+  ReadConfigParams(
+      (params.is_simulation_ ? "../cfg/balancing_params_simulation.cfg"
+                             : "../cfg/balancing_params.cfg"),
+      &params);
 
   // If simulation mode, create interface to the world of simulation
   InterfaceContext* interface_context;
   WorldInterface* world_interface;
-  double sim_dt;
-  if (is_simulation) {
+  if (params.is_simulation_) {
     interface_context = new InterfaceContext("01-balance-sim-interface");
     world_interface =
         new WorldInterface(*interface_context, "sim-cmd", "sim-state");
-    sim_dt = ReadConfigTimeStep(
+    params.sim_dt_ = ReadConfigTimeStep(
         "/usr/local/share/krang-sim-ach/cfg/dart_params.cfg");
-    if (sim_dt < 0.0) {
+    if (params.sim_dt_ < 0.0) {
       std::cout << "Error reading time step" << std::endl;
       return 0;
     }
@@ -130,8 +132,12 @@ int main(int argc, char* argv[]) {
                 Krang::Hardware::MODE_WAIST;
   Krang::Hardware*
       krang;  ///< Interface for the motor and sensors on the hardware
-  krang =
-      new Krang::Hardware((Krang::Hardware::Mode)hw_mode, &daemon_cx, robot);
+  // krang =
+  //    new Krang::Hardware((Krang::Hardware::Mode)hw_mode, &daemon_cx, robot);
+  //    Akash made the following edits to add filter_imu option
+  bool filter_imu = (params.is_simulation_ ? false : true);
+  krang = new Krang::Hardware((Krang::Hardware::Mode)hw_mode, &daemon_cx, robot,
+                              filter_imu);
 
   // Create a thread that processes keyboard inputs when keys are pressed
   KbShared kb_shared;  ///< info shared by keyboard thread here
@@ -147,7 +153,6 @@ int main(int argc, char* argv[]) {
   torso_state.mode = TorsoState::kStop;
   Somatic__WaistMode waist_mode;
   BalanceControl balance_control(krang, robot, params);
-  if (is_simulation) balance_control.set_dt(sim_dt);
 
   // Flag to enable wheel control. Control inputs are not sent to the wheels
   // until this flag is set
@@ -166,7 +171,8 @@ int main(int argc, char* argv[]) {
 
     // Read time, state and joystick inputs
     time +=
-        (is_simulation ? sim_dt : balance_control.ElapsedTimeSinceLastCall());
+        (params.is_simulation_ ? params.sim_dt_
+                               : balance_control.ElapsedTimeSinceLastCall());
     balance_control.UpdateState();
     bool joystick_msg_received = false;
     while (!joystick_msg_received) joystick_msg_received = joystick.Update();
@@ -193,7 +199,7 @@ int main(int argc, char* argv[]) {
     ControlTorso(daemon_cx, torso_state, krang);
 
     // If in simulation world, make the simulation time step forward
-    if (is_simulation) {
+    if (params.is_simulation_) {
       bool success = world_interface->Step();
       if (!success) break;
     }
@@ -201,8 +207,10 @@ int main(int argc, char* argv[]) {
     // Print the mode
     if (debug) {
       std::cout << "vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv\n" << std::endl;
-      std::cout << "Interface: " << (is_simulation ? "simulation" : "hardware");
+      std::cout << "Interface: "
+                << (params.is_simulation_ ? "simulation" : "hardware");
       balance_control.Print();
+      std::cout << "time: " << time << std::endl;
       if (start) std::cout << "Started..." << std::endl;
     }
   }
@@ -213,7 +221,7 @@ int main(int argc, char* argv[]) {
 
   std::cout << "destroying" << std::endl;
   delete krang;
-  if (is_simulation) {
+  if (params.is_simulation_) {
     delete interface_context;
     delete world_interface;
   }

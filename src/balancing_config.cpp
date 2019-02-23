@@ -140,6 +140,12 @@ void ReadConfigParams(const char* config_file, BalancingConfig* params) {
     std::cout << "manualArmLockUnlock: ";
     std::cout << (params->manualArmLockUnlock ? "true" : "false") << std::endl;
 
+    // Max input current in simulation mode
+    if (params->is_simulation_) {
+      params->sim_max_input_current_ = cfg->lookupFloat(scope, "maxInputCurrent");
+      std::cout << "maxInputCurrent: " << params->sim_max_input_current_ << std::endl;
+    }
+
   } catch (const config4cpp::ConfigurationException& ex) {
     std::cerr << ex.c_str() << std::endl;
     cfg->destroy();

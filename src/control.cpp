@@ -43,6 +43,7 @@
 #include "balancing/control.h"
 
 #include <algorithm>  // std::max(), std::min()
+#include <cstring>    // strlen
 #include <cmath>      // atan2, tan
 #include <iostream>   // std::cout, std::endl
 #include <string>     // std::string
@@ -65,7 +66,15 @@ const char BalanceControl::MODE_STRINGS[][16] = {
 BalanceControl::BalanceControl(Krang::Hardware* krang,
                                dart::dynamics::SkeletonPtr robot,
                                BalancingConfig& params)
-    : krang_(krang), robot_(robot) {
+    : krang_(krang), robot_(robot), is_simulation_(params.is_simulation_) {
+  // if in simulation mode dt = sim_dt
+  if (is_simulation_) dt_ = params.sim_dt_;
+
+  // Define max input current based on simulation mode or not
+  max_input_current_ = (is_simulation_ ? params.sim_max_input_current_
+                                       : kMaxInputCurrentHardware);
+  std::cout << "max input current: " << max_input_current_ << std::endl;
+
   // LQR Gains
   dynamic_lqr_ = params.dynamicLQR;
   lqrQ_ = params.lqrQ;
@@ -117,17 +126,19 @@ BalanceControl::BalanceControl(Krang::Hardware* krang,
   }
 
   // Read CoM estimation model paramters
-  Eigen::MatrixXd beta;
-  std::string inputBetaFilename = params.comParametersPath;
-  try {
-    std::cout << "Reading converged beta ...\n";
-    beta = readInputFileAsMatrix(inputBetaFilename);
-    std::cout << "|-> Done\n";
-  } catch (exception& e) {
-    std::cout << e.what() << std::endl;
-    assert(false && "Problem loading CoM parameters...");
+  if (strlen(params.comParametersPath) != 0) {
+    Eigen::MatrixXd beta;
+    std::string inputBetaFilename = params.comParametersPath;
+    try {
+      std::cout << "Reading converged beta ...\n";
+      beta = readInputFileAsMatrix(inputBetaFilename);
+      std::cout << "|-> Done\n";
+    } catch (exception& e) {
+      std::cout << e.what() << std::endl;
+      assert(false && "Problem loading CoM parameters...");
+    }
+    BalanceControl::SetComParameters(beta, 4);
   }
-  BalanceControl::SetComParameters(beta, 4);
 
   // time
   t_prev_ = aa_tm_now();
@@ -233,8 +244,12 @@ void BalanceControl::ComputeCurrent(const Eigen::Matrix<double, 6, 1>& pd_gain,
   u_spin_ = std::max(-30.0, std::min(30.0, u_spin_));
 
   // Calculate current for the wheels
-  control_input[0] = std::max(-49.0, std::min(49.0, u_theta_ + u_x_ + u_spin_));
-  control_input[1] = std::max(-49.0, std::min(49.0, u_theta_ + u_x_ - u_spin_));
+  control_input[0] =
+      std::max(-max_input_current_,
+               std::min(max_input_current_, u_theta_ + u_x_ + u_spin_));
+  control_input[1] =
+      std::max(-max_input_current_,
+               std::min(max_input_current_, u_theta_ + u_x_ - u_spin_));
 }
 
 //============================================================================
@@ -252,7 +267,17 @@ Eigen::MatrixXd BalanceControl::ComputeLqrGains() {
   const double motor_constant = 12.0 * 0.00706;
   const double gear_ratio = 15;
   LQR_Gains /= (gear_ratio * motor_constant);
-  LQR_Gains = lqr_hack_ratios_ * LQR_Gains;
+  if (is_simulation_) {
+    // LQR gains are calculated using a model that has one wheel
+    // The torque needs to be distributed to either wheel, so needs
+    // to be halved
+    LQR_Gains = 0.5 * LQR_Gains;
+  } else {
+    // TODO: LQR gains were calculated with only single wheel torque
+    // They should be halved to divide between two wheels.
+    // This may end up having to find lqr_hack_ratios_
+    LQR_Gains = lqr_hack_ratios_ * LQR_Gains;
+  }
 
   return LQR_Gains;
 }

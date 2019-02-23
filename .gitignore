@@ -14,6 +14,7 @@
 !/cfg/
 /cfg/*
 !/cfg/balancing_params.cfg
+!/cfg/balancing_params_simulation.cfg
 
 # include
 !/include/
