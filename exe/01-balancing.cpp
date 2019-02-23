@@ -222,8 +222,8 @@ int main(int argc, char* argv[]) {
   std::cout << "destroying" << std::endl;
   delete krang;
   if (params.is_simulation_) {
-    delete interface_context;
     delete world_interface;
+    delete interface_context;
   }
   somatic_d_destroy(&daemon_cx);
   return 0;
