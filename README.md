@@ -31,7 +31,11 @@ This repo contains code for balancing krang. Aim is to implement original balanc
 - [09-URDF](https://github.gatech.edu/WholeBodyControlAttempt1/09-URDF)
  Install the repository.
 
-- [18-OnlineCoM](https://github.gatech.edu/WholeBodyControlAttempt1/18-OnlineCoM)  Install the repository.
+- [18-OnlineCoM](https://github.gatech.edu/WholeBodyControlAttempt1/18-OnlineCoM)
+ Install the repository.
+ 
+- [18h-krang-utils](https://github.gatech.edu/WholeBodyControlAttempt1/18h-krang-utils)
+ Install the repository.
 
 - [36-kore](https://github.gatech.edu/WholeBodyControlAttempt1/36-kore/tree/newdart)
  Install the repository.
