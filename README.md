@@ -37,7 +37,7 @@ This repo contains code for balancing krang. Aim is to implement original balanc
 - [18h-krang-utils](https://github.gatech.edu/WholeBodyControlAttempt1/18h-krang-utils)
  Install the repository.
 
-- [36-kore](https://github.gatech.edu/WholeBodyControlAttempt1/36-kore/tree/newdart)
+- [36-kore](https://github.gatech.edu/WholeBodyControlAttempt1/36-kore)
  Install the repository.
 
 - [37-somatic](https://github.gatech.edu/WholeBodyControlAttempt1/37-somatic)
