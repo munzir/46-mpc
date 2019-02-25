@@ -133,6 +133,8 @@ void ReadConfigParams(const char* config_file, BalancingConfig* params) {
     std::cout << "imuSitAngle :" << params->imuSitAngle << std::endl;
     params->toBalThreshold = cfg->lookupFloat(scope, "toBalThreshold");
     std::cout << "toBalThreshold :" << params->toBalThreshold << std::endl;
+    params->startBalThreshold = cfg->lookupFloat(scope, "startBalThreshold");
+    std::cout << "startBalThreshold :" << params->startBalThreshold << std::endl;
 
     // Halt arm to stop
     params->manualArmLockUnlock =

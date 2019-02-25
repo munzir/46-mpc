@@ -167,10 +167,12 @@ class BalanceControl {
   Eigen::Matrix<double, 4, 4> lqrQ_;  // Q matrix for LQR
   Eigen::Matrix<double, 1, 1> lqrR_;  // R matrix for LQR
 
-  double to_bal_threshold_;  // if CoM angle error < value, STAND mode
-                             // automatically transitions to BAL_LO
-  double imu_sit_angle_;     // if angle < value, SIT mode automatically
-                             // transitions to GROUND_LO mode
+  double to_bal_threshold_;     // if CoM angle error < value, STAND mode
+                                // automatically transitions to BAL_LO
+  double start_bal_threshold_;  // if absolute CoM angle error > value, krang
+                                // will refuse to stand
+  double imu_sit_angle_;        // if angle < value, SIT mode automatically
+                                // transitions to GROUND_LO mode
   bool is_simulation_;
   double max_input_current_;
   const double kMaxInputCurrentHardware = 49.0;
