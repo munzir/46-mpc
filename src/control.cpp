@@ -105,6 +105,7 @@ BalanceControl::BalanceControl(Krang::Hardware* krang,
 
   // Parameters used for generating internal events
   to_bal_threshold_ = params.toBalThreshold;
+  start_bal_threshold_ = params.startBalThreshold;
   imu_sit_angle_ = params.imuSitAngle;
 
   // Initial values
@@ -498,7 +499,7 @@ void BalanceControl::BalHiLoEvent() {
 void BalanceControl::StandSitEvent() {
   // If in ground mode and state error is not high stand up
   if (balance_mode_ == BalanceControl::GROUND_LO) {
-    if (state_(0) < 0.0 && error_(0) > -10.0 * M_PI / 180.0) {
+    if (state_(0) < 0.0 && error_(0) > -start_bal_threshold_ * M_PI / 180.0) {
       balance_mode_ = BalanceControl::STAND;
       CancelPositionBuiltup();
       std::cout << "[MODE] STAND" << std::endl;
