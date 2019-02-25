@@ -43,18 +43,18 @@
 #include "balancing/control.h"
 
 #include <algorithm>  // std::max(), std::min()
-#include <cstring>    // strlen
 #include <cmath>      // atan2, tan
+#include <cstring>    // strlen
 #include <iostream>   // std::cout, std::endl
 #include <string>     // std::string
 
 #include <amino/time.h>  // aa_tm: _now(), _timespec2sec(), _sub()
 #include <Eigen/Eigen>  // Eigen:: MatrixXd, VectorXd, Vector3d, Matrix<double, #, #>
-#include <dart/dart.hpp>  // dart::dynamics::SkeletonPtr
-#include <kore.hpp>       // Krang::Hardware
-#include <krang-utils/adrc.hpp> // computeLinearizedDynamics()
-#include <krang-utils/file_ops.hpp>        // readInputFileAsMatrix()
-#include <krang-utils/lqr.hpp>             // lqr()
+#include <dart/dart.hpp>             // dart::dynamics::SkeletonPtr
+#include <kore.hpp>                  // Krang::Hardware
+#include <krang-utils/file_ops.hpp>  // readInputFileAsMatrix()
+#include <krang-utils/linearize_wip.hpp>  // linearize_wip::ComputeLinearizedDynamics()
+#include <krang-utils/lqr.hpp>            // lqr()
 
 #include "balancing/balancing_config.h"  // BalancingConfig
 
@@ -261,7 +261,20 @@ Eigen::MatrixXd BalanceControl::ComputeLqrGains() {
   Eigen::VectorXd B_thCOM = Eigen::VectorXd::Zero(3);
   Eigen::VectorXd LQR_Gains = Eigen::VectorXd::Zero(4);
 
-  computeLinearizedDynamics(krang_->robot, A, B, B_thWheel, B_thCOM);
+  // Find linearized model of the WIP
+  linearize_wip::ParametersNotFoundInUrdf params;
+  if (is_simulation_) {
+    params.rotor_inertia = 0.0;
+    params.gear_ratio = 1;
+    params.wheel_radius = 0.25;
+  } else {
+    params.rotor_inertia = 0.0;
+    params.gear_ratio = 15;
+    params.wheel_radius = 0.25;
+  }
+  linearize_wip::ComputeLinearizedDynamics(krang_->robot, params, A, B);
+
+  // Apply lqr on the linearized model
   lqr(A, B, lqrQ_, lqrR_, LQR_Gains);
 
   const double motor_constant = 12.0 * 0.00706;
