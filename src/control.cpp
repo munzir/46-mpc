@@ -43,18 +43,18 @@
 #include "balancing/control.h"
 
 #include <algorithm>  // std::max(), std::min()
-#include <cstring>    // strlen
 #include <cmath>      // atan2, tan
+#include <cstring>    // strlen
 #include <iostream>   // std::cout, std::endl
 #include <string>     // std::string
 
 #include <amino/time.h>  // aa_tm: _now(), _timespec2sec(), _sub()
 #include <Eigen/Eigen>  // Eigen:: MatrixXd, VectorXd, Vector3d, Matrix<double, #, #>
-#include <dart/dart.hpp>  // dart::dynamics::SkeletonPtr
-#include <kore.hpp>       // Krang::Hardware
-#include <krang-utils/linearize_wip.hpp> // linearize_wip::ComputeLinearizedDynamics()
-#include <krang-utils/file_ops.hpp>        // readInputFileAsMatrix()
-#include <krang-utils/lqr.hpp>             // lqr()
+#include <dart/dart.hpp>             // dart::dynamics::SkeletonPtr
+#include <kore.hpp>                  // Krang::Hardware
+#include <krang-utils/file_ops.hpp>  // readInputFileAsMatrix()
+#include <krang-utils/linearize_wip.hpp>  // linearize_wip::ComputeLinearizedDynamics()
+#include <krang-utils/lqr.hpp>            // lqr()
 
 #include "balancing/balancing_config.h"  // BalancingConfig
 
@@ -105,7 +105,8 @@ BalanceControl::BalanceControl(Krang::Hardware* krang,
 
   // Parameters used for generating internal events
   to_bal_threshold_ = params.toBalThreshold;
-  start_bal_threshold_ = params.startBalThreshold;
+  start_bal_threshold_lo_ = params.startBalThresholdLo;
+  start_bal_threshold_hi_ = params.startBalThresholdHi;
   imu_sit_angle_ = params.imuSitAngle;
 
   // Initial values
@@ -499,7 +500,8 @@ void BalanceControl::BalHiLoEvent() {
 void BalanceControl::StandSitEvent() {
   // If in ground mode and state error is not high stand up
   if (balance_mode_ == BalanceControl::GROUND_LO) {
-    if (state_(0) < 0.0 && error_(0) > -start_bal_threshold_ * M_PI / 180.0) {
+    if (state_(0) < start_bal_threshold_hi_ * M_PI / 180.0 &&
+        state_(0) > start_bal_threshold_lo_ * M_PI / 180.0) {
       balance_mode_ = BalanceControl::STAND;
       CancelPositionBuiltup();
       std::cout << "[MODE] STAND" << std::endl;

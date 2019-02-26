@@ -169,7 +169,9 @@ class BalanceControl {
 
   double to_bal_threshold_;     // if CoM angle error < value, STAND mode
                                 // automatically transitions to BAL_LO
-  double start_bal_threshold_;  // if absolute CoM angle error > value, krang
+  double start_bal_threshold_lo_;  // if CoM angle error < value, krang
+                                // will refuse to stand
+  double start_bal_threshold_hi_;  // if CoM angle error > value, krang
                                 // will refuse to stand
   double imu_sit_angle_;        // if angle < value, SIT mode automatically
                                 // transitions to GROUND_LO mode
