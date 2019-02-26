@@ -80,7 +80,8 @@ struct BalancingConfig {
   // Balancing control mode transition parameters
   double imuSitAngle;
   double toBalThreshold;
-  double startBalThreshold;
+  double startBalThresholdLo;
+  double startBalThresholdHi;
 
   // if this flag is not set, arms are always locked when not in use
   // if this flag is set, arms have to be unhalted by a joystick-based event

@@ -9,6 +9,9 @@
 
 # CMakelists
 !CMakeLists.txt
+!/cmake/
+/cmake/*
+!/cmake/cmake_uninstall.cmake.in
 
 # params
 !/cfg/

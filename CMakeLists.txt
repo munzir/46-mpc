@@ -31,7 +31,7 @@ set(EIGEN_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/lib/eigen)
 # NOTE: Ideally we would like to 'find' these packages but for now, we assume they are either
 # in /usr/lib or /usr/local/lib
 #link_libraries(amino ntcan protobuf-c ach somatic stdc++ filter pcio pthread ncurses dart fcl tinyxml tinyxml2 kore assimp GL)
-link_libraries(amino protobuf-c ach somatic stdc++ filter pthread ncurses dart fcl tinyxml tinyxml2 kore assimp GL config4cpp krach krang-utils)
+link_libraries(amino protobuf-c ach somatic stdc++ filter pthread ncurses dart fcl tinyxml tinyxml2 kore assimp GL config4cpp krach krang-utils krangsimach)
 #include_directories(/usr/include/dart)
 
 # ================================================================================================
@@ -58,8 +58,8 @@ file(GLOB scripts_source "exe/*.cpp" "exe/tests/*.cpp")
 list(SORT scripts_source)
 
 # Build the library and set the executables that use it (have to hardcode for now)
-add_library(Main SHARED ${main_source})
-set(MainDependents kore balancing)
+add_library(krang-balancing SHARED ${main_source})
+set(krang-balancingDependents kore balancing)
 
 # Build scripts
 message(STATUS "\n-- SCRIPTS: ")
@@ -67,9 +67,30 @@ foreach(script_src_file ${scripts_source})
 	get_filename_component(script_base ${script_src_file} NAME_WE)
 	message(STATUS "Adding script ${script_src_file} with base name ${script_base}" )
 	add_executable(${script_base} ${script_src_file})
-	target_link_libraries(${script_base} Main)
+	target_link_libraries(${script_base} krang-balancing)
 	#target_link_libraries(${script_base} ${GRIP_LIBRARIES} ${DART_LIBRARIES} ${DARTExt_LIBRARIES} ${wxWidgets_LIBRARIES})
-	target_link_libraries(${script_base} ${DART_LIBRARIES} ${wxWidgets_LIBRARIES} krang-utils)
+	target_link_libraries(${script_base} ${DART_LIBRARIES} ${wxWidgets_LIBRARIES} krang-utils krangsimach)
 	add_custom_target(${script_base}.run ${script_base} ${ARGN})
 endforeach(script_src_file)
+
+# Install
+install(TARGETS krang-balancing  DESTINATION /usr/local/lib)
+FILE(GLOB headers "include/balancing/*.h" "include/balancing/*.hpp")
+install(FILES ${headers} DESTINATION /usr/local/include/krang/balancing)
+if(NOT EXISTS "/usr/local/share/krang/balancing/cfg")
+  install(DIRECTORY cfg DESTINATION /usr/local/share/krang/balancing)
+endif()
+install(PROGRAMS build/01-balancing DESTINATION /usr/local/bin/krang/krang-balancing)
+
 message(STATUS " ")
+
+# uninstall target
+if(NOT TARGET uninstall)
+    configure_file(
+        "${CMAKE_CURRENT_SOURCE_DIR}/cmake/cmake_uninstall.cmake.in"
+        "${CMAKE_CURRENT_BINARY_DIR}/cmake_uninstall.cmake"
+        IMMEDIATE @ONLY)
+
+    add_custom_target(uninstall
+        COMMAND ${CMAKE_COMMAND} -P ${CMAKE_CURRENT_BINARY_DIR}/cmake_uninstall.cmake)
+endif()
