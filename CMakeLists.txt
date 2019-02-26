@@ -80,7 +80,7 @@ install(FILES ${headers} DESTINATION /usr/local/include/krang/balancing)
 if(NOT EXISTS "/usr/local/share/krang/balancing/cfg")
   install(DIRECTORY cfg DESTINATION /usr/local/share/krang/balancing)
 endif()
-install(PROGRAMS build/01-balancing DESTINATION /usr/local/bin/krang/krang-balancing)
+install(PROGRAMS build/01-balancing DESTINATION /usr/local/bin/ RENAME krang-balancing)
 
 message(STATUS " ")
 
