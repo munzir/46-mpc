@@ -156,12 +156,23 @@ double BalanceControl::ElapsedTimeSinceLastCall() {
 }
 
 //============================================================================
+Eigen::Vector3d BalanceControl::GetBodyCom(dart::dynamics::SkeletonPtr robot) {
+  dart::dynamics::BodyNodePtr lwheel = robot->getBodyNode("LWheel");
+  dart::dynamics::BodyNodePtr rwheel = robot->getBodyNode("RWheel");
+  double wheel_mass = lwheel->getMass();
+  double full_mass = robot->getMass();
+  return (full_mass * robot->getCOM() - wheel_mass * lwheel->getCOM() -
+          wheel_mass * rwheel->getCOM()) /
+         (full_mass - 2 * wheel_mass);
+}
+
+//============================================================================
 void BalanceControl::UpdateState() {
   // Read motor encoders, imu and ft and update dart skeleton
   krang_->updateSensors(dt_);
 
   // Calculate the COM Using Skeleton
-  com_ = robot_->getCOM() - robot_->getPositions().segment(3, 3);
+  com_ = GetBodyCom(robot_) - robot_->getPositions().segment(3, 3);
 
   // Update the state (note for amc we are reversing the effect of the motion of
   // the upper body) State are theta, dtheta, x, dx, psi, dpsi
@@ -270,7 +281,9 @@ Eigen::MatrixXd BalanceControl::ComputeLqrGains() {
     params.gear_ratio = 1;
     params.wheel_radius = 0.25;
   } else {
-    params.rotor_inertia = 0.0;
+    const double kKilogramMeterSquaredPerOunceInchSecondSquared = 0.00706154;
+    params.rotor_inertia =
+        0.022656 * kKilogramMeterSquaredPerOunceInchSecondSquared;
     params.gear_ratio = 15;
     params.wheel_radius = 0.25;
   }
@@ -291,7 +304,8 @@ Eigen::MatrixXd BalanceControl::ComputeLqrGains() {
     // TODO: LQR gains were calculated with only single wheel torque
     // They should be halved to divide between two wheels.
     // This may end up having to find lqr_hack_ratios_
-    LQR_Gains = lqr_hack_ratios_ * LQR_Gains;
+    // LQR_Gains = lqr_hack_ratios_ * LQR_Gains;
+		LQR_Gains = 0.5 * LQR_Gains;
   }
 
   return LQR_Gains;
