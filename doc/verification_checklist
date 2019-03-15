@@ -1,0 +1,18 @@
+debug messages
+wait for char input
+joystick flag toggle using keyboard
+print gains in each mode
+cancel position built up on mode change from GROUND to other
+delta change in K gains
+toggle joystick flag using joystick
+refstate update using joystick
+toggle start
+cancel position built up on start button
+all arm motions, waist motion, torso motion
+motion using joystick in ground mode
+proper com estimation
+sit and stand transitions
+change of modes proper
+motion using joystick in bal mode
+balance while lifting up waist
+toggle bal_lo vs bal_hi mode using joystick

@@ -19,6 +19,11 @@
 !/cfg/balancing_params.cfg
 !/cfg/balancing_params_simulation.cfg
 
+# docs
+!/doc/
+/doc/*
+!/doc/verification_checklist
+
 # include
 !/include/
 /include/*
