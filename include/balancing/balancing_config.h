@@ -82,6 +82,7 @@ struct BalancingConfig {
   double toBalThreshold;
   double startBalThresholdLo;
   double startBalThresholdHi;
+  double waistHiLoThreshold;
 
   // if this flag is not set, arms are always locked when not in use
   // if this flag is set, arms have to be unhalted by a joystick-based event

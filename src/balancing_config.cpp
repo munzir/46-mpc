@@ -137,6 +137,10 @@ void ReadConfigParams(const char* config_file, BalancingConfig* params) {
     std::cout << "startBalThresholdLo :" << params->startBalThresholdLo << std::endl;
     params->startBalThresholdHi = cfg->lookupFloat(scope, "startBalThresholdHi");
     std::cout << "startBalThresholdHi :" << params->startBalThresholdHi << std::endl;
+    params->waistHiLoThreshold =
+        cfg->lookupFloat(scope, "waistHiLoThreshold");
+    std::cout << "waistHiLoThreshold :" << params->waistHiLoThreshold
+              << std::endl;
 
     // Halt arm to stop
     params->manualArmLockUnlock =

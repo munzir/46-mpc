@@ -183,6 +183,7 @@ class BalanceControl {
                                 // will refuse to stand
   double imu_sit_angle_;        // if angle < value, SIT mode automatically
                                 // transitions to GROUND_LO mode
+  double waist_hi_lo_threshold_;
   bool is_simulation_;
   double max_input_current_;
   const double kMaxInputCurrentHardware = 49.0;
