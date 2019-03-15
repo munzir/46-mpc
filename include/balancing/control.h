@@ -75,6 +75,9 @@ class BalanceControl {
   // constructor
   double ElapsedTimeSinceLastCall();
 
+  // Get body only com (without wheels) in world frame)
+  Eigen::Vector3d GetBodyCom(dart::dynamics::SkeletonPtr robot);
+
   // Reads the sensors of the robot and updates the state of the wheeled
   // inverted pendulum. Involves computation of the center of mass
   void UpdateState();
@@ -112,6 +115,11 @@ class BalanceControl {
 
   // Sets spin speed control reference
   void SetSpinInput(double spin);
+
+  // Getters
+  Eigen::Matrix<double, 6, 1> get_pd_gains() const { return pd_gains_; }
+  Eigen::Matrix<double, 6, 1> get_state() const { return state_; }
+  Eigen::Matrix<double, 3, 1> get_com() const { return com_; }
 
  private:
   // Set parameters in the model used to compute CoM

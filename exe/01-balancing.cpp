@@ -186,6 +186,11 @@ int main(int argc, char* argv[]) {
   torso_state.mode = TorsoState::kStop;
   Somatic__WaistMode waist_mode;
   BalanceControl balance_control(krang, robot, params);
+  for (int i = 0; i < robot->getNumBodyNodes(); i++) {
+    dart::dynamics::BodyNodePtr body = robot->getBodyNode(i);
+    std::cout << body->getName() << ": " << body->getMass() << " ";
+    std::cout << body->getLocalCOM().transpose() << std::endl;
+  }
 
   // Flag to enable wheel control. Control inputs are not sent to the wheels
   // until this flag is set
