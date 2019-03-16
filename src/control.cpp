@@ -403,7 +403,10 @@ void BalanceControl::BalancingController(double* control_input) {
       BalanceControl::ComputeCurrent(pd_gains_, error_, &control_input[0]);
 
       // State Transition - If stood up go to balancing mode
-      if (fabs(state_(0)) < (to_bal_threshold_ / 180.0) * M_PI /*0.034*/) {
+      // Stand up condition is defined as base in the air and stopped moving
+      // Former is determined by imu and latter by state(1)
+      const double kImuSitAngle = ((imu_sit_angle_ / 180.0) * M_PI);
+      if (krang_->imu > kImuSitAngle && fabs(state_(1)) < to_bal_threshold_) {
         stood_up_timer++;
       } else {
         stood_up_timer = 0;
@@ -501,6 +504,7 @@ void BalanceControl::Print() {
   std::cout << "refState: " << ref_state_.transpose() << std::endl;
   std::cout << "error: " << error_.transpose();
   std::cout << ", imu: " << krang_->imu / M_PI * 180.0 << std::endl;
+  std::cout << "dynamic lqr: " << (dynamic_lqr_? "true" : "false") << std::endl;
   std::cout << "PD Gains: " << pd_gains_.transpose() << std::endl;
   std::cout << "Mode : " << MODE_STRINGS[balance_mode_] << "      ";
   std::cout << "dt: " << dt_ << std::endl;
