@@ -44,13 +44,12 @@
 #ifndef KRANG_BALANCING_CONFIG_H_
 #define KRANG_BALANCING_CONFIG_H_
 
-#include <memory>
 #include <Eigen/Eigen>
+#include <memory>
 
 // Structure in which all configurable parameters are read at the beginning of
 // the program
 struct BalancingConfig {
-
   // Path to urdf file
   char urdfpath[1024];
 
@@ -81,16 +80,26 @@ struct BalancingConfig {
   // Balancing control mode transition parameters
   double imuSitAngle;
   double toBalThreshold;
+  double startBalThresholdLo;
+  double startBalThresholdHi;
+  double waistHiLoThreshold;
 
   // if this flag is not set, arms are always locked when not in use
   // if this flag is set, arms have to be unhalted by a joystick-based event
   // before use, and have to be halted in order to lock them
   bool manualArmLockUnlock;
+
+  bool is_simulation_;
+  double sim_dt_;
+  double sim_max_input_current_;
 };
 
-// Function for reading configuration parameters. First argument is the location of
-// cfg file from the parameters are to be read. Second argument is the output where
-// the parameters are stored
-void ReadConfigParams (const char* config_file, BalancingConfig* params);
+// Function for reading configuration parameters. First argument is the location
+// of cfg file from the parameters are to be read. Second argument is the output
+// where the parameters are stored
+void ReadConfigParams(const char* config_file, BalancingConfig* params);
 
-#endif // KRANG_BALANCING_CONFIG_H_
+// Read the parameter named "time_step" from the give config file
+double ReadConfigTimeStep(const char* config_file);
+
+#endif  // KRANG_BALANCING_CONFIG_H_

@@ -49,27 +49,31 @@
 #include <kore.hpp>
 #include "balancing_config.h"
 
-/* ********************************************************************************************* */
-// The struct used by controlArm function to decide the control command to be sent
+/* *********************************************************************************************
+ */
+// The struct used by controlArm function to decide the control command to be
+// sent
 class ArmControl {
  public:
   enum ArmMode {
-    kStop,              // both arms' halted
-    kMoveLeftBigSet,    // sets left arms' joints 1-4 vel to command_vals[0-3]
-    kMoveLeftSmallSet,  // sets left arms' joints 5-7 vel to command_vals[4-6]
-    kMoveRightBigSet,   //  sets left arms' joints 1-4 vel to command_vals[0-3]
-    kMoveRightSmallSet, //  sets left arms' joints 5-7 vel to command_vals[4-6]
-    kMoveLeftToPresetPos,   // left arms' pos = presetArmConfs[2*preset_config_num]
-    kMoveRightToPresetPos,  // right arms' pos = presetArmConfs[2*preset_config_num+1]
+    kStop,               // both arms' halted
+    kMoveLeftBigSet,     // sets left arms' joints 1-4 vel to command_vals[0-3]
+    kMoveLeftSmallSet,   // sets left arms' joints 5-7 vel to command_vals[4-6]
+    kMoveRightBigSet,    //  sets left arms' joints 1-4 vel to command_vals[0-3]
+    kMoveRightSmallSet,  //  sets left arms' joints 5-7 vel to command_vals[4-6]
+    kMoveLeftToPresetPos,   // left arms' pos =
+                            // presetArmConfs[2*preset_config_num]
+    kMoveRightToPresetPos,  // right arms' pos =
+                            // presetArmConfs[2*preset_config_num+1]
     kMoveBothToPresetPos    // does both the above
   };
-  static double presetArmConfs[][7]; // should be const but somatic_motor_cmd
-                                     // gives problems when passing directly
-                                     // const array pointers to it
+  static double presetArmConfs[][7];  // should be const but somatic_motor_cmd
+                                      // gives problems when passing directly
+                                      // const array pointers to it
 
   ArmControl(somatic_d_t* daemon_cx_, Krang::Hardware* krang_,
              BalancingConfig& params);
-  ~ArmControl() {};
+  ~ArmControl(){};
 
   void ControlArms();
   void LockUnlockEvent();
@@ -86,9 +90,10 @@ class ArmControl {
   somatic_d_t* daemon_cx;
   Krang::Hardware* krang;
   bool event_based_lock_unlock;
-  bool halted; // to manage halt/reset events when state_based_lock_unlock is not set
+  bool halted;  // to manage halt/reset events when state_based_lock_unlock is
+                // not set
   void ArmLockEvent();
   void ArmUnlockEvent();
 };
 
-#endif // KRANG_BALANCING_ARMS_H_
+#endif  // KRANG_BALANCING_ARMS_H_
