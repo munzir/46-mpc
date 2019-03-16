@@ -75,6 +75,9 @@ class BalanceControl {
   // constructor
   double ElapsedTimeSinceLastCall();
 
+  // Get body only com (without wheels) in world frame)
+  Eigen::Vector3d GetBodyCom(dart::dynamics::SkeletonPtr robot);
+
   // Reads the sensors of the robot and updates the state of the wheeled
   // inverted pendulum. Involves computation of the center of mass
   void UpdateState();
@@ -129,6 +132,11 @@ class BalanceControl {
 
   // Sets spin speed control reference
   void SetSpinInput(double spin);
+
+  // Getters
+  Eigen::Matrix<double, 6, 1> get_pd_gains() const { return pd_gains_; }
+  Eigen::Matrix<double, 6, 1> get_state() const { return state_; }
+  Eigen::Matrix<double, 3, 1> get_com() const { return com_; }
 
  private:
   // Set parameters in the model used to compute CoM
@@ -187,11 +195,18 @@ class BalanceControl {
   Eigen::Matrix<double, 4, 4> lqrQ_;  // Q matrix for LQR
   Eigen::Matrix<double, 1, 1> lqrR_;  // R matrix for LQR
 
-  double to_bal_threshold_;  // if CoM angle error < value, STAND mode
-                             // automatically transitions to BAL_LO
-  double imu_sit_angle_;     // if angle < value, SIT mode automatically
-                             // transitions to GROUND_LO mode
-
+  double to_bal_threshold_;     // if CoM angle error < value, STAND mode
+                                // automatically transitions to BAL_LO
+  double start_bal_threshold_lo_;  // if CoM angle error < value, krang
+                                // will refuse to stand
+  double start_bal_threshold_hi_;  // if CoM angle error > value, krang
+                                // will refuse to stand
+  double imu_sit_angle_;        // if angle < value, SIT mode automatically
+                                // transitions to GROUND_LO mode
+  double waist_hi_lo_threshold_;
+  bool is_simulation_;
+  double max_input_current_;
+  const double kMaxInputCurrentHardware = 49.0;
   Mpc mpc_;
   BalanceMode previous_balance_mode_;
 };

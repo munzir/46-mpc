@@ -37,7 +37,8 @@
  * @file waist.h
  * @author Munzir Zafar
  * @date Oct 30, 2018
- * @brief Header file for waist.cpp that implements waist control based on joystick input
+ * @brief Header file for waist.cpp that implements waist control based on
+ * joystick input
  */
 
 #ifndef KRANG_BALANCING_WAIST_H_
@@ -45,8 +46,8 @@
 
 #include <kore.hpp>
 
-Somatic__WaistCmd *waistDaemonCmd = somatic_waist_cmd_alloc();
+Somatic__WaistCmd* waistDaemonCmd = somatic_waist_cmd_alloc();
 
 void ControlWaist(Somatic__WaistMode waistMode, Krang::Hardware* krang);
 
-#endif // KRANG_BALANCING_WAIST_H_
+#endif  // KRANG_BALANCING_WAIST_H_

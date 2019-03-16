@@ -47,6 +47,8 @@
 #include <iostream>  // std::cout, std::endl
 #include <memory>    // std::make_shared
 
+#include <krach/krach.h>               // InterfaceContext, WorldInterface
+#include <krang-sim-ach/dart_world.h>  // KrangInitPoseParams, ReadInitPoseParams()
 #include <somatic.h>      // has the correct order of other somatic includes
 #include <dart/dart.hpp>  // dart::dynamics, dart::simulation
 #include <dart/utils/urdf/urdf.hpp>  // dart::utils::DartLoader
@@ -55,31 +57,86 @@
 #include <somatic.pb-c.h>  // SOMATIC__: EVENT, MOTOR_PARAM; Somatic__WaistMode
 #include <somatic/daemon.h>  // somatic_d: t, t_opts, _init(), _event(), _destroy()
 #include <somatic/motor.h>  // somatic_motor_cmd()
-#include <somatic/msg.h>    // somatic_anything_alloc(), somatic_anything_free()
-#include <somatic/util.h>   // somatic_sig_received
+#include <somatic/msg.h>  // somatic_anything_alloc(), somatic_anything_free(), Somatic_KrangPoseParams
+#include <somatic/util.h>  // somatic_sig_received
 
-#include "balancing/arms.h"              // ArmControl
-#include "balancing/balancing_config.h"  // BalancingConfig, ReadConfigParams()
-#include "balancing/control.h"           // BalancingControl
-#include "balancing/events.h"            // Events()
-#include "balancing/joystick.h"          // Joystick
-#include "balancing/keyboard.h"          // KbShared, KbHit
-#include "balancing/torso.h"             // TorsoState, ControlTorso()
-#include "balancing/waist.h"             // ControlWaist()
+#include "balancing/arms.h"  // ArmControl
+#include "balancing/balancing_config.h"  // BalancingConfig, ReadConfigParams(), ReadConfigTimeStep()
+#include "balancing/control.h"   // BalanceControl
+#include "balancing/events.h"    // Events()
+#include "balancing/joystick.h"  // Joystick
+#include "balancing/keyboard.h"  // KbShared, KbHit
+#include "balancing/torso.h"     // TorsoState, ControlTorso()
+#include "balancing/waist.h"     // ControlWaist()
 
 /* ************************************************************************* */
 /// The main thread
 int main(int argc, char* argv[]) {
-  // Read config parameters
   BalancingConfig params;
-  ReadConfigParams("/usr/local/share/krang/balancing/cfg/balancing_params.cfg",
-                   &params);
 
-  // Wait for a character input before starting the program
+  // Ask user whether we are interfacing with simulation or hardware
   std::cout << std::endl
             << std::endl
-            << "Press any key to continue ..." << std::endl;
-  getchar();
+            << "Simulation mode or hardware mode (s/h)? ";
+  char key = getchar();
+  if (key == 's')
+    params.is_simulation_ = true;
+  else if (key == 'h')
+    params.is_simulation_ = false;
+  else
+    return 0;
+
+  // Read config parameters
+  ReadConfigParams(
+      (params.is_simulation_
+           ? "/usr/local/share/krang/balancing/cfg/"
+             "balancing_params_simulation.cfg"
+           : "/usr/local/share/krang/balancing/cfg/balancing_params.cfg"),
+      &params);
+
+  // If simulation mode, create interface to the world of simulation
+  InterfaceContext* interface_context;
+  WorldInterface* world_interface;
+  if (params.is_simulation_) {
+    interface_context = new InterfaceContext("01-balance-sim-interface");
+    world_interface =
+        new WorldInterface(*interface_context, "sim-cmd", "sim-state");
+
+    // Set the initial pose of the simulation
+    krang_sim_ach::dart_world::KrangInitPoseParams pose;
+    krang_sim_ach::dart_world::ReadInitPoseParams(
+        "/usr/local/share/krang/balancing/cfg/balancing_params_simulation.cfg",
+        &pose);
+    Somatic_KrangPoseParams somatic_pose;
+    somatic_pose.heading = pose.heading_init;
+    somatic_pose.q_base = pose.q_base_init;
+    for (int i = 0; i < 3; i++) somatic_pose.xyz[i] = pose.xyz_init(i);
+    somatic_pose.q_lwheel = pose.q_lwheel_init;
+    somatic_pose.q_rwheel = pose.q_rwheel_init;
+    somatic_pose.q_waist = pose.q_waist_init;
+    somatic_pose.q_torso = pose.q_torso_init;
+    for (int i = 0; i < 7; i++)
+      somatic_pose.q_left_arm[i] = pose.q_left_arm_init(i);
+    for (int i = 0; i < 7; i++)
+      somatic_pose.q_right_arm[i] = pose.q_right_arm_init(i);
+    somatic_pose.init_with_balance_pose = pose.init_with_balance_pose;
+    bool success = world_interface->Reset(somatic_pose);
+    if (!success) {
+      // TODO: Using smart pointers will remove the need to delete explicitly
+      // here
+      delete world_interface;
+      delete interface_context;
+      return 0;
+    }
+
+    // Get the time of the simulation
+    params.sim_dt_ = ReadConfigTimeStep(
+        "/usr/local/share/krang-sim-ach/cfg/dart_params.cfg");
+    if (params.sim_dt_ < 0.0) {
+      std::cout << "Error reading time step" << std::endl;
+      return 0;
+    }
+  }
 
   // Initialize the daemon
   somatic_d_opts_t dopt;
@@ -109,6 +166,11 @@ int main(int argc, char* argv[]) {
       krang;  ///< Interface for the motor and sensors on the hardware
   krang =
       new Krang::Hardware((Krang::Hardware::Mode)hw_mode, &daemon_cx, robot);
+  //    Akash made the following edits to add filter_imu option
+  // bool filter_imu = (params.is_simulation_ ? false : true);
+  // krang = new Krang::Hardware((Krang::Hardware::Mode)hw_mode, &daemon_cx,
+  // robot,
+  //                            filter_imu);
 
   // Create a thread that processes keyboard inputs when keys are pressed
   KbShared kb_shared;  ///< info shared by keyboard thread here
@@ -124,6 +186,11 @@ int main(int argc, char* argv[]) {
   torso_state.mode = TorsoState::kStop;
   Somatic__WaistMode waist_mode;
   BalanceControl balance_control(krang, robot, params);
+  for (int i = 0; i < robot->getNumBodyNodes(); i++) {
+    dart::dynamics::BodyNodePtr body = robot->getBodyNode(i);
+    std::cout << body->getName() << ": " << body->getMass() << " ";
+    std::cout << body->getLocalCOM().transpose() << std::endl;
+  }
 
   // Flag to enable wheel control. Control inputs are not sent to the wheels
   // until this flag is set
@@ -141,7 +208,9 @@ int main(int argc, char* argv[]) {
     bool debug = (debug_iter++ % 20 == 0);
 
     // Read time, state and joystick inputs
-    time += balance_control.ElapsedTimeSinceLastCall();
+    time +=
+        (params.is_simulation_ ? params.sim_dt_
+                               : balance_control.ElapsedTimeSinceLastCall());
     balance_control.UpdateState();
     bool joystick_msg_received = false;
     while (!joystick_msg_received) joystick_msg_received = joystick.Update();
@@ -167,10 +236,19 @@ int main(int argc, char* argv[]) {
     ControlWaist(waist_mode, krang);
     ControlTorso(daemon_cx, torso_state, krang);
 
+    // If in simulation world, make the simulation time step forward
+    if (params.is_simulation_) {
+      bool success = world_interface->Step();
+      if (!success) break;
+    }
+
     // Print the mode
     if (debug) {
       std::cout << "vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv\n" << std::endl;
+      std::cout << "Interface: "
+                << (params.is_simulation_ ? "simulation" : "hardware");
       balance_control.Print();
+      std::cout << "time: " << time << std::endl;
       if (start) std::cout << "Started..." << std::endl;
     }
   }
@@ -181,6 +259,10 @@ int main(int argc, char* argv[]) {
 
   std::cout << "destroying" << std::endl;
   delete krang;
+  if (params.is_simulation_) {
+    delete world_interface;
+    delete interface_context;
+  }
   somatic_d_destroy(&daemon_cx);
   return 0;
 }

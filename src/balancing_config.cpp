@@ -52,8 +52,8 @@
 // Function for reading configuration parameters. First argument is the location
 // of cfg file from the parameters are to be read. Second argument is the output
 // where the parameters are stored
-void ReadConfigParams(const char* balancing_config_file,
-                      BalancingConfig* params) {
+
+void ReadConfigParams(const char* config_file, BalancingConfig* params) {
   // Initialize the reader of the cfg file
   config4cpp::Configuration* cfg = config4cpp::Configuration::create();
   const char* scope = "";
@@ -66,7 +66,7 @@ void ReadConfigParams(const char* balancing_config_file,
             << "Reading balancing configuration parameters ..." << std::endl;
   try {
     // Parse the cfg file
-    cfg->parse(balancing_config_file);
+    cfg->parse(config_file);
 
     // Read the path to Krang urdf file
     strcpy(params->urdfpath, cfg->lookupString(scope, "urdfpath"));
@@ -138,6 +138,14 @@ void ReadConfigParams(const char* balancing_config_file,
     std::cout << "imuSitAngle :" << params->imuSitAngle << std::endl;
     params->toBalThreshold = cfg->lookupFloat(scope, "toBalThreshold");
     std::cout << "toBalThreshold :" << params->toBalThreshold << std::endl;
+    params->startBalThresholdLo = cfg->lookupFloat(scope, "startBalThresholdLo");
+    std::cout << "startBalThresholdLo :" << params->startBalThresholdLo << std::endl;
+    params->startBalThresholdHi = cfg->lookupFloat(scope, "startBalThresholdHi");
+    std::cout << "startBalThresholdHi :" << params->startBalThresholdHi << std::endl;
+    params->waistHiLoThreshold =
+        cfg->lookupFloat(scope, "waistHiLoThreshold");
+    std::cout << "waistHiLoThreshold :" << params->waistHiLoThreshold
+              << std::endl;
 
     // Halt arm to stop
     params->manualArmLockUnlock =
@@ -145,6 +153,11 @@ void ReadConfigParams(const char* balancing_config_file,
     std::cout << "manualArmLockUnlock: ";
     std::cout << (params->manualArmLockUnlock ? "true" : "false") << std::endl;
 
+    // Max input current in simulation mode
+    if (params->is_simulation_) {
+      params->sim_max_input_current_ = cfg->lookupFloat(scope, "maxInputCurrent");
+      std::cout << "maxInputCurrent: " << params->sim_max_input_current_ << std::endl;
+    }
   } catch (const config4cpp::ConfigurationException& ex) {
     std::cerr << ex.c_str() << std::endl;
     cfg->destroy();
@@ -152,3 +165,28 @@ void ReadConfigParams(const char* balancing_config_file,
   }
 }
 
+// Read the parameter named "time_step" from the give config file
+double ReadConfigTimeStep(const char* config_file) {
+  // Initialize the reader of the cfg file
+  config4cpp::Configuration* cfg = config4cpp::Configuration::create();
+  const char* scope = "";
+
+  double time_step = -1.0;
+  std::cout << "Reading simulation time step ..." << std::endl;
+  try {
+    // Parse the cfg file
+    cfg->parse(config_file);
+
+    // Read parameters for bal control mode transition
+    time_step = cfg->lookupFloat(scope, "time_step");
+    std::cout << "simulation time step:" << time_step << std::endl;
+
+  } catch (const config4cpp::ConfigurationException& ex) {
+    std::cerr << ex.c_str() << std::endl;
+    cfg->destroy();
+    assert(false && "Problem reading simulation config parameters");
+  }
+  std::cout << std::endl;
+
+  return time_step;
+}
