@@ -44,19 +44,19 @@
 
 #include <algorithm>  // std::max(), std::min()
 #include <cmath>      // atan2, tan
+#include <cstring>    // strlen
 #include <iostream>   // std::cout, std::endl
 #include <string>     // std::string
 
 #include <amino/time.h>  // aa_tm: _now(), _timespec2sec(), _sub()
 #include <Eigen/Eigen>  // Eigen:: MatrixXd, VectorXd, Vector3d, Matrix<double, #, #>
 #include <dart/dart.hpp>             // dart::dynamics::SkeletonPtr
-#include <dart/utils/urdf/urdf.hpp>  // dart::utils::DartLoader
 #include <kore.hpp>                  // Krang::Hardware
+#include <krang-utils/file_ops.hpp>  // readInputFileAsMatrix()
+#include <krang-utils/linearize_wip.hpp>  // linearize_wip::ComputeLinearizedDynamics()
+#include <krang-utils/lqr.hpp>            // lqr()
 
-#include "balancing/adrc.hpp"            // computeLinearizedDynamics()
 #include "balancing/balancing_config.h"  // BalancingConfig
-#include "balancing/file_ops.hpp"        // readInputFileAsMatrix()
-#include "balancing/lqr.hpp"             // lqr()
 #include "balancing/mpc.h"               // Mpc
 
 //============================================================================
@@ -66,9 +66,17 @@ const char BalanceControl::BAL_MODE_STRINGS[][16] = {
 BalanceControl::BalanceControl(Krang::Hardware* krang,
                                dart::dynamics::SkeletonPtr robot,
                                BalancingConfig& params)
-    : krang_(krang),
-      robot_(robot),
+    : krang_(krang), robot_(robot), is_simulation_(params.is_simulation_),
       mpc_("/usr/local/share/krang/balancing/cfg/mpc_params.cfg") {
+  // if in simulation mode dt = sim_dt, if not then 0.001 only until first
+  // iteration begins
+  dt_ = (is_simulation_? params.sim_dt_ : 0.01);
+
+  // Define max input current based on simulation mode or not
+  max_input_current_ = (is_simulation_ ? params.sim_max_input_current_
+                                       : kMaxInputCurrentHardware);
+  std::cout << "max input current: " << max_input_current_ << std::endl;
+
   // LQR Gains
   dynamic_lqr_ = params.dynamicLQR;
   lqrQ_ = params.lqrQ;
@@ -99,7 +107,10 @@ BalanceControl::BalanceControl(Krang::Hardware* krang,
 
   // Parameters used for generating internal events
   to_bal_threshold_ = params.toBalThreshold;
+  start_bal_threshold_lo_ = params.startBalThresholdLo;
+  start_bal_threshold_hi_ = params.startBalThresholdHi;
   imu_sit_angle_ = params.imuSitAngle;
+  waist_hi_lo_threshold_ = params.waistHiLoThreshold;
 
   // Initial values
   balance_mode_ = BalanceControl::GROUND_LO;
@@ -110,6 +121,27 @@ BalanceControl::BalanceControl(Krang::Hardware* krang,
   joystick_forw = 0.0;
   joystick_spin = 0.0;
 
+  // Read CoM estimation model paramters
+  if (strlen(params.comParametersPath) != 0) {
+    Eigen::MatrixXd beta;
+    std::string inputBetaFilename = params.comParametersPath;
+    try {
+      std::cout << "Reading converged beta ...\n";
+      beta = readInputFileAsMatrix(inputBetaFilename);
+      std::cout << "|-> Done\n";
+    } catch (exception& e) {
+      std::cout << e.what() << std::endl;
+      assert(false && "Problem loading CoM parameters...");
+    }
+    BalanceControl::SetComParameters(beta, 4);
+  }
+
+  // time
+  t_prev_ = aa_tm_now();
+
+  // To correctly do ComputeLqrGains()
+  UpdateState();
+
   // LQR Hack Ratios
   Eigen::VectorXd lqrGains = Eigen::VectorXd::Zero(4);
   lqr_hack_ratios_ = Eigen::Matrix<double, 4, 4>::Identity();
@@ -119,25 +151,9 @@ BalanceControl::BalanceControl(Krang::Hardware* krang,
         pd_gains_list_[BalanceControl::STAND](i) / -lqrGains(i);
   }
 
-  // Read CoM estimation model paramters
-  Eigen::MatrixXd beta;
-  std::string inputBetaFilename = params.comParametersPath;
-  try {
-    std::cout << "Reading converged beta ...\n";
-    beta = readInputFileAsMatrix(inputBetaFilename);
-    std::cout << "|-> Done\n";
-  } catch (exception& e) {
-    std::cout << e.what() << std::endl;
-    assert(false && "Problem loading CoM parameters...");
-  }
-  BalanceControl::SetComParameters(beta, 4);
-
   // Cloning the robot so that mutex sharing is not necessary among
   // threads
   mpc_.robot_ = robot_->clone();
-
-  // time
-  t_prev_ = aa_tm_now();
 }
 
 //============================================================================
@@ -147,6 +163,17 @@ double BalanceControl::ElapsedTimeSinceLastCall() {
   t_prev_ = t_now_;
 
   return dt_;
+}
+
+//============================================================================
+Eigen::Vector3d BalanceControl::GetBodyCom(dart::dynamics::SkeletonPtr robot) {
+  dart::dynamics::BodyNodePtr lwheel = robot->getBodyNode("LWheel");
+  dart::dynamics::BodyNodePtr rwheel = robot->getBodyNode("RWheel");
+  double wheel_mass = lwheel->getMass();
+  double full_mass = robot->getMass();
+  return (full_mass * robot->getCOM() - wheel_mass * lwheel->getCOM() -
+          wheel_mass * rwheel->getCOM()) /
+         (full_mass - 2 * wheel_mass);
 }
 
 //============================================================================
@@ -160,7 +187,7 @@ void BalanceControl::UpdateState() {
   mpc_.robot_pose_mutex_.unlock();
 
   // Calculate the COM Using Skeleton
-  com_ = robot_->getCOM() - robot_->getPositions().segment(3, 3);
+  com_ = GetBodyCom(robot_) - robot_->getPositions().segment(3, 3);
 
   // Update the state (note for amc we are reversing the effect of the motion of
   // the upper body) State are theta, dtheta, x, dx, psi, dpsi
@@ -250,8 +277,12 @@ void BalanceControl::ComputeCurrent(const Eigen::Matrix<double, 6, 1>& pd_gain,
   u_spin_ = std::max(-30.0, std::min(30.0, u_spin_));
 
   // Calculate current for the wheels
-  control_input[0] = std::max(-49.0, std::min(49.0, u_theta_ + u_x_ + u_spin_));
-  control_input[1] = std::max(-49.0, std::min(49.0, u_theta_ + u_x_ - u_spin_));
+  control_input[0] =
+      std::max(-max_input_current_,
+               std::min(max_input_current_, u_theta_ + u_x_ + u_spin_));
+  control_input[1] =
+      std::max(-max_input_current_,
+               std::min(max_input_current_, u_theta_ + u_x_ - u_spin_));
 }
 
 //============================================================================
@@ -263,13 +294,39 @@ Eigen::MatrixXd BalanceControl::ComputeLqrGains() {
   Eigen::VectorXd B_thCOM = Eigen::VectorXd::Zero(3);
   Eigen::VectorXd LQR_Gains = Eigen::VectorXd::Zero(4);
 
-  computeLinearizedDynamics(krang_->robot, A, B, B_thWheel, B_thCOM);
+  // Find linearized model of the WIP
+  linearize_wip::ParametersNotFoundInUrdf params;
+  if (is_simulation_) {
+    params.rotor_inertia = 0.0;
+    params.gear_ratio = 1;
+    params.wheel_radius = 0.25;
+  } else {
+    const double kKilogramMeterSquaredPerOunceInchSecondSquared = 0.00706154;
+    params.rotor_inertia =
+        0.022656 * kKilogramMeterSquaredPerOunceInchSecondSquared;
+    params.gear_ratio = 15;
+    params.wheel_radius = 0.25;
+  }
+  linearize_wip::ComputeLinearizedDynamics(krang_->robot, params, A, B);
+
+  // Apply lqr on the linearized model
   lqr(A, B, lqrQ_, lqrR_, LQR_Gains);
 
-  const double motor_constant = 12.0 * 0.00706;
+  const double motor_constant = 12.0 * 0.00706155183333;
   const double gear_ratio = 15;
   LQR_Gains /= (gear_ratio * motor_constant);
-  LQR_Gains = lqr_hack_ratios_ * LQR_Gains;
+  if (is_simulation_) {
+    // LQR gains are calculated using a model that has one wheel
+    // The torque needs to be distributed to either wheel, so needs
+    // to be halved
+    LQR_Gains = 0.5 * LQR_Gains;
+  } else {
+    // TODO: LQR gains were calculated with only single wheel torque
+    // They should be halved to divide between two wheels.
+    // This may end up having to find lqr_hack_ratios_
+		LQR_Gains = 0.5 * LQR_Gains;
+    LQR_Gains = lqr_hack_ratios_ * LQR_Gains;
+  }
 
   return LQR_Gains;
 }
@@ -308,7 +365,7 @@ void BalanceControl::BalancingController(double* control_input) {
       // State Transition - If the waist has been opened too much switch to
       // GROUND_HI mode
       if ((krang_->waist->pos[0] - krang_->waist->pos[1]) / 2.0 <
-          150.0 * M_PI / 180.0) {
+          waist_hi_lo_threshold_ * M_PI / 180.0) {
         balance_mode_ = BalanceControl::GROUND_HI;
       }
 
@@ -331,10 +388,10 @@ void BalanceControl::BalancingController(double* control_input) {
       BalanceControl::ComputeCurrent(pd_gains_, error_, &control_input[0]);
 
       // State Transitions
-      // If in ground Hi mode and waist angle decreases below 150.0 goto
+      // If in ground Hi mode and waist angle decreases below waist_hi_lo_threshold_ goto
       // groundLo mode
       if ((krang_->waist->pos[0] - krang_->waist->pos[1]) / 2.0 >
-          150.0 * M_PI / 180.0) {
+          waist_hi_lo_threshold_ * M_PI / 180.0) {
         balance_mode_ = BalanceControl::GROUND_LO;
       }
       break;
@@ -361,7 +418,10 @@ void BalanceControl::BalancingController(double* control_input) {
       BalanceControl::ComputeCurrent(pd_gains_, error_, &control_input[0]);
 
       // State Transition - If stood up go to balancing mode
-      if (fabs(state_(0)) < (to_bal_threshold_ / 180.0) * M_PI /*0.034*/) {
+      // Stand up condition is defined as base in the air and stopped moving
+      // Former is determined by imu and latter by state(1)
+      const double kImuSitAngle = ((imu_sit_angle_ / 180.0) * M_PI);
+      if (krang_->imu > kImuSitAngle && fabs(state_(1)) < to_bal_threshold_) {
         stood_up_timer++;
       } else {
         stood_up_timer = 0;
@@ -468,6 +528,7 @@ void BalanceControl::Print() {
   std::cout << "refState: " << ref_state_.transpose() << std::endl;
   std::cout << "error: " << error_.transpose();
   std::cout << ", imu: " << krang_->imu / M_PI * 180.0 << std::endl;
+  std::cout << "dynamic lqr: " << (dynamic_lqr_? "true" : "false") << std::endl;
   std::cout << "PD Gains: " << pd_gains_.transpose() << std::endl;
   std::cout << "Mode : " << BAL_MODE_STRINGS[balance_mode_] << " - ";
   std::cout << mpc_.DDP_MODE_STRINGS[mpc_.GetDdpMode()] << "     ";
@@ -487,7 +548,8 @@ void BalanceControl::BalHiLoEvent() {
 void BalanceControl::StandSitEvent() {
   // If in ground mode and state error is not high stand up
   if (balance_mode_ == BalanceControl::GROUND_LO) {
-    if (state_(0) < 0.0 && error_(0) > -10.0 * M_PI / 180.0) {
+    if (state_(0) < start_bal_threshold_hi_ * M_PI / 180.0 &&
+        state_(0) > start_bal_threshold_lo_ * M_PI / 180.0) {
       balance_mode_ = BalanceControl::STAND;
       CancelPositionBuiltup();
       std::cout << "[MODE] STAND" << std::endl;
@@ -500,7 +562,7 @@ void BalanceControl::StandSitEvent() {
   else if (balance_mode_ == BalanceControl::STAND ||
            balance_mode_ == BalanceControl::BAL_LO) {
     if ((krang_->waist->pos[0] - krang_->waist->pos[1]) / 2.0 >
-        150.0 * M_PI / 180.0) {
+        waist_hi_lo_threshold_ * M_PI / 180.0) {
       balance_mode_ = BalanceControl::SIT;
       std::cout << "[MODE] SIT " << std::endl;
     } else {

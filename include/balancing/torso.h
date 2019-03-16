@@ -48,18 +48,17 @@
 #include <somatic/daemon.h>
 #include <kore.hpp>
 
-/* ********************************************************************************************* */
+/* *********************************************************************************************
+ */
 struct TorsoState {
-  enum  TorsoMode {
-    kStop,
-    kMove
-  } mode;
+  enum TorsoMode { kStop, kMove } mode;
   double command_val;
 };
 
-/* ********************************************************************************************* */
+/* *********************************************************************************************
+ */
 /// Controls the torso
 void ControlTorso(somatic_d_t& daemon_cx, TorsoState& torso_state,
                   Krang::Hardware* krang);
 
-#endif // KRANG_BALANCING_TORSO_H_
+#endif  // KRANG_BALANCING_TORSO_H_

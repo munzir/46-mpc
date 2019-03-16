@@ -47,13 +47,15 @@
 
 #include <kore.hpp>
 
-/* ********************************************************************************************* */
+/* *********************************************************************************************
+ */
 /// Handles the joystick commands for the waist module
 void ControlWaist(Somatic__WaistMode waistMode, Krang::Hardware* krang) {
-
-	// Send message to the krang-waist daemon
-	somatic_waist_cmd_set(waistDaemonCmd, waistMode);
-	int r = SOMATIC_PACK_SEND(krang->waistCmdChan, somatic__waist_cmd, waistDaemonCmd);
-	if(ACH_OK != r) fprintf(stderr, "Couldn't send message: %s\n",
-		ach_result_to_string(static_cast<ach_status_t>(r)));
+  // Send message to the krang-waist daemon
+  somatic_waist_cmd_set(waistDaemonCmd, waistMode);
+  int r = SOMATIC_PACK_SEND(krang->waistCmdChan, somatic__waist_cmd,
+                            waistDaemonCmd);
+  if (ACH_OK != r)
+    fprintf(stderr, "Couldn't send message: %s\n",
+            ach_result_to_string(static_cast<ach_status_t>(r)));
 }
