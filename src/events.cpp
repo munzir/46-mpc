@@ -334,10 +334,22 @@ bool JoystickEvents(Joystick& joystick, BalanceControl* balance_control,
         case (Joystick::LEFT_THUMB_FREE): {
           switch (joystick.rightMode) {
             // case(Joystick::RIGHT_THUMB_FREE):
-            // case(Joystick::B1_PRESS):
-            // case(Joystick::B2_PRESS):
-            // case(Joystick::B3_PRESS):
-            // case(Joystick::B4_PRESS):
+            case (Joystick::B1_PRESS): {
+              balance_control->StartMpcEvent();
+              break;
+            }
+            case (Joystick::B2_PRESS): {
+              balance_control->UserAcceptsTrajectoryEvent();
+              break;
+            }
+            case (Joystick::B3_PRESS): {
+              balance_control->UserDemandsRecomputationEvent();
+              break;
+            }
+            case (Joystick::B4_PRESS): {
+              balance_control->StopMpcEvent();
+              break;
+            }
             // case(Joystick::B10_PRESS):
             case (Joystick::RIGHT_THUMB_HORZ_HOLD): {
               arm_control->mode = ArmControl::kMoveLeftSmallSet;
