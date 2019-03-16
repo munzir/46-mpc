@@ -36,9 +36,9 @@
 /**
  * @file control.h
  * @author Munzir Zafar
- * @date Oct 31, 2018
- * @brief Header file for control.cpp that implements balancing control
- * functions
+ * @date Jan 22, 2019
+ * @brief Header file for control.cpp that implements mpc along with the
+ * legacy balancing control functions
  */
 
 #ifndef KRANG_BALANCING_CONTROL_H_
@@ -48,14 +48,13 @@
 #include <dart/dart.hpp>  // dart::dynamics::SkeletonPtr
 #include <kore.hpp>       // Krang::Hardware
 
-#include "balancing_config.h"  // BalancingConfig
+#include "balancing/balancing_config.h"  // BalancingConfig
+#include "balancing/mpc.h"               // Mpc
 
 class BalanceControl {
  public:
   BalanceControl(Krang::Hardware* krang_, dart::dynamics::SkeletonPtr robot_,
                  BalancingConfig& params);
-  ~BalanceControl() {}
-
   // The states of our state machine. We use the name "mode" instead of "state"
   // because state is already being used to name the state of the wheeled
   // inverted pendulum dynamics
@@ -66,9 +65,10 @@ class BalanceControl {
     BAL_LO,
     BAL_HI,
     GROUND_HI,
-    NUM_MODES
+    MPC,
+    NUM_BAL_MODES
   };
-  static const char MODE_STRINGS[][16];
+  static const char BAL_MODE_STRINGS[][16];
 
   // Returns the time in seconds since last call to this function
   // For the first call, returns the time elapsed since the call to the
@@ -103,12 +103,29 @@ class BalanceControl {
   void Print();
 
   // Triggers Stand/Sit event. If in Ground Lo mode, switches to Stand mode. If
-  // in Bal Lo mode, switches to Sit mode. If some guards are satisfied.
+  // in Bal Lo/Stand/Mpc mode, switches to Sit mode. If some guards are
+  // satisfied.
+  // Also, switches to DDP_IDLE if it wasn't already DDP_IDLE
   void StandSitEvent();
 
   // Triggers Bal Hi/Lo event. If in Bal Lo mode, switches to Bal Hi mode and
   // vice versa
   void BalHiLoEvent();
+
+  // Switches from DDP_IDLE to DDP_COMPUTE_TRAJ mode. Guard: balance_mode_
+  // should be BAL_LO or BAL_HI
+  void StartMpcEvent();
+
+  // If in DDP_TRAJ_OK mode, switches balance_mode_ to MPC and mpc_.mode_
+  // to DDP_FOR_MPC
+  void UserAcceptsTrajectoryEvent();
+
+  // If in DDP_TRAJ_OK mode, switches to DDP_COMPUTE_TRAJ mode
+  void UserDemandsRecomputationEvent();
+
+  // If balance_mode_ is MPC, switches to previous_balance_mode_
+  // And switches mpc_.mode_ to DDP_IDLE
+  void StopMpcEvent();
 
   // Sets the forward speed control reference
   void SetFwdInput(double forw);
@@ -148,15 +165,16 @@ class BalanceControl {
   Eigen::MatrixXd ComputeLqrGains();
 
  private:
-  BalanceMode balance_mode_;  // Current mode of the state machine
+  BalanceMode
+      balance_mode_;  // Current mode of the balancing thread state machine
   Eigen::Matrix<double, 4, 4>
       lqr_hack_ratios_;  // gains_that_work/computed_lqr_gains
   Eigen::Matrix<double, 6, 1> pd_gains_, ref_state_, state_,
       error_;  // state: th, dth, forw, dforw, spin, dspin
   Eigen::Matrix<double, 6, 1>
-      pd_gains_list_[NUM_MODES];  // fixed pd gains for each mode specified in
-                                  // the config file
-  double joystick_gains_list_[NUM_MODES]
+      pd_gains_list_[NUM_BAL_MODES];  // fixed pd gains for each mode
+                                      // specified in the config file
+  double joystick_gains_list_[NUM_BAL_MODES]
                              [2];    // fixed joystick gains for each mode
                                      // specified in the config file
   Eigen::Matrix<double, 3, 1> com_;  // Current center of mass
@@ -164,14 +182,16 @@ class BalanceControl {
       joystick_spin;  // forw and spin motion control references
   struct timespec t_now_, t_prev_;
   double dt_;
-  double u_theta_, u_x_, u_spin_;  // individual components of the wheel current
+  double u_theta_, u_x_,
+      u_spin_;  // individual components of the wheel current
 
   Krang::Hardware*
       krang_;  // interface to hardware components (sensors and motors)
   dart::dynamics::SkeletonPtr robot_;  // dart object with krang's skeleton
 
   bool dynamic_lqr_;  // if true, online pose-dependent lqr gains will be used
-                      // instead of the fixed gains specified in the config file
+                      // instead of the fixed gains specified in the config
+                      // file
   Eigen::Matrix<double, 4, 4> lqrQ_;  // Q matrix for LQR
   Eigen::Matrix<double, 1, 1> lqrR_;  // R matrix for LQR
 
@@ -187,5 +207,7 @@ class BalanceControl {
   bool is_simulation_;
   double max_input_current_;
   const double kMaxInputCurrentHardware = 49.0;
+  Mpc mpc_;
+  BalanceMode previous_balance_mode_;
 };
 #endif  // KRANG_BALANCING_CONTROL_H_

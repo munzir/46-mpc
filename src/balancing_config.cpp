@@ -52,6 +52,7 @@
 // Function for reading configuration parameters. First argument is the location
 // of cfg file from the parameters are to be read. Second argument is the output
 // where the parameters are stored
+
 void ReadConfigParams(const char* config_file, BalancingConfig* params) {
   // Initialize the reader of the cfg file
   config4cpp::Configuration* cfg = config4cpp::Configuration::create();
@@ -61,17 +62,21 @@ void ReadConfigParams(const char* config_file, BalancingConfig* params) {
   const char* str;
   std::istringstream stream;
 
-  std::cout << "Reading configuration parameters ..." << std::endl;
+  std::cout << std::endl
+            << "Reading balancing configuration parameters ..." << std::endl;
   try {
     // Parse the cfg file
     cfg->parse(config_file);
 
     // Read the path to Krang urdf file
     strcpy(params->urdfpath, cfg->lookupString(scope, "urdfpath"));
+    std::cout << "urdfpath: " << params->urdfpath << std::endl;
 
     // Read the path to com estimation model parameters
     strcpy(params->comParametersPath,
            cfg->lookupString(scope, "comParametersPath"));
+    std::cout << "comParametersPath: " << params->comParametersPath
+              << std::endl;
 
     // Read PD Gains
     const char* pdGainsStrings[] = {"pdGainsGroundLo", "pdGainsGroundHi",
@@ -153,13 +158,11 @@ void ReadConfigParams(const char* config_file, BalancingConfig* params) {
       params->sim_max_input_current_ = cfg->lookupFloat(scope, "maxInputCurrent");
       std::cout << "maxInputCurrent: " << params->sim_max_input_current_ << std::endl;
     }
-
   } catch (const config4cpp::ConfigurationException& ex) {
     std::cerr << ex.c_str() << std::endl;
     cfg->destroy();
-    assert(false && "Problem reading config parameters");
+    assert(false && "Problem reading balancing config parameters");
   }
-  std::cout << std::endl;
 }
 
 // Read the parameter named "time_step" from the give config file
