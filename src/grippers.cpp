@@ -1,4 +1,5 @@
-/* ********************************************************************************************* */
+/* *********************************************************************************************
+ */
 /*
  * Copyright (c) 2018, Georgia Tech Research Corporation
  * All rights reserved.
@@ -41,7 +42,7 @@
  * @brief Implements control of grippers based on joystick Input
  */
 
-#include "grippers.h"
+#include "balancing/grippers.h"
 
 #include <somatic.h>
 #include <somatic/daemon.h>
@@ -52,18 +53,18 @@
 
 /* ************************************************************************************/
 /// Handles the joystick commands for the left/right Schunk grippers
-void controlSchunkGrippers (somatic_d_t& daemon_cx, const char* b, const double* x,
-                            Krang::Hardware* krang) {
+void controlSchunkGrippers(somatic_d_t& daemon_cx, const char* b,
+                           const double* x, Krang::Hardware* krang) {
+  // Button 4 with top/down at the right circular thingy indicates a motion for
+  // the left gripper
+  double dq[] = {0.0};
+  dq[0] = x[3] * 10.0;
+  if (b[4])
+    somatic_motor_cmd(&daemon_cx, krang->grippers[Krang::LEFT],
+                      SOMATIC__MOTOR_PARAM__MOTOR_CURRENT, dq, 1, NULL);
 
-	// Button 4 with top/down at the right circular thingy indicates a motion for the left gripper
-	double dq [] = {0.0};
-	dq[0] = x[3] * 10.0;
-	if(b[4])
-		somatic_motor_cmd(&daemon_cx, krang->grippers[Krang::LEFT], SOMATIC__MOTOR_PARAM__MOTOR_CURRENT, dq, 1, NULL);
-
-	// Button 5 with the same circular thingy for the right gripper
-	if(b[5])
-		somatic_motor_cmd(&daemon_cx, krang->grippers[Krang::RIGHT], SOMATIC__MOTOR_PARAM__MOTOR_CURRENT, dq, 1, NULL);
+  // Button 5 with the same circular thingy for the right gripper
+  if (b[5])
+    somatic_motor_cmd(&daemon_cx, krang->grippers[Krang::RIGHT],
+                      SOMATIC__MOTOR_PARAM__MOTOR_CURRENT, dq, 1, NULL);
 }
-
-

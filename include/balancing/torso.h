@@ -34,44 +34,31 @@
  */
 
 /**
- * @file events.h
+ * @file torso.h
  * @author Munzir Zafar
- * @date Oct 31, 2018
- * @brief Header file for events.cpp that maps input/state events to desired control
- * states/modes for the robot
+ * @date Oct 30, 2018
+ * @brief Header for torso.cpp that controls arms in the balancing code based on
+ * input
  */
 
-#ifndef KRANG_BALANCING_EVENTS_H_
-#define KRANG_BALANCING_EVENTS_H_
+#ifndef KRANG_BALANCING_TORSO_H_
+#define KRANG_BALANCING_TORSO_H_
 
-#include "arms.h"
-#include "balancing_config.h"
-#include "control.h"
-#include <Eigen/Eigen>
-#include "joystick.h"
-#include "keyboard.h"
-#include <kore.hpp>
 #include <somatic.h>
-#include "torso.h"
+#include <somatic/daemon.h>
+#include <kore.hpp>
 
-/* ****************************************************************************** */
-/// Events
-bool Events(kbShared& kb_shared, Joystick& joystick,
-            bool* start, BalanceControl* balance_control,
-            Somatic__WaistMode* waist_mode, TorsoState* torso_state,
-            ArmControl* arm_control);
+/* *********************************************************************************************
+ */
+struct TorsoState {
+  enum TorsoMode { kStop, kMove } mode;
+  double command_val;
+};
 
-/* ******************************************************************************************** */
-// If a character was entered from the keyboard process it
-void KeyboardEvents(kbShared& kb_shared, bool* start_,
-                    BalanceControl* balance_control, ArmControl* arm_control);
+/* *********************************************************************************************
+ */
+/// Controls the torso
+void ControlTorso(somatic_d_t& daemon_cx, TorsoState& torso_state,
+                  Krang::Hardware* krang);
 
-/* ****************************************************************************** */
-/// Joystick Events
-bool JoystickEvents(Joystick& joystick,
-                    BalanceControl* balance_control,
-                    Somatic__WaistMode* waist_mode,
-                    TorsoState* torso_state,
-                    ArmControl* arm_control);
-
-#endif // KRANG_BALANCING_EVENTS_H_
+#endif  // KRANG_BALANCING_TORSO_H_

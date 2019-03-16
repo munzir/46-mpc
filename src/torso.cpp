@@ -40,7 +40,7 @@
  * @brief Implements control of torso based on joystick Input
  */
 
-#include "torso.h"
+#include "balancing/torso.h"
 
 #include <somatic.h>
 #include <somatic/daemon.h>
@@ -49,31 +49,28 @@
 #include <kore.hpp>
 #include <kore/util.hpp>
 
-
-/* ********************************************************************************************* */
+/* *********************************************************************************************
+ */
 /// Handles the torso commands if we are using joystick
-void controlTorso(somatic_d_t& daemon_cx, TorsoState& torso_state,
+void ControlTorso(somatic_d_t& daemon_cx, TorsoState& torso_state,
                   Krang::Hardware* krang) {
-
   static TorsoState::TorsoMode last_mode = TorsoState::kStop;
 
   // if torso needs to be reset
-  if(last_mode == TorsoState::kStop && torso_state.mode == TorsoState::kMove) {
+  if (last_mode == TorsoState::kStop && torso_state.mode == TorsoState::kMove) {
     somatic_motor_reset(&daemon_cx, krang->torso);
     last_mode = torso_state.mode;
     return;
   }
 
   // Control based on the desired state
-	if(torso_state.mode == TorsoState::kStop)
+  if (torso_state.mode == TorsoState::kStop)
     somatic_motor_halt(&daemon_cx, krang->torso);
 
   else {
-
-	  double dq [] =  {torso_state.command_val};
-  	somatic_motor_cmd(&daemon_cx, krang->torso, SOMATIC__MOTOR_PARAM__MOTOR_VELOCITY,
-                      dq, 1, NULL);
+    double dq[] = {torso_state.command_val};
+    somatic_motor_cmd(&daemon_cx, krang->torso,
+                      SOMATIC__MOTOR_PARAM__MOTOR_VELOCITY, dq, 1, NULL);
   }
   last_mode = torso_state.mode;
 }
-

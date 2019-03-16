@@ -40,20 +40,22 @@
  * @brief Implements waist control based on joystick input
  */
 
-#include "waist.h"
+#include "balancing/waist.h"
 
 #include <ach.h>
 #include <somatic.h>
 
 #include <kore.hpp>
 
-/* ********************************************************************************************* */
+/* *********************************************************************************************
+ */
 /// Handles the joystick commands for the waist module
-void controlWaist(Somatic__WaistMode waistMode, Krang::Hardware* krang) {
-
-	// Send message to the krang-waist daemon
-	somatic_waist_cmd_set(waistDaemonCmd, waistMode);
-	int r = SOMATIC_PACK_SEND(krang->waistCmdChan, somatic__waist_cmd, waistDaemonCmd);
-	if(ACH_OK != r) fprintf(stderr, "Couldn't send message: %s\n",
-		ach_result_to_string(static_cast<ach_status_t>(r)));
+void ControlWaist(Somatic__WaistMode waistMode, Krang::Hardware* krang) {
+  // Send message to the krang-waist daemon
+  somatic_waist_cmd_set(waistDaemonCmd, waistMode);
+  int r = SOMATIC_PACK_SEND(krang->waistCmdChan, somatic__waist_cmd,
+                            waistDaemonCmd);
+  if (ACH_OK != r)
+    fprintf(stderr, "Couldn't send message: %s\n",
+            ach_result_to_string(static_cast<ach_status_t>(r)));
 }

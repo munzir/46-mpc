@@ -34,32 +34,22 @@
  */
 
 /**
- * @file torso.h
+ * @file grippers.h
  * @author Munzir Zafar
  * @date Oct 30, 2018
- * @brief Header for torso.cpp that controls arms in the balancing code based on
- * input
+ * @brief Header for grippers.cpp that controls grippers in the balancing code
+ * based on input
  */
 
-#ifndef KRANG_BALANCING_TORSO_H_
-#define KRANG_BALANCING_TORSO_H_
+#ifndef KRANG_BALANCING_GRIPPERS_H_
+#define KRANG_BALANCING_GRIPPERS_H_
 
 #include <somatic.h>
 #include <somatic/daemon.h>
 #include <kore.hpp>
 
-/* ********************************************************************************************* */
-struct TorsoState {
-  enum  TorsoMode {
-    kStop,
-    kMove
-  } mode;
-  double command_val;
-};
+/// Controls the grippers
+void controlSchunkGrippers(somatic_d_t& daemon_cx, const char* b,
+                           const double* x, Krang::Hardware* krang);
 
-/* ********************************************************************************************* */
-/// Controls the torso
-void controlTorso(somatic_d_t& daemon_cx, TorsoState& torso_state,
-                  Krang::Hardware* krang);
-
-#endif // KRANG_BALANCING_TORSO_H_
+#endif  // KRANG_BALANCING_GRIPPERS_H_

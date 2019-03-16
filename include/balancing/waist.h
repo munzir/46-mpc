@@ -34,28 +34,20 @@
  */
 
 /**
- * @file keyboard.h
+ * @file waist.h
  * @author Munzir Zafar
  * @date Oct 30, 2018
- * @brief Header file for keyboard.cpp that has code for thread reading keyboard input
+ * @brief Header file for waist.cpp that implements waist control based on
+ * joystick input
  */
 
-#ifndef KRANG_BALANCING_KEYBOARD_H_
-#define KRANG_BALANCING_KEYBOARD_H_
+#ifndef KRANG_BALANCING_WAIST_H_
+#define KRANG_BALANCING_WAIST_H_
 
+#include <kore.hpp>
 
-#include <pthread.h>
+Somatic__WaistCmd* waistDaemonCmd = somatic_waist_cmd_alloc();
 
-struct kbShared {
-  pthread_mutex_t kb_mutex;
-  char kb_char_input;
-  bool kb_char_received;
-};
+void ControlWaist(Somatic__WaistMode waistMode, Krang::Hardware* krang);
 
-// Thread that reads keyboard input
-void *kbhit(void *);
-
-// For other threads to read the character input
-bool kbCharReceived(kbShared& kb_shared, char* input);
-
-#endif // KRANG_BALANCING_KEYBOARD_H_
+#endif  // KRANG_BALANCING_WAIST_H_

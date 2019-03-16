@@ -1,3 +1,38 @@
+/*
+ * Copyright (c) 2018, Georgia Tech Research Corporation
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ *
+ *     * Redistributions of source code must retain the above
+ *       copyright notice, this list of conditions and the following
+ *       disclaimer.
+ *     * Redistributions in binary form must reproduce the above
+ *       copyright notice, this list of conditions and the following
+ *       disclaimer in the documentation and/or other materials
+ *       provided with the distribution.
+ *     * Neither the name of the Georgia Tech Research Corporation nor
+ *       the names of its contributors may be used to endorse or
+ *       promote products derived from this software without specific
+ *       prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY GEORGIA TECH RESEARCH CORPORATION ''AS
+ * IS'' AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
+ * FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL GEORGIA
+ * TECH RESEARCH CORPORATION BE LIABLE FOR ANY DIRECT, INDIRECT,
+ * INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+ * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+ * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+ * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
+ * STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
+ * OF THE POSSIBILITY OF SUCH DAMAGE.
+ *
+ */
+
 /**
  * @file 01-balancing.cpp
  * @author Munzir Zafar
@@ -5,77 +40,184 @@
  * @brief A neat and clean version of the original balancing logic.
  */
 
-#include "balancing_config.h"
-#include "arms.h"
-#include "waist.h"
-#include "grippers.h"
-#include "torso.h"
-#include "joystick.h"
-#include "keyboard.h"
-#include "control.h"
-#include "events.h"
-#include "kore/display.hpp"
-#include "lqr.hpp"
-#include "adrc.hpp"
-#include "file_ops.hpp"
-#include "utils.h"
-#include <dart/utils/urdf/urdf.hpp>
+#include <pthread.h>  // pthread_t, pthread_mutex_init(), pthread_create()
+#include <stdio.h>    // getchar()
 
+#include <cstring>   // memset()
+#include <iostream>  // std::cout, std::endl
+#include <memory>    // std::make_shared
 
-/* **************************************************************************** */
-// Globals for imu, motors and joystick
+#include <krach/krach.h>               // InterfaceContext, WorldInterface
+#include <krang-sim-ach/dart_world.h>  // KrangInitPoseParams, ReadInitPoseParams()
+#include <somatic.h>      // has the correct order of other somatic includes
+#include <dart/dart.hpp>  // dart::dynamics, dart::simulation
+#include <dart/utils/urdf/urdf.hpp>  // dart::utils::DartLoader
+#include <kore.hpp>                  // Krang::Hardware
 
-somatic_d_t daemon_cx; ///< The context of the current daemon
+#include <somatic.pb-c.h>  // SOMATIC__: EVENT, MOTOR_PARAM; Somatic__WaistMode
+#include <somatic/daemon.h>  // somatic_d: t, t_opts, _init(), _event(), _destroy()
+#include <somatic/motor.h>  // somatic_motor_cmd()
+#include <somatic/msg.h>  // somatic_anything_alloc(), somatic_anything_free(), Somatic_KrangPoseParams
+#include <somatic/util.h>  // somatic_sig_received
 
-Krang::Hardware* krang; ///< Interface for the motor and sensors on the hardware
-dart::dynamics::SkeletonPtr robot; ///< the robot representation in dart
+#include "balancing/arms.h"  // ArmControl
+#include "balancing/balancing_config.h"  // BalancingConfig, ReadConfigParams(), ReadConfigTimeStep()
+#include "balancing/control.h"   // BalanceControl
+#include "balancing/events.h"    // Events()
+#include "balancing/joystick.h"  // Joystick
+#include "balancing/keyboard.h"  // KbShared, KbHit
+#include "balancing/torso.h"     // TorsoState, ControlTorso()
+#include "balancing/waist.h"     // ControlWaist()
 
-char b [10]; ///< Stores the joystick button inputs
-double x [6];
+/* ************************************************************************* */
+/// The main thread
+int main(int argc, char* argv[]) {
+  BalancingConfig params;
 
-kbShared kb_shared; ///< info shared by keyboard thread here
+  // Ask user whether we are interfacing with simulation or hardware
+  std::cout << std::endl
+            << std::endl
+            << "Simulation mode or hardware mode (s/h)? ";
+  char key = getchar();
+  if (key == 's')
+    params.is_simulation_ = true;
+  else if (key == 'h')
+    params.is_simulation_ = false;
+  else
+    return 0;
 
-/// The vector of states
-//vector <LogState*> logStates;
+  // Read config parameters
+  ReadConfigParams(
+      (params.is_simulation_
+           ? "/usr/local/share/krang/balancing/cfg/"
+             "balancing_params_simulation.cfg"
+           : "/usr/local/share/krang/balancing/cfg/balancing_params.cfg"),
+      &params);
 
-// Debug flags default values
-bool debugGlobal = false, logGlobal = true;
-dart::simulation::WorldPtr world;			///< the world representation in dart
-bool start = false;						///< Giving time to the user to get the robot
-                              ///  in balancing angle
+  // If simulation mode, create interface to the world of simulation
+  InterfaceContext* interface_context;
+  WorldInterface* world_interface;
+  if (params.is_simulation_) {
+    interface_context = new InterfaceContext("01-balance-sim-interface");
+    world_interface =
+        new WorldInterface(*interface_context, "sim-cmd", "sim-state");
 
-/* **************************************************************************** */
-// The infinite while loop lives here
-void run (BalancingConfig& params) {
+    // Set the initial pose of the simulation
+    krang_sim_ach::dart_world::KrangInitPoseParams pose;
+    krang_sim_ach::dart_world::ReadInitPoseParams(
+        "/usr/local/share/krang/balancing/cfg/balancing_params_simulation.cfg",
+        &pose);
+    Somatic_KrangPoseParams somatic_pose;
+    somatic_pose.heading = pose.heading_init;
+    somatic_pose.q_base = pose.q_base_init;
+    for (int i = 0; i < 3; i++) somatic_pose.xyz[i] = pose.xyz_init(i);
+    somatic_pose.q_lwheel = pose.q_lwheel_init;
+    somatic_pose.q_rwheel = pose.q_rwheel_init;
+    somatic_pose.q_waist = pose.q_waist_init;
+    somatic_pose.q_torso = pose.q_torso_init;
+    for (int i = 0; i < 7; i++)
+      somatic_pose.q_left_arm[i] = pose.q_left_arm_init(i);
+    for (int i = 0; i < 7; i++)
+      somatic_pose.q_right_arm[i] = pose.q_right_arm_init(i);
+    somatic_pose.init_with_balance_pose = pose.init_with_balance_pose;
+    bool success = world_interface->Reset(somatic_pose);
+    if (!success) {
+      // TODO: Using smart pointers will remove the need to delete explicitly
+      // here
+      delete world_interface;
+      delete interface_context;
+      return 0;
+    }
 
-  // Send a message; set the event code and the priority
-  somatic_d_event(&daemon_cx, SOMATIC__EVENT__PRIORITIES__NOTICE,
-      SOMATIC__EVENT__CODES__PROC_RUNNING, NULL, NULL);
+    // Get the time of the simulation
+    params.sim_dt_ = ReadConfigTimeStep(
+        "/usr/local/share/krang-sim-ach/cfg/dart_params.cfg");
+    if (params.sim_dt_ < 0.0) {
+      std::cout << "Error reading time step" << std::endl;
+      return 0;
+    }
+  }
 
-  size_t debug_iter = 0;
-  double time = 0.0;
+  // Initialize the daemon
+  somatic_d_opts_t dopt;
+  memset(&dopt, 0, sizeof(dopt));
+  dopt.ident = "01-balance";
+  somatic_d_t daemon_cx;  ///< The context of the current daemon
+  memset(&daemon_cx, 0, sizeof(daemon_cx));
+  somatic_d_init(&daemon_cx, &dopt);
+
+  // Load the robot
+  dart::utils::DartLoader dl;
+  dart::dynamics::SkeletonPtr robot;  ///< the robot representation in dart
+  robot = dl.parseSkeleton(params.urdfpath);
+  assert((robot != NULL) && "Could not find the robot urdf");
+
+  // Load dart robot in dart world
+  dart::simulation::WorldPtr world;  ///< the world representation in dart
+  world = std::make_shared<dart::simulation::World>();
+  world->addSkeleton(robot);
+
+  // Initialize the motors and sensors on the hardware and update the kinematics
+  // in dart
+  int hw_mode = Krang::Hardware::MODE_AMC | Krang::Hardware::MODE_LARM |
+                Krang::Hardware::MODE_RARM | Krang::Hardware::MODE_TORSO |
+                Krang::Hardware::MODE_WAIST;
+  Krang::Hardware*
+      krang;  ///< Interface for the motor and sensors on the hardware
+  krang =
+      new Krang::Hardware((Krang::Hardware::Mode)hw_mode, &daemon_cx, robot);
+  //    Akash made the following edits to add filter_imu option
+  // bool filter_imu = (params.is_simulation_ ? false : true);
+  // krang = new Krang::Hardware((Krang::Hardware::Mode)hw_mode, &daemon_cx,
+  // robot,
+  //                            filter_imu);
+
+  // Create a thread that processes keyboard inputs when keys are pressed
+  KbShared kb_shared;  ///< info shared by keyboard thread here
+  kb_shared.kb_char_received = false;
+  pthread_mutex_init(&kb_shared.kb_mutex, NULL);
+  pthread_t kbhit_thread;
+  pthread_create(&kbhit_thread, NULL, &KbHit, &kb_shared);
+
+  // Constructors for other objects being used in the main loop
   Joystick joystick;
   ArmControl arm_control(&daemon_cx, krang, params);
   TorsoState torso_state;
   torso_state.mode = TorsoState::kStop;
   Somatic__WaistMode waist_mode;
   BalanceControl balance_control(krang, robot, params);
-  while(!somatic_sig_received) {
+  for (int i = 0; i < robot->getNumBodyNodes(); i++) {
+    dart::dynamics::BodyNodePtr body = robot->getBodyNode(i);
+    std::cout << body->getName() << ": " << body->getMass() << " ";
+    std::cout << body->getLocalCOM().transpose() << std::endl;
+  }
 
+  // Flag to enable wheel control. Control inputs are not sent to the wheels
+  // until this flag is set
+  bool start = false;
 
+  // Other obvioius variables
+  size_t debug_iter = 0;
+  double time = 0.0;
+
+  // Send a message to event logger; set the event code and the priority
+  somatic_d_event(&daemon_cx, SOMATIC__EVENT__PRIORITIES__NOTICE,
+                  SOMATIC__EVENT__CODES__PROC_RUNNING, NULL, NULL);
+
+  while (!somatic_sig_received) {
     bool debug = (debug_iter++ % 20 == 0);
-    debugGlobal = debug;
 
     // Read time, state and joystick inputs
-    time += balance_control.ElapsedTimeSinceLastCall();
+    time +=
+        (params.is_simulation_ ? params.sim_dt_
+                               : balance_control.ElapsedTimeSinceLastCall());
     balance_control.UpdateState();
-    bool gotInput = false;
-    while(!gotInput) gotInput = joystick.Update();
+    bool joystick_msg_received = false;
+    while (!joystick_msg_received) joystick_msg_received = joystick.Update();
 
     // Decide control modes and generate control events based on keyb/joys input
-    if(Events(kb_shared, joystick, &start, &balance_control, &waist_mode,
-              &torso_state, &arm_control)) {
-
+    if (Events(kb_shared, joystick, &start, &balance_control, &waist_mode,
+               &torso_state, &arm_control)) {
       // kill program if kill event was triggered
       break;
     }
@@ -83,110 +225,44 @@ void run (BalancingConfig& params) {
     // Balancing Control
     double control_input[2];
     balance_control.BalancingController(&control_input[0]);
-    if(start) {
-      somatic_motor_cmd(&daemon_cx, krang->amc, SOMATIC__MOTOR_PARAM__MOTOR_CURRENT,
-                        control_input, 2, NULL);
+    if (start) {
+      somatic_motor_cmd(&daemon_cx, krang->amc,
+                        SOMATIC__MOTOR_PARAM__MOTOR_CURRENT, control_input, 2,
+                        NULL);
     }
 
     // Control the rest of the body
     arm_control.ControlArms();
-    controlWaist(waist_mode, krang);
-    controlTorso(daemon_cx, torso_state, krang);
+    ControlWaist(waist_mode, krang);
+    ControlTorso(daemon_cx, torso_state, krang);
 
-    // Print the information about the last iteration
-      // (after reading effects of it from sensors)
-      // NOTE: Constructor order is NOT the print order
-      // if(logGlobal) {
-      //  logStates.push_back(new LogState(time, com, averagedTorque,
-      //                                   externalWrench(4), krang->amc->cur[0],
-      //                                   krang->amc->cur[1], state, refState,
-      //                                   lastUleft, lastUright));
-      //}
+    // If in simulation world, make the simulation time step forward
+    if (params.is_simulation_) {
+      bool success = world_interface->Step();
+      if (!success) break;
+    }
 
     // Print the mode
-    if(debug) {
+    if (debug) {
       std::cout << "vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv\n" << std::endl;
+      std::cout << "Interface: "
+                << (params.is_simulation_ ? "simulation" : "hardware");
       balance_control.Print();
-      if(start)
-        std::cout << "Started..." << std::endl;
+      std::cout << "time: " << time << std::endl;
+      if (start) std::cout << "Started..." << std::endl;
     }
   }
 
   // Send the stoppig event
   somatic_d_event(&daemon_cx, SOMATIC__EVENT__PRIORITIES__NOTICE,
-           SOMATIC__EVENT__CODES__PROC_STOPPING, NULL, NULL);
-}
+                  SOMATIC__EVENT__CODES__PROC_STOPPING, NULL, NULL);
 
-/* ********************************************************************************* */
-/// Initialize the motor and daemons
-void init(BalancingConfig& params) {
-
-  // Initialize the daemon
-  somatic_d_opts_t dopt;
-  memset(&dopt, 0, sizeof(dopt));
-  dopt.ident = "01-balance";
-  somatic_d_init(&daemon_cx, &dopt);
-
-  // Load the robot
-  dart::utils::DartLoader dl;
-  robot = dl.parseSkeleton(params.urdfpath);
-  assert((robot != NULL) && "Could not find the robot urdf");
-
-  // Load dart robot in dart world
-  world = std::make_shared<dart::simulation::World>();
-  world->addSkeleton(robot);
-
-  // Initialize the motors and sensors on the hardware and update the kinematics in dart
-  int hwMode = Krang::Hardware::MODE_AMC | Krang::Hardware::MODE_LARM |
-               Krang::Hardware::MODE_RARM | Krang::Hardware::MODE_TORSO |
-               Krang::Hardware::MODE_WAIST;
-  krang = new Krang::Hardware((Krang::Hardware::Mode) hwMode, &daemon_cx, robot);
-
-  // Create a thread to wait for user input to begin balancing
-  kb_shared.kb_char_received = false;
-  pthread_mutex_init(&kb_shared.kb_mutex, NULL);
-  pthread_t kbhitThread;
-  pthread_create(&kbhitThread, NULL, &kbhit, &kb_shared);
-}
-
-/* *********************************************************************** */
-/// Send zero velocity to the motors and kill daemon. Also clean up daemon structs.
-void destroy() {
-
-  cout << "destroying" << endl;
-
+  std::cout << "destroying" << std::endl;
   delete krang;
-
-  somatic_d_destroy(&daemon_cx);
-
-  // Print the data
-  //printf("log states size: %lu\n", logStates.size());
-  //for(size_t i = 0; i < logStates.size(); i++) {
-  //  logStates[i]->print();
-  //  delete logStates[i];
-  //}
-}
-
-/* ************************************************************************* */
-/// The main thread
-int main(int argc, char* argv[]) {
-
-  BalancingConfig params;
-  ReadConfigParams("../params.cfg", &params);
-
-  // Debug options from command line
-  debugGlobal = 1; logGlobal = 0;
-  if(argc == 8) {
-    if(argv[7][0]=='l') { debugGlobal = 0; logGlobal = 1;}
-    else if(argv[7][0] == 'd') {debugGlobal = 1; logGlobal = 0; }
+  if (params.is_simulation_) {
+    delete world_interface;
+    delete interface_context;
   }
-
-  // Wait for a character input before starting the program
-  getchar();
-
-  // Initialize, run, destroy
-  init(params);
-  run(params);
-  destroy();
+  somatic_d_destroy(&daemon_cx);
   return 0;
 }
