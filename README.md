@@ -25,7 +25,6 @@ This repo contains code for balancing krang. Aim is to implement original balanc
     sudo cp -r include/config4cpp /usr/local/include &&
     sudo chmod g+rx /usr/local/include/config4cpp &&
     sudo chmod o+rx /usr/local/include/config4cpp
-
   \*Note: You can just copy paste the above block of commands
 
 - [09-URDF](https://github.gatech.edu/WholeBodyControlAttempt1/09-URDF)
