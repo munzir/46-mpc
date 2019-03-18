@@ -137,6 +137,7 @@ class BalanceControl {
   Eigen::Matrix<double, 6, 1> get_pd_gains() const { return pd_gains_; }
   Eigen::Matrix<double, 6, 1> get_state() const { return state_; }
   Eigen::Matrix<double, 3, 1> get_com() const { return com_; }
+  double get_time() const { return time_; }
 
  private:
   // Set parameters in the model used to compute CoM
@@ -163,7 +164,6 @@ class BalanceControl {
   // lqrR_ to return a 4-element vector comprising the LQR gains for theta,
   // dtheta, x, dx respectively
   Eigen::MatrixXd ComputeLqrGains();
-
  private:
   BalanceMode
       balance_mode_;  // Current mode of the balancing thread state machine
@@ -180,7 +180,7 @@ class BalanceControl {
   Eigen::Matrix<double, 3, 1> com_;  // Current center of mass
   double joystick_forw,
       joystick_spin;  // forw and spin motion control references
-  struct timespec t_now_, t_prev_;
+  struct timespec t_prev_;
   double dt_;
   double u_theta_, u_x_,
       u_spin_;  // individual components of the wheel current
@@ -205,9 +205,11 @@ class BalanceControl {
                                 // transitions to GROUND_LO mode
   double waist_hi_lo_threshold_;
   bool is_simulation_;
+  double sim_dt_;
   double max_input_current_;
   const double kMaxInputCurrentHardware = 49.0;
   Mpc mpc_;
   BalanceMode previous_balance_mode_;
+  double time_;
 };
 #endif  // KRANG_BALANCING_CONTROL_H_

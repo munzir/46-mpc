@@ -198,7 +198,6 @@ int main(int argc, char* argv[]) {
 
   // Other obvioius variables
   size_t debug_iter = 0;
-  double time = 0.0;
 
   // Send a message to event logger; set the event code and the priority
   somatic_d_event(&daemon_cx, SOMATIC__EVENT__PRIORITIES__NOTICE,
@@ -208,9 +207,6 @@ int main(int argc, char* argv[]) {
     bool debug = (debug_iter++ % 20 == 0);
 
     // Read time, state and joystick inputs
-    time +=
-        (params.is_simulation_ ? params.sim_dt_
-                               : balance_control.ElapsedTimeSinceLastCall());
     balance_control.UpdateState();
     bool joystick_msg_received = false;
     while (!joystick_msg_received) joystick_msg_received = joystick.Update();
@@ -248,7 +244,7 @@ int main(int argc, char* argv[]) {
       std::cout << "Interface: "
                 << (params.is_simulation_ ? "simulation" : "hardware");
       balance_control.Print();
-      std::cout << "time: " << time << std::endl;
+      std::cout << "time: " << balance_control.get_time() << std::endl;
       if (start) std::cout << "Started..." << std::endl;
     }
   }

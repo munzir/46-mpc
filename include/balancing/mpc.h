@@ -75,6 +75,10 @@ class Mpc {
   // MPC control. This is to be used by the main thread in mpc mode
   void Control(double* control_input);
 
+  // time setting and getting
+  void SetTime(double time);
+  double GetTime();
+
   // For printing the current mode
   static const char DDP_MODE_STRINGS[][32];
 
@@ -88,6 +92,8 @@ class Mpc {
   std::mutex robot_pose_mutex_;
   Eigen::Matrix<double, 6, 1> state_;
   std::mutex state_mutex_;
+  double time_;
+  std::mutex time_mutex_;
 
   // If mpc is done, this variable will let the main thread know
   bool done_;

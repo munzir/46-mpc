@@ -66,11 +66,14 @@ const char BalanceControl::BAL_MODE_STRINGS[][16] = {
 BalanceControl::BalanceControl(Krang::Hardware* krang,
                                dart::dynamics::SkeletonPtr robot,
                                BalancingConfig& params)
-    : krang_(krang), robot_(robot), is_simulation_(params.is_simulation_),
+    : krang_(krang),
+      robot_(robot),
+      is_simulation_(params.is_simulation_),
+      sim_dt_(params.sim_dt_),
       mpc_("/usr/local/share/krang/balancing/cfg/mpc_params.cfg") {
   // if in simulation mode dt = sim_dt, if not then 0.001 only until first
   // iteration begins
-  dt_ = (is_simulation_? params.sim_dt_ : 0.01);
+  dt_ = (is_simulation_ ? sim_dt_ : 0.01);
 
   // Define max input current based on simulation mode or not
   max_input_current_ = (is_simulation_ ? params.sim_max_input_current_
@@ -158,11 +161,11 @@ BalanceControl::BalanceControl(Krang::Hardware* krang,
 
 //============================================================================
 double BalanceControl::ElapsedTimeSinceLastCall() {
-  t_now_ = aa_tm_now();
-  dt_ = (double)aa_tm_timespec2sec(aa_tm_sub(t_now_, t_prev_));
-  t_prev_ = t_now_;
+  struct timespec t_now = aa_tm_now();
+  double dt = (double)aa_tm_timespec2sec(aa_tm_sub(t_now, t_prev_));
+  t_prev_ = t_now;
 
-  return dt_;
+  return dt;
 }
 
 //============================================================================
@@ -178,6 +181,11 @@ Eigen::Vector3d BalanceControl::GetBodyCom(dart::dynamics::SkeletonPtr robot) {
 
 //============================================================================
 void BalanceControl::UpdateState() {
+  // Time
+  dt_ = (is_simulation_ ? sim_dt_ : ElapsedTimeSinceLastCall());
+  time_ += dt_;
+  mpc_.SetTime(time_);
+
   // Read motor encoders, imu and ft and update dart skeleton
   krang_->updateSensors(dt_);
 
@@ -324,7 +332,7 @@ Eigen::MatrixXd BalanceControl::ComputeLqrGains() {
     // TODO: LQR gains were calculated with only single wheel torque
     // They should be halved to divide between two wheels.
     // This may end up having to find lqr_hack_ratios_
-		LQR_Gains = 0.5 * LQR_Gains;
+    LQR_Gains = 0.5 * LQR_Gains;
     LQR_Gains = lqr_hack_ratios_ * LQR_Gains;
   }
 
@@ -388,8 +396,8 @@ void BalanceControl::BalancingController(double* control_input) {
       BalanceControl::ComputeCurrent(pd_gains_, error_, &control_input[0]);
 
       // State Transitions
-      // If in ground Hi mode and waist angle decreases below waist_hi_lo_threshold_ goto
-      // groundLo mode
+      // If in ground Hi mode and waist angle decreases below
+      // waist_hi_lo_threshold_ goto groundLo mode
       if ((krang_->waist->pos[0] - krang_->waist->pos[1]) / 2.0 >
           waist_hi_lo_threshold_ * M_PI / 180.0) {
         balance_mode_ = BalanceControl::GROUND_LO;
@@ -528,7 +536,8 @@ void BalanceControl::Print() {
   std::cout << "refState: " << ref_state_.transpose() << std::endl;
   std::cout << "error: " << error_.transpose();
   std::cout << ", imu: " << krang_->imu / M_PI * 180.0 << std::endl;
-  std::cout << "dynamic lqr: " << (dynamic_lqr_? "true" : "false") << std::endl;
+  std::cout << "dynamic lqr: " << (dynamic_lqr_ ? "true" : "false")
+            << std::endl;
   std::cout << "PD Gains: " << pd_gains_.transpose() << std::endl;
   std::cout << "Mode : " << BAL_MODE_STRINGS[balance_mode_] << " - ";
   std::cout << mpc_.DDP_MODE_STRINGS[mpc_.GetDdpMode()] << "     ";
