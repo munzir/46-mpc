@@ -43,7 +43,6 @@
 
 #include "balancing/mpc.h"
 
-#include <amino.h>                     // aa_tm_now(), struct timespec
 #include <config4cpp/Configuration.h>  // config4cpp::Configuration
 #include <Eigen/Eigen>    // Eigen::MatrixXd, Eigen::Matrix<double, #, #>
 #include <algorithm>      // std::max(), std::min()
@@ -361,8 +360,7 @@ void Mpc::DartSkeletonToTwipDynamics(
 //============================================================================
 void Mpc::SetInitTime() {
   init_time_mutex_.lock();
-  struct timespec t_now = aa_tm_now();
-  double init_time_ = (double)aa_tm_timespec2sec(t_now);
+  init_time_ = GetTime();
   init_time_mutex_.unlock();
 }
 
@@ -476,8 +474,7 @@ void Mpc::DdpThread() {
       }
       case DDP_FOR_MPC: {
         // Check exit condition
-        struct timespec t_now = aa_tm_now();
-        double time_now = (double)aa_tm_timespec2sec(t_now);
+        double time_now = GetTime();
         double init_time = GetInitTime();
         if (time_now >= init_time + param_.ddp_.final_time_) {
           // Change to idle mode and get out
@@ -574,8 +571,7 @@ void Mpc::InitializeMpcObjects() {
 //============================================================================
 void Mpc::Control(double* control_input) {
   // Check exit condition
-  struct timespec t_now = aa_tm_now();
-  double time_now = (double)aa_tm_timespec2sec(t_now);
+  double time_now = GetTime();
   double init_time = GetInitTime();
   done_ = (time_now >= init_time + param_.ddp_.final_time_);
   if (done_) return;
@@ -654,4 +650,19 @@ void Mpc::Destroy() {
   thread_run_mutex_.unlock();
   thread_->join();
   delete thread_;
+}
+
+//============================================================================
+void Mpc::SetTime(double time) {
+  time_mutex_.lock();
+  time_ = time;
+  time_mutex_.unlock();
+}
+
+//============================================================================
+double Mpc::GetTime() {
+  time_mutex_.lock();
+  double time = time_;
+  time_mutex_.unlock();
+  return time;
 }
