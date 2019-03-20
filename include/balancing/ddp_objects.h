@@ -344,11 +344,11 @@ struct CsvWriter {
     is_open_ = true;
   }
 
-  void SaveStep(State x, Control u) {
+  void SaveStep(State x, Control u, double time) {
     for (int j = 0; j < 8; j++) {
       out_file_ << x(j) << ", ";
     }
-    out_file_ << u(0) << "," << u(1) << std::endl;
+    out_file_ << u(0) << "," << u(1) << ", " << time << std::endl;
   }
 
   void SaveTrajectory(StateTrajectory &xs, ControlTrajectory &us,

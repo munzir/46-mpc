@@ -63,6 +63,7 @@ const char Mpc::DDP_MODE_STRINGS[][32] = {"DDP Idle", "DDP Compute Traj",
 //============================================================================
 Mpc::Mpc(const char* mpc_config_file) {
   ReadConfigParameters(mpc_config_file);
+  writer_.OpenFile(param_.final_trajectory_output_path_);
 
   // Launch the DDP thread
   dart::utils::DartLoader loader;
@@ -181,6 +182,12 @@ void Mpc::ReadConfigParameters(const char* mpc_config_file) {
 
     param_.mpc_.dt_ = cfg->lookupFloat(scope, "mpc_dt");
     std::cout << "mpc_dt:" << param_.mpc_.dt_ << std::endl;
+
+    // Read the path to save final trajectory
+    strcpy(param_.final_trajectory_output_path_,
+           cfg->lookupString(scope, "final_trajectory_output_path"));
+    std::cout << "final_trajectory_output_path: "
+              << param_.final_trajectory_output_path_ << std::endl;
 
   } catch (const config4cpp::ConfigurationException& ex) {
     std::cerr << ex.c_str() << std::endl;
@@ -541,11 +548,11 @@ void Mpc::DdpThread() {
 
         // Save the trajectory
         mpc_trajectory_main_mutex_.lock();
-        mpc_trajectory_main_.block(current_step, 0, 2, horizon) =
+        mpc_trajectory_main_.block(0, current_step, 2, horizon) =
             optimizer_result.control_trajectory;
         mpc_trajectory_main_mutex_.unlock();
         mpc_trajectory_backup_mutex_.lock();
-        mpc_trajectory_backup_.block(current_step, 0, 2, horizon) =
+        mpc_trajectory_backup_.block(0, current_step, 2, horizon) =
             optimizer_result.control_trajectory;
         mpc_trajectory_backup_mutex_.unlock();
 
@@ -637,10 +644,15 @@ void Mpc::Control(double* control_input) {
   // Torque to current conversion
   const double motor_constant = 12.0 * 0.00706;
   const double gear_ratio = 15;
-  control_input[0] =
-      std::min(49.5, std::max(-49.5, tau_L / gear_ratio / motor_constant));
-  control_input[1] =
-      std::min(49.5, std::max(-49.5, tau_R / gear_ratio / motor_constant));
+  control_input[0] = std::min(
+      max_input_current_,
+      std::max(-max_input_current_, tau_L / gear_ratio / motor_constant));
+  control_input[1] = std::min(
+      max_input_current_,
+      std::max(-max_input_current_, tau_R / gear_ratio / motor_constant));
+
+  // Log data
+  writer_.SaveStep(current_state, u, current_step*param_.mpc_.dt_);
 }
 
 //============================================================================

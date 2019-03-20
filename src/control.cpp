@@ -79,6 +79,7 @@ BalanceControl::BalanceControl(Krang::Hardware* krang,
   max_input_current_ = (is_simulation_ ? params.sim_max_input_current_
                                        : kMaxInputCurrentHardware);
   std::cout << "max input current: " << max_input_current_ << std::endl;
+  mpc_.max_input_current_ = max_input_current_;
 
   // LQR Gains
   dynamic_lqr_ = params.dynamicLQR;
