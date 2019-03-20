@@ -50,7 +50,7 @@
 #include <mutex>               // std::mutex
 #include <thread>              // std::thread
 
-#include "balancing/ddp_objects.h"  // TwipDynamics...
+#include "balancing/ddp_objects.h"  // TwipDynamics..., CsvWriter
 
 class Mpc {
  public:
@@ -85,6 +85,10 @@ class Mpc {
   // A clone of the Skeleton in the main balancing thread so that we don't have
   // to share the entire Skeleton using mutex
   dart::dynamics::SkeletonPtr robot_;
+
+  // Max current that can be supplied to the wheel. Set in BalanceControl
+  // constructor
+  double max_input_current_;
 
   // Shared variables to update the dynamics and state of the 3-dof robot in the
   // ddp thread
@@ -125,6 +129,9 @@ class Mpc {
       TwipDynamicsTerminalCost<double>::Hessian terminal_state_hessian_;
       double dt_;
     } mpc_;
+
+    // Output file for saving final trajectory
+    char final_trajectory_output_path_[1024];
   };
 
   // Destroy function called by the destructor
@@ -178,6 +185,7 @@ class Mpc {
   TwipDynamics<double>::ControlTrajectory mpc_trajectory_main_,
       mpc_trajectory_backup_;
   std::mutex mpc_trajectory_main_mutex_, mpc_trajectory_backup_mutex_;
+  CsvWriter<double> writer_;
 };
 
 #endif  // KRANG_BALANCING_MPC_H_
