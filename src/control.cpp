@@ -216,6 +216,18 @@ void BalanceControl::UpdateState() {
   mpc_.state_mutex_.lock();
   mpc_.state_ << state_;
   mpc_.state_mutex_.unlock();
+
+  // update augmented state
+  double R = 0.25;
+  double L = 0.68;
+  double dx = R * state_(3);
+  mpc_.init_heading_mutex_.lock();
+  double psi = R / L * 2.0 * state_(4) - mpc_.init_heading_.direction_;
+  mpc_.init_heading_mutex_.unlock();
+  mpc_.augmented_state_mutex_.lock();
+  mpc_.augmented_state_.x0_ += dx * cos(psi) * dt_;
+  mpc_.augmented_state_.y0_ += dx * sin(psi) * dt_;
+  mpc_.augmented_state_mutex_.unlock();
 }
 
 //============================================================================
@@ -348,9 +360,9 @@ void BalanceControl::BalancingController(double* control_input) {
   // transitioned to STAND mode, this timer is zero in the beginning.
   // In STAND mode this timer starts running if robot is balancing. After it
   // crosses the TimerLimit, mode is switched to balancing.
-  static int stood_up_timer = 0;
-  const int kStoodUpTimerLimit = 100;
-  if (balance_mode_ != BalanceControl::STAND) stood_up_timer = 0;
+  static double stood_up_timer = 0.0;
+  const double kStoodUpTimerLimit = 1.0;  // sec
+  if (balance_mode_ != BalanceControl::STAND) stood_up_timer = 0.0;
 
   // Controllers for each mode
   pd_gains_.setZero();
@@ -431,7 +443,7 @@ void BalanceControl::BalancingController(double* control_input) {
       // Former is determined by imu and latter by state(1)
       const double kImuSitAngle = ((imu_sit_angle_ / 180.0) * M_PI);
       if (krang_->imu > kImuSitAngle && fabs(state_(1)) < to_bal_threshold_) {
-        stood_up_timer++;
+        stood_up_timer += dt_;
       } else {
         stood_up_timer = 0;
       }
