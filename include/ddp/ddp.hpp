@@ -204,7 +204,7 @@ class DDP {
           continue;
         }
         backpass_done = true;
-      	dlambda   = std::min(dlambda / lambda_factor_, 1.0/lambda_factor_);
+				dlambda   = std::min(dlambda / lambda_factor_, 1.0/lambda_factor_);
 				lambda = lambda * dlambda * (lambda > lambda_min_);
       }
 
@@ -255,11 +255,12 @@ class DDP {
                                       cost_.row(current_iteration - 1).sum(),
                                       cost_, x_, u_, Lk_, lk_, success);
   }
+
   template <typename CostFunction, typename TerminalCostFunction>
   OptimizerResult<DynamicsT> run_horizon(
       const Eigen::Ref<const State> &x0,
       const Eigen::Ref<const ControlTrajectory> &u,
-      const Eigen::Ref<const StateTrajectory> &xs, DynamicsT &dynamics,
+			const Eigen::Ref<const StateTrajectory> &xs, DynamicsT &dynamics,
       CostFunction &run_cost, TerminalCostFunction &term_cost,
       const Eigen::Ref<const Control> &u_min =
           -Control::Constant(std::numeric_limits<Scalar>::infinity()),
@@ -278,6 +279,9 @@ class DDP {
     }
 
     int current_iteration = 0;
+    double lambda = 1.0;
+    double dlambda = 1.0;
+		bool success = true;
     while (current_iteration < iter_) {
       // Obtain Jacobians -- this can be parallelized but is pretty bad with
       // OpenMP
@@ -286,7 +290,7 @@ class DDP {
         df_.at(k).leftCols(DynamicsT::StateSize) += Is_;
         d2L_.at(k) = run_cost.d2c_ref(x_.col(k), u_.col(k), xs.col(k));
         dL_.col(k) = run_cost.dc_ref(x_.col(k), u_.col(k), xs.col(k));
-        L_(k) = run_cost.c_ref(x_.col(k), u_.col(k), xs.col(k));
+				L_(k) = run_cost.c_ref(x_.col(k), u_.col(k), xs.col(k));
       }
 
       // Evaluate boundary condition
@@ -298,127 +302,150 @@ class DDP {
       V_(H_ - 1) = term_cost.c(x_.col(H_ - 1));
 
       // Perform backward pass
-      for (int k = H_ - 2; k >= 0; --k) {
-        const auto &Phi = df_.at(k).leftCols(DynamicsT::StateSize);
-        const auto &B = df_.at(k).rightCols(DynamicsT::ControlSize);
+      bool backpass_done = false;
+      while (!backpass_done) {
+        bool diverge = false;
+        for (int k = H_ - 2; k >= 0; --k) {
+          const auto &Phi = df_.at(k).leftCols(DynamicsT::StateSize);
+          const auto &B = df_.at(k).rightCols(DynamicsT::ControlSize);
 
-        qx_ = dL_.col(k).head(DynamicsT::StateSize) * dt_ +
-              Phi.transpose() * Vx_.col(k + 1);
-        qu_ = dL_.col(k).tail(DynamicsT::ControlSize) * dt_ +
-              B.transpose() * Vx_.col(k + 1);
-        qux_ = d2L_.at(k).bottomLeftCorner(DynamicsT::ControlSize,
-                                           DynamicsT::StateSize) *
-                   dt_ +
-               B.transpose() * Vxx_.at(k + 1) * Phi;
-        qxx_ = d2L_.at(k).topLeftCorner(DynamicsT::StateSize,
-                                        DynamicsT::StateSize) *
-                   dt_ +
-               Phi.transpose() * Vxx_.at(k + 1) * Phi;
-        quu_ = d2L_.at(k).bottomRightCorner(DynamicsT::ControlSize,
-                                            DynamicsT::ControlSize) *
-                   dt_ +
-               B.transpose() * Vxx_.at(k + 1) * B;
+          qx_ = dL_.col(k).head(DynamicsT::StateSize) * dt_ +
+                Phi.transpose() * Vx_.col(k + 1);
+          qu_ = dL_.col(k).tail(DynamicsT::ControlSize) * dt_ +
+                B.transpose() * Vx_.col(k + 1);
+          qux_ = d2L_.at(k).bottomLeftCorner(DynamicsT::ControlSize,
+                                             DynamicsT::StateSize) *
+                     dt_ +
+                 B.transpose() * Vxx_.at(k + 1) * Phi;
+          qxx_ = d2L_.at(k).topLeftCorner(DynamicsT::StateSize,
+                                          DynamicsT::StateSize) *
+                     dt_ +
+                 Phi.transpose() * Vxx_.at(k + 1) * Phi;
+          quu_ = d2L_.at(k).bottomRightCorner(DynamicsT::ControlSize,
+                                              DynamicsT::ControlSize) *
+                     dt_ +
+                 B.transpose() * Vxx_.at(k + 1) * B;
+          quu_f_ = quu_ + lambda * eye_uu_;
 
-        bool no_qp = false;
-        if (Eigen::isfinite(u_max.array().abs()).any() ||
-            Eigen::isfinite(u_min.array().abs()).any()) {
-          auto qp_result =
-              boxqp_(quu_, qu_, u_min - u_.col(k), u_max - u_.col(k),
-                     lk_.col(std::min(k + 1, H_ - 2)));
-          if (qp_result.result_code < 1) {
-            no_qp = true;
-            if (verbose_)
-              logger_->warning("DDP: BoxQP failed, clamp controls instead\n");
-          } else {
-            lk_.col(k) = qp_result.solution;
-            Lk_.at(k) = Eigen::Matrix<Scalar, DynamicsT::ControlSize,
-                                      DynamicsT::StateSize>::Zero();
-            if (qp_result.free_indices.any()) {
-              Eigen::Matrix<Scalar, Eigen::Dynamic, DynamicsT::StateSize>
-              qux_free(qp_result.free_indices.count(),
-                       static_cast<int>(DynamicsT::StateSize));
-              int j = 0;
-              for (int i = 0; i < DynamicsT::ControlSize; ++i) {
-                if (qp_result.free_indices(i)) {
-                  qux_free.row(j++) = qux_.row(i);
+          bool no_qp = false;
+          if (Eigen::isfinite(u_max.array().abs()).any() ||
+              Eigen::isfinite(u_min.array().abs()).any()) {
+            auto qp_result =
+                boxqp_(quu_, qu_, u_min - u_.col(k), u_max - u_.col(k),
+                       lk_.col(std::min(k + 1, H_ - 2)));
+            if (qp_result.result_code < 1) {
+              no_qp = true;
+              if (verbose_)
+                logger_->warning("DDP: BoxQP failed, clamp controls instead\n");
+            } else {
+              lk_.col(k) = qp_result.solution;
+              Lk_.at(k) = Eigen::Matrix<Scalar, DynamicsT::ControlSize,
+                                        DynamicsT::StateSize>::Zero();
+              if (qp_result.free_indices.any()) {
+                Eigen::Matrix<Scalar, Eigen::Dynamic, DynamicsT::StateSize>
+                qux_free(qp_result.free_indices.count(),
+                         static_cast<int>(DynamicsT::StateSize));
+                int j = 0;
+                for (int i = 0; i < DynamicsT::ControlSize; ++i) {
+                  if (qp_result.free_indices(i)) {
+                    qux_free.row(j++) = qux_.row(i);
+                  }
                 }
-              }
-              Eigen::Matrix<Scalar, Eigen::Dynamic, DynamicsT::StateSize>
-                  Lfree = qp_result.free_chol.solve(-qux_free);
-              j = 0;
-              for (int i = 0; i < DynamicsT::ControlSize; ++i) {
-                if (qp_result.free_indices(i)) {
-                  Lk_.at(k).row(i) = Lfree.row(j++);
+                Eigen::Matrix<Scalar, Eigen::Dynamic, DynamicsT::StateSize>
+                    Lfree = qp_result.free_chol.solve(-qux_free);
+                j = 0;
+                for (int i = 0; i < DynamicsT::ControlSize; ++i) {
+                  if (qp_result.free_indices(i)) {
+                    Lk_.at(k).row(i) = Lfree.row(j++);
+                  }
                 }
               }
             }
-          }
-        } else {
-          no_qp = true;
-        }
-
-        if (no_qp) {
-          Eigen::LDLT<Eigen::Ref<Eigen::Matrix<Scalar, DynamicsT::ControlSize,
-                                               DynamicsT::ControlSize>>>
-              ldlt(quu_);
-          if (ldlt.info() == Eigen::Success) {
-            Lk_.at(k) = ldlt.solve(-qux_);
-            lk_.col(k) = ldlt.solve(-qu_);
           } else {
-            logger_->error("Failed -- DEAD\n");
-            std::exit(-3);
+            no_qp = true;
           }
+
+          if (no_qp) {
+            Eigen::LDLT<Eigen::Ref<Eigen::Matrix<Scalar, DynamicsT::ControlSize,
+                                                 DynamicsT::ControlSize>>>
+                ldlt(quu_f_);
+            if (ldlt.info() == Eigen::Success) {
+              Lk_.at(k) = ldlt.solve(-qux_);
+              lk_.col(k) = ldlt.solve(-qu_);
+            } else {
+              diverge = true;
+              break;
+              // logger_->error("Failed -- DEAD\n");
+              // std::exit(-3);
+            }
+          }
+
+          // Backprop value function
+          Vxx_.at(k) = qxx_ + qux_.transpose() * Lk_.at(k);
+          VxxT_.at(k) = Vxx_.at(k).transpose();
+          Vxx_.at(k) = static_cast<Scalar>(0.5) * (Vxx_.at(k) + VxxT_.at(k));
+          Vx_.col(k) = qx_ + qux_.transpose() * lk_.col(k);
+          V_(k) =
+              static_cast<Scalar>(0.5) * (qu_.transpose() * lk_.col(k)).value();
         }
 
-        // Backprop value function
-        Vxx_.at(k) = qxx_ + qux_.transpose() * Lk_.at(k);
-        VxxT_.at(k) = Vxx_.at(k).transpose();
-        Vxx_.at(k) = static_cast<Scalar>(0.5) * (Vxx_.at(k) + VxxT_.at(k));
-        Vx_.col(k) = qx_ + qux_.transpose() * lk_.col(k);
-        V_(k) =
-            static_cast<Scalar>(0.5) * (qu_.transpose() * lk_.col(k)).value();
+        if (diverge) {
+          dlambda = std::max(dlambda * lambda_factor_, lambda_factor_);
+          lambda = std::max(lambda * dlambda, lambda_min_);
+          if (lambda > lambda_max_) break;
+          continue;
+        }
+        backpass_done = true;
+				dlambda   = std::min(dlambda / lambda_factor_, 1.0/lambda_factor_);
+				lambda = lambda * dlambda * (lambda > lambda_min_);
       }
 
       bool accept = false;
-      Scalar alpha = static_cast<Scalar>(1.0);
-      StateTrajectory xnew = StateTrajectory::Zero(DynamicsT::StateSize, H_);
-      ControlTrajectory unew =
-          ControlTrajectory::Zero(DynamicsT::ControlSize, H_);
-      while (!accept) {
-        xnew.col(0) = x_.col(0);
+      if (backpass_done) {
+        Scalar alpha = static_cast<Scalar>(1.0);
+        StateTrajectory xnew = StateTrajectory::Zero(DynamicsT::StateSize, H_);
+        ControlTrajectory unew =
+            ControlTrajectory::Zero(DynamicsT::ControlSize, H_);
+        while (!accept) {
+          xnew.col(0) = x_.col(0);
 
-        for (std::size_t k = 0; k < H_ - 1; ++k) {
-          State dx = xnew.col(k) - x_.col(k);
-          unew.col(k) = u_.col(k) + alpha * lk_.col(k) + Lk_.at(k) * dx;
-          unew.col(k) = unew.col(k).cwiseMin(u_max).cwiseMax(u_min);
-          xnew.col(k + 1) =
-              xnew.col(k) + dynamics.f(xnew.col(k), unew.col(k)) * dt_;
-          cost_(current_iteration, k) =
-              run_cost.c_ref(xnew.col(k), unew.col(k), xs.col(k)) * dt_;
-        }
-        cost_(current_iteration, H_ - 1) = V_(H_ - 1);
+          for (std::size_t k = 0; k < H_ - 1; ++k) {
+            State dx = xnew.col(k) - x_.col(k);
+            unew.col(k) = u_.col(k) + alpha * lk_.col(k) + Lk_.at(k) * dx;
+            unew.col(k) = unew.col(k).cwiseMin(u_max).cwiseMax(u_min);
+            xnew.col(k + 1) =
+                xnew.col(k) + dynamics.f(xnew.col(k), unew.col(k)) * dt_;
+            cost_(current_iteration, k) =
+								run_cost.c_ref(xnew.col(k), unew.col(k), xs.col(k)) * dt_;
+          }
+          cost_(current_iteration, H_ - 1) = V_(H_ - 1);
 
-        if (current_iteration == 0 || alpha < static_cast<Scalar>(0.0001) ||
-            cost_.row(current_iteration).sum() <=
-                cost_.row(current_iteration - 1).sum()) {
-          u_ = unew;
-          x_ = xnew;
-          accept = true;
-        } else {
-          alpha *= static_cast<Scalar>(0.5);
-          cost_.row(current_iteration).setZero();
-          unew.setZero();
-          xnew.setZero();
+          if (current_iteration == 0 || alpha < static_cast<Scalar>(0.0001) ||
+              cost_.row(current_iteration).sum() <=
+                  cost_.row(current_iteration - 1).sum()) {
+            u_ = unew;
+            x_ = xnew;
+            accept = true;
+          } else {
+            alpha *= static_cast<Scalar>(0.5);
+            cost_.row(current_iteration).setZero();
+            unew.setZero();
+            xnew.setZero();
+          }
         }
       }
 
+			if (!accept) {
+				success = false;
+				break;
+			}
       ++current_iteration;
     }
     warm_start_ = true;
 
     return OptimizerResult<DynamicsT>(current_iteration, H_,
                                       cost_.row(current_iteration - 1).sum(),
-                                      cost_, x_, u_, Lk_, lk_);
+                                      cost_, x_, u_, Lk_, lk_, success);
   }
 
  private:
