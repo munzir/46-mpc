@@ -96,6 +96,17 @@ class Mpc {
   std::mutex robot_pose_mutex_;
   Eigen::Matrix<double, 6, 1> state_;
   std::mutex state_mutex_;
+  struct AugmentedState {
+    double x0_;
+    double y0_;
+  } augmented_state_;
+  std::mutex augmented_state_mutex_;
+  struct Heading {
+    double distance_;
+    double direction_;
+    double tilt_;
+  } init_heading_;
+  std::mutex init_heading_mutex_;
   double time_;
   std::mutex time_mutex_;
 
@@ -166,16 +177,6 @@ class Mpc {
   std::mutex thread_run_mutex_;
   dart::dynamics::SkeletonPtr three_dof_robot_;
   std::mutex three_dof_robot_mutex_;
-  struct Heading {
-    double distance_;
-    double direction_;
-  } init_heading_;
-  std::mutex init_heading_mutex_;
-  struct AugmentedState {
-    double x0_;
-    double y0_;
-  } augmented_state_;
-  std::mutex augmented_state_mutex_;
   struct DdpTrajectory {
     TwipDynamics<double>::StateTrajectory state_;
     TwipDynamics<double>::ControlTrajectory control_;

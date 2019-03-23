@@ -385,6 +385,7 @@ double Mpc::GetInitTime() {
 void Mpc::DdpThread() {
   std::cout << "Entering DDP Thread ..." << std::endl;
 
+  int current_step;
   bool run = true;
   while (run) {
     // Implementation for each DDP mode
@@ -405,7 +406,8 @@ void Mpc::DdpThread() {
 
         // Define initial heading for computation of future mpc states
         init_heading_.distance_ = 0.25 * state_(2);
-        init_heading_.direction_ = state_(4);
+        init_heading_.direction_ = 0.25 / 0.68 * 2.0 * state_(4);
+        init_heading_.tilt_ = state_(0);
 
         // Reset augmented state
         augmented_state_.x0_ = 0.0;
@@ -414,8 +416,11 @@ void Mpc::DdpThread() {
         // Initial state for ddp trajectory computation
         TwipDynamics<double>::State x0;
         x0 << 0.25 * state_(2) - init_heading_.distance_,
-            state_(4) - init_heading_.direction_, state_(0), 0.25 * state_(3),
-            state_(5), state_(1), augmented_state_.x0_, augmented_state_.y0_;
+            0.25 / 0.68 * 2.0 * state_(4) - init_heading_.direction_,
+            state_(0) - init_heading_.tilt_, 0.0, 0.0, 0.0, 0.0, 0.0;
+            // 0.25 * state_(3),
+            // 0.25 / 0.68 * 2.0 * state_(5), state_(1), augmented_state_.x0_,
+            // augmented_state_.y0_;
 
         // Unlock mutexes
         augmented_state_mutex_.unlock();
@@ -473,6 +478,16 @@ void Mpc::DdpThread() {
             << param_.initial_trajectory_output_path_ << " &";
         int e = system(python_plot_command.str().c_str());
 
+        // current_step was originally local to DDP_FOR_MPC mode
+        // but when running simulation with very small dt, this could
+        // result in recomputation of ddp multiple times in a single time step.
+        // To prevent recomputation, we are now keeping track of changes to
+        // current_step, hence a need to remember current_step across iterations
+        // in order to compare with value in last iteration so that computation
+        // is performed only when current_step has incremented. In order for this
+        // check to be true in the first iteration, current_step needs to be -1
+        current_step = -1;
+
         // Stay here until an external event changes the mode_
         std::unique_lock<std::mutex> lock(mode_mutex_);
         while (mode_ == DDP_TRAJ_OK) mode_change_signal_.wait(lock);
@@ -489,8 +504,14 @@ void Mpc::DdpThread() {
           break;
         }
 
-        // Time-steps (or horizon)
-        int current_step = floor((time_now - init_time) / param_.mpc_.dt_);
+        // Current step
+        int current_step_in_last_iteration = current_step;
+        current_step = floor((time_now - init_time) / param_.mpc_.dt_);
+
+        // Don't perform DDP again if we are still on the same step
+        if (current_step <= current_step_in_last_iteration) break;
+
+        // Horizon
         int trajectory_size = ddp_trajectory_.state_.cols() - 1;
         int horizon = (current_step + param_.mpc_.horizon_ < trajectory_size)
                           ? param_.mpc_.horizon_
@@ -501,8 +522,10 @@ void Mpc::DdpThread() {
         augmented_state_mutex_.lock();
         TwipDynamics<double>::State x0;
         x0 << 0.25 * state_(2) - init_heading_.distance_,
-            state_(4) - init_heading_.direction_, state_(0), 0.25 * state_(3),
-            state_(5), state_(1), augmented_state_.x0_, augmented_state_.y0_;
+            0.25 / 0.68 * 2.0 * state_(4) - init_heading_.direction_,
+            state_(0) - init_heading_.tilt_, 0.25 * state_(3),
+            0.25 / 0.68 * 2.0 * state_(5), state_(1), augmented_state_.x0_,
+            augmented_state_.y0_;
         augmented_state_mutex_.unlock();
         init_heading_mutex_.unlock();
         state_mutex_.unlock();
@@ -610,8 +633,10 @@ void Mpc::Control(double* control_input) {
   augmented_state_mutex_.lock();
   TwipDynamics<double>::State current_state;
   current_state << 0.25 * state_(2) - init_heading_.distance_,
-      state_(4) - init_heading_.direction_, state_(0), 0.25 * state_(3),
-      state_(5), state_(1), augmented_state_.x0_, augmented_state_.y0_;
+      0.25 / 0.68 * 2.0 * state_(4) - init_heading_.direction_,
+      state_(0) - init_heading_.tilt_, 0.25 * state_(3),
+      0.25 / 0.68 * 2.0 * state_(5), state_(1), augmented_state_.x0_,
+      augmented_state_.y0_;
   augmented_state_mutex_.unlock();
   init_heading_mutex_.unlock();
   state_mutex_.unlock();
@@ -652,7 +677,7 @@ void Mpc::Control(double* control_input) {
       std::max(-max_input_current_, tau_R / gear_ratio / motor_constant));
 
   // Log data
-  writer_.SaveStep(current_state, u, current_step*param_.mpc_.dt_);
+  writer_.SaveStep(current_state, u, current_step * param_.mpc_.dt_);
 }
 
 //============================================================================
