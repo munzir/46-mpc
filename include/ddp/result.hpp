@@ -31,9 +31,9 @@ struct OptimizerResult
     OptimizerResult(int iter, int ts, Scalar tc,
                     const Eigen::Ref<const Eigen::Matrix<Scalar, Eigen::Dynamic, Eigen::Dynamic>> &c,
                     const Eigen::Ref<const typename Dynamics::StateTrajectory> &x,
-                    const Eigen::Ref<const typename Dynamics::ControlTrajectory> &u)
+                    const Eigen::Ref<const typename Dynamics::ControlTrajectory> &u, bool s = true)
     : iterations(iter), timesteps(ts), total_cost(tc), cost(c),
-      state_trajectory(x), control_trajectory(u) {}
+      state_trajectory(x), control_trajectory(u), success(s) {}
 
     /**
      * @brief       Constructor to use if the optimizer produces feedback or feedforward gains.
@@ -51,9 +51,9 @@ struct OptimizerResult
                     const Eigen::Ref<const typename Dynamics::StateTrajectory> &x,
                     const Eigen::Ref<const typename Dynamics::ControlTrajectory> &u,
                     const typename Dynamics::FeedbackGainTrajectory &fb,
-                    const Eigen::Ref<const typename Dynamics::FeedforwardGainTrajectory> &ff)
+                    const Eigen::Ref<const typename Dynamics::FeedforwardGainTrajectory> &ff, bool s = true)
     : iterations(iter), timesteps(ts), total_cost(tc), cost(c),
-      state_trajectory(x), control_trajectory(u), feedback_gain(fb), feedforward_gain(ff) {}
+      state_trajectory(x), control_trajectory(u), feedback_gain(fb), feedforward_gain(ff), success(s) {}
 
     int iterations;                                                 ///< # of optimizing iterations (I)
     int timesteps;                                                  ///< # of timesteps (H)
@@ -63,6 +63,7 @@ struct OptimizerResult
     typename Dynamics::ControlTrajectory control_trajectory;        ///< Control trajectory created by optimizer
     typename Dynamics::FeedbackGainTrajectory feedback_gain;        ///< Feedback gain at each time step
     typename Dynamics::FeedforwardGainTrajectory feedforward_gain;  ///< Feedforward gain at each time step
+    bool success;
 };
 
 #endif // TRAJOPT_RESULT_HPP
