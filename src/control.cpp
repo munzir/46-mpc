@@ -364,6 +364,11 @@ void BalanceControl::BalancingController(double* control_input) {
   const double kStoodUpTimerLimit = 1.0;  // sec
   if (balance_mode_ != BalanceControl::STAND) stood_up_timer = 0.0;
 
+  // Timer for exiting MPC once it has stopped moving
+  static double mpc_stable_timer = 0.0;
+  const double kMpcStableTimerLimit = 1.0;
+  if (balance_mode_ != BalanceControl::MPC) mpc_stable_timer = 0.0;
+
   // Controllers for each mode
   pd_gains_.setZero();
   switch (balance_mode_) {
@@ -531,10 +536,15 @@ void BalanceControl::BalancingController(double* control_input) {
       // Perform computation of wheel torques based on mpc control step
       mpc_.Control(control_input);
 
-      // Transition to balance mode when MPC is done
-      if (mpc_.done_) {
+      // Check if stable
+      mpc_stable_timer = (mpc_.static_ ? (mpc_stable_timer + dt_) : 0);
+      bool stable = (mpc_stable_timer > kMpcStableTimerLimit);
+
+      // Transition to balance mode when MPC is done or stabilized
+      if (mpc_.done_ || stable) {
         CancelPositionBuiltup();
         balance_mode_ = previous_balance_mode_;
+        mpc_.SetDdpMode(Mpc::DDP_IDLE);
       }
 
       break;

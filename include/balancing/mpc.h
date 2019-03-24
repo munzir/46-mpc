@@ -62,6 +62,44 @@ class Mpc {
     NUM_DDP_MODES
   };
 
+  struct ConfigParameters {
+    // Path to urdf file
+    char three_dof_urdf_path_[1024];
+
+    // DDP Parameters
+    struct DdpParameters {
+      double final_time_;
+      Eigen::Matrix<double, 8, 1> goal_state_;
+      int max_iter_;
+      TwipDynamicsCost<double>::StateHessian state_hessian_;
+      TwipDynamicsCost<double>::ControlHessian control_hessian_;
+      TwipDynamicsTerminalCost<double>::Hessian terminal_state_hessian_;
+    } ddp_;
+
+    // Output file for saving initial trajectory
+    char initial_trajectory_output_path_[1024];
+
+    // MPC Parameters
+    struct MpcParameters {
+      int max_iter_;
+      int horizon_;
+      TwipDynamicsCost<double>::StateHessian state_hessian_;
+      TwipDynamicsCost<double>::ControlHessian control_hessian_;
+      TwipDynamicsTerminalCost<double>::Hessian terminal_state_hessian_;
+      double dt_;
+    } mpc_;
+
+    // Output file for saving final trajectory
+    char final_trajectory_output_path_[1024];
+
+    // Exit thresholds
+    struct ExitThreshold {
+      double dx_;
+      double dpsi_;
+      double dtheta_;
+    } exit_threshold_;
+  };
+
   Mpc(const char* mpc_config_file);
   ~Mpc() { Destroy(); }
 
@@ -92,6 +130,7 @@ class Mpc {
 
   // Shared variables to update the dynamics and state of the 3-dof robot in the
   // ddp thread
+  // TODO: Could be done via setters and getters perhaps
   Eigen::VectorXd robot_pose_;
   std::mutex robot_pose_mutex_;
   Eigen::Matrix<double, 6, 1> state_;
@@ -113,38 +152,10 @@ class Mpc {
   // If mpc is done, this variable will let the main thread know
   bool done_;
 
+  // If all the speeds are under threshold
+  bool static_;
+
  private:
-  struct ConfigParameters {
-    // Path to urdf file
-    char three_dof_urdf_path_[1024];
-
-    // DDP Parameters
-    struct DdpParameters {
-      double final_time_;
-      Eigen::Matrix<double, 8, 1> goal_state_;
-      int max_iter_;
-      TwipDynamicsCost<double>::StateHessian state_hessian_;
-      TwipDynamicsCost<double>::ControlHessian control_hessian_;
-      TwipDynamicsTerminalCost<double>::Hessian terminal_state_hessian_;
-    } ddp_;
-
-    // Output file for saving initial trajectory
-    char initial_trajectory_output_path_[1024];
-
-    // MPC Parameters
-    struct MpcParameters {
-      int max_iter_;
-      int horizon_;
-      TwipDynamicsCost<double>::StateHessian state_hessian_;
-      TwipDynamicsCost<double>::ControlHessian control_hessian_;
-      TwipDynamicsTerminalCost<double>::Hessian terminal_state_hessian_;
-      double dt_;
-    } mpc_;
-
-    // Output file for saving final trajectory
-    char final_trajectory_output_path_[1024];
-  };
-
   // Destroy function called by the destructor
   void Destroy();
 

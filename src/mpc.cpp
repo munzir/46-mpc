@@ -189,6 +189,19 @@ void Mpc::ReadConfigParameters(const char* mpc_config_file) {
     std::cout << "final_trajectory_output_path: "
               << param_.final_trajectory_output_path_ << std::endl;
 
+    // Exit thresholds
+    param_.exit_threshold_.dx_ = cfg->lookupFloat(scope, "exit_threshold_dx");
+    std::cout << "exit_threshold_dx:" << param_.exit_threshold_.dx_
+              << std::endl;
+    param_.exit_threshold_.dpsi_ =
+        cfg->lookupFloat(scope, "exit_threshold_dpsi");
+    std::cout << "exit_threshold_dpsi:" << param_.exit_threshold_.dpsi_
+              << std::endl;
+    param_.exit_threshold_.dtheta_ =
+        cfg->lookupFloat(scope, "exit_threshold_dtheta");
+    std::cout << "exit_threshold_dtheta:" << param_.exit_threshold_.dtheta_
+              << std::endl;
+
   } catch (const config4cpp::ConfigurationException& ex) {
     std::cerr << ex.c_str() << std::endl;
     cfg->destroy();
@@ -418,9 +431,9 @@ void Mpc::DdpThread() {
         x0 << 0.25 * state_(2) - init_heading_.distance_,
             0.25 / 0.68 * 2.0 * state_(4) - init_heading_.direction_,
             state_(0) - init_heading_.tilt_, 0.0, 0.0, 0.0, 0.0, 0.0;
-            // 0.25 * state_(3),
-            // 0.25 / 0.68 * 2.0 * state_(5), state_(1), augmented_state_.x0_,
-            // augmented_state_.y0_;
+        // 0.25 * state_(3),
+        // 0.25 / 0.68 * 2.0 * state_(5), state_(1), augmented_state_.x0_,
+        // augmented_state_.y0_;
 
         // Unlock mutexes
         augmented_state_mutex_.unlock();
@@ -492,8 +505,9 @@ void Mpc::DdpThread() {
         // To prevent recomputation, we are now keeping track of changes to
         // current_step, hence a need to remember current_step across iterations
         // in order to compare with value in last iteration so that computation
-        // is performed only when current_step has incremented. In order for this
-        // check to be true in the first iteration, current_step needs to be -1
+        // is performed only when current_step has incremented. In order for
+        // this check to be true in the first iteration, current_step needs to
+        // be -1
         current_step = -1;
 
         // Stay here until an external event changes the mode_
@@ -503,16 +517,9 @@ void Mpc::DdpThread() {
         break;
       }
       case DDP_FOR_MPC: {
-        // Check exit condition
+        // Current step
         double time_now = GetTime();
         double init_time = GetInitTime();
-        if (time_now >= init_time + param_.ddp_.final_time_) {
-          // Change to idle mode and get out
-          SetDdpMode(DDP_IDLE);
-          break;
-        }
-
-        // Current step
         int current_step_in_last_iteration = current_step;
         current_step = floor((time_now - init_time) / param_.mpc_.dt_);
 
@@ -580,9 +587,7 @@ void Mpc::DdpThread() {
         // Upon failure, keep moving without updating the trajectory
         // TODO: Maybe we should exit mpc mode in the main thread
         if (!optimizer_result.success) {
-          std::cout << std::endl
-                    << "[ERR] DDP for MPC failed"
-                    << std::endl;
+          std::cout << std::endl << "[ERR] DDP for MPC failed" << std::endl;
           break;
         }
 
@@ -617,14 +622,36 @@ void Mpc::InitializeMpcObjects() {
 
 //============================================================================
 void Mpc::Control(double* control_input) {
-  // Check exit condition
+  // Time
   double time_now = GetTime();
+
+  // Exit condition
   double init_time = GetInitTime();
   done_ = (time_now >= init_time + param_.ddp_.final_time_);
   if (done_) return;
 
   // Current step
   int current_step = floor((time_now - init_time) / param_.mpc_.dt_);
+
+  // Current State
+  state_mutex_.lock();
+  init_heading_mutex_.lock();
+  augmented_state_mutex_.lock();
+  TwipDynamics<double>::State current_state;
+  current_state << 0.25 * state_(2) - init_heading_.distance_,
+      0.25 / 0.68 * 2.0 * state_(4) - init_heading_.direction_,
+      state_(0) - init_heading_.tilt_, 0.25 * state_(3),
+      0.25 / 0.68 * 2.0 * state_(5), state_(1), augmented_state_.x0_,
+      augmented_state_.y0_;
+  augmented_state_mutex_.unlock();
+  init_heading_mutex_.unlock();
+  state_mutex_.unlock();
+
+  // If motion has stopped, let the main thread know, so that if it stays like
+  // this for a while, we can exit
+  static_ = (fabs(current_state(3)) < param_.exit_threshold_.dx_ &&
+             fabs(current_state(4)) < param_.exit_threshold_.dpsi_ &&
+             fabs(current_state(5)) < param_.exit_threshold_.dtheta_);
 
   // Read mpc control step
   bool mpc_reading_done = false;
@@ -645,18 +672,6 @@ void Mpc::Control(double* control_input) {
   double tau_0 = u(1);
 
   // dq
-  state_mutex_.lock();
-  init_heading_mutex_.lock();
-  augmented_state_mutex_.lock();
-  TwipDynamics<double>::State current_state;
-  current_state << 0.25 * state_(2) - init_heading_.distance_,
-      0.25 / 0.68 * 2.0 * state_(4) - init_heading_.direction_,
-      state_(0) - init_heading_.tilt_, 0.25 * state_(3),
-      0.25 / 0.68 * 2.0 * state_(5), state_(1), augmented_state_.x0_,
-      augmented_state_.y0_;
-  augmented_state_mutex_.unlock();
-  init_heading_mutex_.unlock();
-  state_mutex_.unlock();
   Eigen::Vector3d dq = current_state.segment(3, 3);
 
   // ddq
