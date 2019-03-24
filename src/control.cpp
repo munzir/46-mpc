@@ -532,7 +532,10 @@ void BalanceControl::BalancingController(double* control_input) {
       mpc_.Control(control_input);
 
       // Transition to balance mode when MPC is done
-      if (mpc_.done_) balance_mode_ = previous_balance_mode_;
+      if (mpc_.done_) {
+        CancelPositionBuiltup();
+        balance_mode_ = previous_balance_mode_;
+      }
 
       break;
     }
@@ -600,6 +603,7 @@ void BalanceControl::StandSitEvent() {
       balance_mode_ = BalanceControl::SIT;
       std::cout << "[MODE] SIT " << std::endl;
     } else {
+      CancelPositionBuiltup();
       balance_mode_ = BalanceControl::BAL_HI;
       std::cout << "[MODE] BAL HI " << std::endl;
     }
@@ -653,6 +657,7 @@ void BalanceControl::UserDemandsRecomputationEvent() {
 //============================================================================
 void BalanceControl::StopMpcEvent() {
   if (balance_mode_ == MPC) {
+    CancelPositionBuiltup();
     balance_mode_ = previous_balance_mode_;
   }
 
