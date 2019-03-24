@@ -456,6 +456,14 @@ void Mpc::DdpThread() {
             ddp_optimizer.run(x0, nominal_traj, ddp_dynamics, ddp_cost,
                               ddp_terminal_cost);
 
+        ////// Upon failure, recompute
+        if (!optimizer_result.success) {
+          std::cout << std::endl
+                    << "[ERR] DDP computation failed, trying again"
+                    << std::endl;
+          break;
+        }
+
         ////// Save the trajectory
         ddp_trajectory_.state_ = optimizer_result.state_trajectory;
         ddp_trajectory_.control_ = optimizer_result.control_trajectory;
@@ -568,6 +576,15 @@ void Mpc::DdpThread() {
         optimizer_result = ddp_optimizer.run_horizon(
             x0, nominal_traj, reference_traj, ddp_dynamics, ddp_cost,
             ddp_terminal_cost);
+
+        // Upon failure, keep moving without updating the trajectory
+        // TODO: Maybe we should exit mpc mode in the main thread
+        if (!optimizer_result.success) {
+          std::cout << std::endl
+                    << "[ERR] DDP for MPC failed"
+                    << std::endl;
+          break;
+        }
 
         // Save the trajectory
         mpc_trajectory_main_mutex_.lock();
