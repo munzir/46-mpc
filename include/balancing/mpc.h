@@ -196,6 +196,12 @@ class Mpc {
   std::mutex init_time_mutex_;
   TwipDynamics<double>::ControlTrajectory mpc_trajectory_main_,
       mpc_trajectory_backup_;
+  Eigen::Matrix<int, Eigen::Dynamic, 1> updating_iteration_main_,
+      updating_iteration_backup_;  // Keep track of which iteration number of
+                                   // mpc updated each entry of the control
+                                   // trajectories. Begins with -1.0 i.e. after
+                                   // DDP_COMPUTE_TRAJ computes the full
+                                   // reference trajectory
   std::mutex mpc_trajectory_main_mutex_, mpc_trajectory_backup_mutex_;
   CsvWriter<double> writer_;
 };
