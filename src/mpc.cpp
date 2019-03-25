@@ -595,10 +595,14 @@ void Mpc::DdpThread() {
         mpc_trajectory_main_mutex_.lock();
         mpc_trajectory_main_.block(0, current_step, 2, horizon) =
             optimizer_result.control_trajectory;
+        updating_iteration_main_.segment(current_step, horizon) =
+            current_step * Eigen::Matrix<int, Eigen::Dynamic, 1>::Ones(horizon);
         mpc_trajectory_main_mutex_.unlock();
         mpc_trajectory_backup_mutex_.lock();
         mpc_trajectory_backup_.block(0, current_step, 2, horizon) =
             optimizer_result.control_trajectory;
+        updating_iteration_backup_.segment(current_step, horizon) =
+            current_step * Eigen::Matrix<int, Eigen::Dynamic, 1>::Ones(horizon);
         mpc_trajectory_backup_mutex_.unlock();
 
         break;
@@ -617,6 +621,14 @@ void Mpc::DdpThread() {
 void Mpc::InitializeMpcObjects() {
   mpc_trajectory_main_ = ddp_trajectory_.control_;
   mpc_trajectory_backup_ = ddp_trajectory_.control_;
+
+  // Updating iteration number defaults to -1 indicating that it is not yet
+  // updated by the mpc iterations but only by the DDP_COMPUTE_TRAJ
+  int traj_size = ddp_trajectory_.control_.cols();
+  updating_iteration_main_ =
+      -1 * Eigen::Matrix<int, Eigen::Dynamic, 1>::Ones(traj_size);
+  updating_iteration_backup_ =
+      -1 * Eigen::Matrix<int, Eigen::Dynamic, 1>::Ones(traj_size);
   SetInitTime();
 }
 
@@ -654,15 +666,18 @@ void Mpc::Control(double* control_input) {
              fabs(current_state(5)) < param_.exit_threshold_.dtheta_);
 
   // Read mpc control step
+  int updating_iteration;
   bool mpc_reading_done = false;
   TwipDynamics<double>::Control u;
   while (!mpc_reading_done) {
     if (mpc_trajectory_main_mutex_.try_lock()) {
       u = mpc_trajectory_main_.col(current_step);
+      updating_iteration = updating_iteration_main_(current_step);
       mpc_trajectory_main_mutex_.unlock();
       mpc_reading_done = true;
     } else if (mpc_trajectory_backup_mutex_.try_lock()) {
       u = mpc_trajectory_backup_.col(current_step);
+      updating_iteration = updating_iteration_backup_(current_step);
       mpc_trajectory_backup_mutex_.unlock();
       mpc_reading_done = true;
     }
@@ -709,7 +724,7 @@ void Mpc::Control(double* control_input) {
       std::max(-max_input_current_, tau_R / gear_ratio / motor_constant));
 
   // Log data
-  writer_.SaveStep(current_state, u, current_step * param_.mpc_.dt_);
+  writer_.SaveStep(current_state, u, time_now - init_time, updating_iteration);
 }
 
 //============================================================================

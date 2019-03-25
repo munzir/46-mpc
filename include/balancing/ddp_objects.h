@@ -287,7 +287,6 @@ struct TwipDynamicsCost : public CostFunction<TwipDynamics<T>> {
     return g;
   }
 
-
   Hessian d2c_ref(const Eigen::Ref<const State> &x,
                   const Eigen::Ref<const Control> &u,
                   const Eigen::Ref<const State> &xf) {
@@ -344,11 +343,12 @@ struct CsvWriter {
     is_open_ = true;
   }
 
-  void SaveStep(State x, Control u, double time) {
+  void SaveStep(State x, Control u, double time, int updating_iteration) {
     for (int j = 0; j < 8; j++) {
       out_file_ << x(j) << ", ";
     }
-    out_file_ << u(0) << "," << u(1) << ", " << time << std::endl;
+    out_file_ << u(0) << "," << u(1) << ", " << time << ", "
+              << updating_iteration << std::endl;
   }
 
   void SaveTrajectory(StateTrajectory &xs, ControlTrajectory &us,
