@@ -102,6 +102,7 @@ void Mpc::ReadConfigParameters(const char* mpc_config_file) {
     param_.ddp_.final_time_ = cfg->lookupFloat(scope, "ddp_final_time");
     std::cout << "ddp_final_time:" << param_.ddp_.final_time_ << std::endl;
 
+    param_.ddp_.goal_state_.setZero();
     str = cfg->lookupString(scope, "ddp_goal_state");
     stream.str(str);
     for (int i = 0; i < 8; i++) stream >> param_.ddp_.goal_state_(i);
@@ -117,15 +118,20 @@ void Mpc::ReadConfigParameters(const char* mpc_config_file) {
     stream.str(str);
     for (int i = 0; i < 8; i++) stream >> param_.ddp_.state_hessian_(i, i);
     stream.clear();
-    std::cout << "ddp_state_penalties: "
+    str = cfg->lookupString(scope, "ddp_control_penalties");
+    stream.str(str);
+    for (int i = 0; i < 2; i++)
+      stream >> param_.ddp_.state_hessian_(8 + i, 8 + i);
+    stream.clear();
+    std::cout << "ddp_state_hessian_diag: "
               << param_.ddp_.state_hessian_.diagonal().transpose() << std::endl;
 
     param_.ddp_.control_hessian_.setZero();
-    str = cfg->lookupString(scope, "ddp_control_penalties");
+    str = cfg->lookupString(scope, "ddp_control_change_penalties");
     stream.str(str);
     for (int i = 0; i < 2; i++) stream >> param_.ddp_.control_hessian_(i, i);
     stream.clear();
-    std::cout << "ddp_control_penalties: "
+    std::cout << "ddp_control_hessian_diag: "
               << param_.ddp_.control_hessian_.diagonal().transpose()
               << std::endl;
 
@@ -135,7 +141,7 @@ void Mpc::ReadConfigParameters(const char* mpc_config_file) {
     for (int i = 0; i < 8; i++)
       stream >> param_.ddp_.terminal_state_hessian_(i, i);
     stream.clear();
-    std::cout << "ddp_terminal_state_penalties: "
+    std::cout << "ddp_terminal_state_hessian_diag: "
               << param_.ddp_.terminal_state_hessian_.diagonal().transpose()
               << std::endl;
 
@@ -158,15 +164,20 @@ void Mpc::ReadConfigParameters(const char* mpc_config_file) {
     stream.str(str);
     for (int i = 0; i < 8; i++) stream >> param_.mpc_.state_hessian_(i, i);
     stream.clear();
-    std::cout << "mpc_state_penalties: "
+    str = cfg->lookupString(scope, "mpc_control_penalties");
+    stream.str(str);
+    for (int i = 0; i < 2; i++)
+      stream >> param_.mpc_.state_hessian_(8 + i, 8 + i);
+    stream.clear();
+    std::cout << "mpc_state_hessian_diag: "
               << param_.mpc_.state_hessian_.diagonal().transpose() << std::endl;
 
     param_.mpc_.control_hessian_.setZero();
-    str = cfg->lookupString(scope, "mpc_control_penalties");
+    str = cfg->lookupString(scope, "mpc_control_change_penalties");
     stream.str(str);
     for (int i = 0; i < 2; i++) stream >> param_.mpc_.control_hessian_(i, i);
     stream.clear();
-    std::cout << "mpc_control_penalties: "
+    std::cout << "mpc_control_hessian_diag: "
               << param_.mpc_.control_hessian_.diagonal().transpose()
               << std::endl;
 
@@ -176,7 +187,7 @@ void Mpc::ReadConfigParameters(const char* mpc_config_file) {
     for (int i = 0; i < 8; i++)
       stream >> param_.mpc_.terminal_state_hessian_(i, i);
     stream.clear();
-    std::cout << "mpc_terminal_state_penalties: "
+    std::cout << "mpc_terminal_state_hessian_diag: "
               << param_.mpc_.terminal_state_hessian_.diagonal().transpose()
               << std::endl;
 
@@ -427,13 +438,10 @@ void Mpc::DdpThread() {
         augmented_state_.y0_ = 0.0;
 
         // Initial state for ddp trajectory computation
-        TwipDynamics<double>::State x0;
+        TwipDynamicsExt<double>::State x0;
         x0 << 0.25 * state_(2) - init_heading_.distance_,
             0.25 / 0.68 * 2.0 * state_(4) - init_heading_.direction_,
-            state_(0) - init_heading_.tilt_, 0.0, 0.0, 0.0, 0.0, 0.0;
-        // 0.25 * state_(3),
-        // 0.25 / 0.68 * 2.0 * state_(5), state_(1), augmented_state_.x0_,
-        // augmented_state_.y0_;
+            state_(0) - init_heading_.tilt_, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0;
 
         // Unlock mutexes
         augmented_state_mutex_.unlock();
@@ -445,27 +453,28 @@ void Mpc::DdpThread() {
         robot_->setPositions(robot_pose_);
         robot_pose_mutex_.unlock();
         UpdateThreeDof(robot_, three_dof_robot_);
-        TwipDynamics<double> ddp_dynamics;
-        DartSkeletonToTwipDynamics(three_dof_robot_, &ddp_dynamics);
+        TwipDynamicsExt<double> ddp_dynamics;
+        DartSkeletonToTwipDynamics(three_dof_robot_,
+                                   &ddp_dynamics.twip_dynamics_);
 
         ////// Costs
-        TwipDynamicsCost<double> ddp_cost(param_.ddp_.goal_state_,
-                                          param_.ddp_.state_hessian_,
-                                          param_.ddp_.control_hessian_);
-        TwipDynamicsTerminalCost<double> ddp_terminal_cost(
+        TwipDynamicsExtCost<double> ddp_cost(param_.ddp_.goal_state_,
+                                             param_.ddp_.state_hessian_,
+                                             param_.ddp_.control_hessian_);
+        TwipDynamicsExtTerminalCost<double> ddp_terminal_cost(
             param_.ddp_.goal_state_, param_.ddp_.terminal_state_hessian_);
 
         ////// Nominal trajectory
         auto nominal_traj =
-            TwipDynamics<double>::ControlTrajectory::Zero(2, time_steps);
+            TwipDynamicsExt<double>::ControlTrajectory::Zero(2, time_steps);
 
         ////// Perform optimization
         util::DefaultLogger logger;
         bool verbose = true;
-        optimizer::DDP<TwipDynamics<double>> ddp_optimizer(
-            param_.mpc_.dt_, time_steps, param_.mpc_.max_iter_, &logger,
+        optimizer::DDP<TwipDynamicsExt<double>> ddp_optimizer(
+            param_.mpc_.dt_, time_steps, param_.ddp_.max_iter_, &logger,
             verbose);
-        OptimizerResult<TwipDynamics<double>> optimizer_result =
+        OptimizerResult<TwipDynamicsExt<double>> optimizer_result =
             ddp_optimizer.run(x0, nominal_traj, ddp_dynamics, ddp_cost,
                               ddp_terminal_cost);
 
@@ -478,8 +487,9 @@ void Mpc::DdpThread() {
         }
 
         ////// Save the trajectory
-        ddp_trajectory_.state_ = optimizer_result.state_trajectory;
-        ddp_trajectory_.control_ = optimizer_result.control_trajectory;
+        ddp_trajectory_.state_ = optimizer_result.state_trajectory.topRows(8);
+        ddp_trajectory_.control_ =
+            optimizer_result.state_trajectory.bottomRows(2);
         CsvWriter<double> writer;
         writer.SaveTrajectory(ddp_trajectory_.state_, ddp_trajectory_.control_,
                               param_.initial_trajectory_output_path_);
@@ -535,12 +545,14 @@ void Mpc::DdpThread() {
         state_mutex_.lock();
         init_heading_mutex_.lock();
         augmented_state_mutex_.lock();
-        TwipDynamics<double>::State x0;
+        current_u_mutex_.lock();
+        TwipDynamicsExt<double>::State x0;
         x0 << 0.25 * state_(2) - init_heading_.distance_,
             0.25 / 0.68 * 2.0 * state_(4) - init_heading_.direction_,
             state_(0) - init_heading_.tilt_, 0.25 * state_(3),
             0.25 / 0.68 * 2.0 * state_(5), state_(1), augmented_state_.x0_,
-            augmented_state_.y0_;
+            augmented_state_.y0_, current_u_(0), current_u_(1);
+        current_u_mutex_.unlock();
         augmented_state_mutex_.unlock();
         init_heading_mutex_.unlock();
         state_mutex_.unlock();
@@ -550,35 +562,41 @@ void Mpc::DdpThread() {
         robot_->setPositions(robot_pose_);
         robot_pose_mutex_.unlock();
         UpdateThreeDof(robot_, three_dof_robot_);
-        TwipDynamics<double> ddp_dynamics;
-        DartSkeletonToTwipDynamics(three_dof_robot_, &ddp_dynamics);
+        TwipDynamicsExt<double> ddp_dynamics;
+        DartSkeletonToTwipDynamics(three_dof_robot_,
+                                   &ddp_dynamics.twip_dynamics_);
 
         // Costs
-        TwipDynamics<double>::State terminal_state =
+        Eigen::VectorXd terminal_state_temp = Eigen::VectorXd::Zero(10);
+        terminal_state_temp.head(8) =
             ddp_trajectory_.state_.col(current_step + horizon);
-        TwipDynamicsCost<double> ddp_cost(terminal_state,
-                                          param_.mpc_.state_hessian_,
-                                          param_.mpc_.control_hessian_);
-        TwipDynamicsTerminalCost<double> ddp_terminal_cost(
+        TwipDynamicsExt<double>::State terminal_state = terminal_state_temp;
+        TwipDynamicsExtCost<double> ddp_cost(terminal_state,
+                                             param_.mpc_.state_hessian_,
+                                             param_.mpc_.control_hessian_);
+        TwipDynamicsExtTerminalCost<double> ddp_terminal_cost(
             terminal_state, param_.mpc_.terminal_state_hessian_);
 
         // Nominal trajectory
         // TODO: Warm start
         auto nominal_traj =
-            TwipDynamics<double>::ControlTrajectory::Zero(2, horizon);
-        OptimizerResult<TwipDynamics<double>> optimizer_result;
+            TwipDynamicsExt<double>::ControlTrajectory::Zero(2, horizon);
+        OptimizerResult<TwipDynamicsExt<double>> optimizer_result;
         optimizer_result.control_trajectory =
             nominal_traj;  // I don't see why this is needed. For now just
                            // copying Shimin's logic
 
         // Reference trajectory
-        TwipDynamics<double>::StateTrajectory reference_traj =
+        Eigen::MatrixXd reference_traj_temp = Eigen::MatrixXd::Zero(10, horizon);
+        reference_traj_temp.topRows(8) =
             ddp_trajectory_.state_.block(0, current_step, 8, horizon);
+        TwipDynamicsExt<double>::StateTrajectory reference_traj =
+            reference_traj_temp;
 
         // Perform optimization
         util::DefaultLogger logger;
         bool verbose = true;
-        optimizer::DDP<TwipDynamics<double>> ddp_optimizer(
+        optimizer::DDP<TwipDynamicsExt<double>> ddp_optimizer(
             param_.mpc_.dt_, horizon, param_.mpc_.max_iter_, &logger, verbose);
         optimizer_result = ddp_optimizer.run_horizon(
             x0, nominal_traj, reference_traj, ddp_dynamics, ddp_cost,
@@ -594,13 +612,13 @@ void Mpc::DdpThread() {
         // Save the trajectory
         mpc_trajectory_main_mutex_.lock();
         mpc_trajectory_main_.block(0, current_step, 2, horizon) =
-            optimizer_result.control_trajectory;
+            optimizer_result.state_trajectory.bottomRows(2);
         updating_iteration_main_.segment(current_step, horizon) =
             current_step * Eigen::Matrix<int, Eigen::Dynamic, 1>::Ones(horizon);
         mpc_trajectory_main_mutex_.unlock();
         mpc_trajectory_backup_mutex_.lock();
         mpc_trajectory_backup_.block(0, current_step, 2, horizon) =
-            optimizer_result.control_trajectory;
+            optimizer_result.state_trajectory.bottomRows(2);
         updating_iteration_backup_.segment(current_step, horizon) =
             current_step * Eigen::Matrix<int, Eigen::Dynamic, 1>::Ones(horizon);
         mpc_trajectory_backup_mutex_.unlock();
@@ -621,6 +639,7 @@ void Mpc::DdpThread() {
 void Mpc::InitializeMpcObjects() {
   mpc_trajectory_main_ = ddp_trajectory_.control_;
   mpc_trajectory_backup_ = ddp_trajectory_.control_;
+  current_u_.setZero();
 
   // Updating iteration number defaults to -1 indicating that it is not yet
   // updated by the mpc iterations but only by the DDP_COMPUTE_TRAJ
@@ -682,6 +701,9 @@ void Mpc::Control(double* control_input) {
       mpc_reading_done = true;
     }
   }
+  current_u_mutex_.lock();
+  current_u_ = u;
+  current_u_mutex_.unlock();
 
   // Spin Torque tau_0
   double tau_0 = u(1);
