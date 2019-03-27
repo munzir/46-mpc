@@ -72,6 +72,7 @@ class Mpc {
       TwipDynamicsExt<double>::State goal_state_;
       int max_iter_;
       TwipDynamicsExtCost<double>::StateHessian state_hessian_;
+      double negative_theta_penalty_factor_;
       TwipDynamicsExtCost<double>::ControlHessian control_hessian_;
       TwipDynamicsExtTerminalCost<double>::Hessian terminal_state_hessian_;
     } ddp_;
@@ -84,6 +85,7 @@ class Mpc {
       int max_iter_;
       int horizon_;
       TwipDynamicsCost<double>::StateHessian state_hessian_;
+      double negative_theta_penalty_factor_;
       TwipDynamicsCost<double>::ControlHessian control_hessian_;
       TwipDynamicsTerminalCost<double>::Hessian terminal_state_hessian_;
       double dt_;
