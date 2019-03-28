@@ -50,7 +50,7 @@
 #include <mutex>               // std::mutex
 #include <thread>              // std::thread
 
-#include "balancing/ddp_objects.h"  // TwipDynamics..., CsvWriter
+#include "balancing/ddp_objects.h"  // TwipDynamicsExt..., CsvWriter
 
 class Mpc {
  public:
@@ -69,11 +69,12 @@ class Mpc {
     // DDP Parameters
     struct DdpParameters {
       double final_time_;
-      Eigen::Matrix<double, 8, 1> goal_state_;
+      TwipDynamicsExt<double>::State goal_state_;
       int max_iter_;
-      TwipDynamicsCost<double>::StateHessian state_hessian_;
-      TwipDynamicsCost<double>::ControlHessian control_hessian_;
-      TwipDynamicsTerminalCost<double>::Hessian terminal_state_hessian_;
+      TwipDynamicsExtCost<double>::StateHessian state_hessian_;
+      double negative_theta_penalty_factor_;
+      TwipDynamicsExtCost<double>::ControlHessian control_hessian_;
+      TwipDynamicsExtTerminalCost<double>::Hessian terminal_state_hessian_;
     } ddp_;
 
     // Output file for saving initial trajectory
@@ -84,6 +85,7 @@ class Mpc {
       int max_iter_;
       int horizon_;
       TwipDynamicsCost<double>::StateHessian state_hessian_;
+      double negative_theta_penalty_factor_;
       TwipDynamicsCost<double>::ControlHessian control_hessian_;
       TwipDynamicsTerminalCost<double>::Hessian terminal_state_hessian_;
       double dt_;

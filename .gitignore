@@ -22,8 +22,6 @@
 
 # docs
 !/doc/
-/doc/*
-!/doc/verification_checklist
 
 # include
 !/include/

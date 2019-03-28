@@ -61,6 +61,18 @@ struct TwipDynamics : public Dynamics<T, 8, 2> {
     newBu(0) = 0;
   }
 
+  Parameters GetParameters() {
+    Parameters p;
+    p.R = R, p.mw = mw, p.L = L, p.g = g;
+    p.m_1 = m_1;
+    p.MX_1 = MX_1, p.MY_1 = MY_1, p.MZ_1 = MZ_1;
+    p.XX_1 = XX_1, p.YY_1 = YY_1, p.ZZ_1 = ZZ_1;
+    p.XY_1 = XY_1, p.YZ_1 = YZ_1, p.XZ_1 = YZ_1;
+    p.fric_1 = fric_1;
+    p.XXw = XXw, p.YYw = YYw, p.ZZw = ZZw;
+    return p;
+  }
+
   Forces ComputeForces(const Eigen::Ref<const State> &x,
                        const Eigen::Ref<const Control> &u) {
     using std::cos;
@@ -230,9 +242,13 @@ struct TwipDynamicsCost : public CostFunction<TwipDynamics<T>> {
                                        TwipDynamics<T>::ControlSize>;
 
   TwipDynamicsCost(const Eigen::Ref<const State> &xf,
-                   const Eigen::Ref<const StateHessian> &Q,
-                   const Eigen::Ref<const ControlHessian> &R)
-      : CostFunction<TwipDynamics<T>>(xf), Q_(Q), R_(R) {
+                      const Eigen::Ref<const StateHessian> &Q,
+                      const Eigen::Ref<const ControlHessian> &R,
+                      double negative_theta_penalty_factor = 1.0)
+      : CostFunction<TwipDynamics<T>>(xf),
+        Q_(Q),
+        R_(R),
+        negative_theta_penalty_factor_(negative_theta_penalty_factor) {
     QR_.setZero();
     QR_.topLeftCorner(Dynamics::StateSize, Dynamics::StateSize) = Q;
     QR_.bottomRightCorner(Dynamics::ControlSize, Dynamics::ControlSize) = R;
@@ -242,10 +258,7 @@ struct TwipDynamicsCost : public CostFunction<TwipDynamics<T>> {
            const Eigen::Ref<const Control> &u) {
     StateHessian Q_local = Q_;
     State error = x - this->target();
-    // overshooting
-    //        if (error(2) > 0) {
-    //            Q_local(2, 2) = 100;
-    //        }
+    if (error(2) < 0) Q_local(2, 2) = negative_theta_penalty_factor_ * Q_(2, 2);
     return (error.transpose() * Q_local * error).value() +
            (u.transpose() * R_ * u).value();
   }
@@ -255,10 +268,7 @@ struct TwipDynamicsCost : public CostFunction<TwipDynamics<T>> {
     Gradient g;
     StateHessian Q_local = Q_;
     State error = x - this->target();
-    // overshooting
-    //        if (error(2) > 0) {
-    //            Q_local(2, 2) = 100;
-    //        }
+    if (error(2) < 0) Q_local(2, 2) = negative_theta_penalty_factor_ * Q_(2, 2);
     g.head(Dynamics::StateSize) = Q_local * (x - this->target());
     g.tail(Dynamics::ControlSize) = R_ * u;
     return g;
@@ -266,7 +276,11 @@ struct TwipDynamicsCost : public CostFunction<TwipDynamics<T>> {
 
   Hessian d2c(const Eigen::Ref<const State> &x,
               const Eigen::Ref<const Control> &u) {
-    return QR_;
+    Hessian QR_local = QR_;
+    State error = x - this->target();
+    if (error(2) < 0)
+      QR_local(2, 2) = negative_theta_penalty_factor_ * QR_(2, 2);
+    return QR_local;
   }
 
   // Cost Functions which takes reference instead of target
@@ -297,6 +311,7 @@ struct TwipDynamicsCost : public CostFunction<TwipDynamics<T>> {
   StateHessian Q_;
   ControlHessian R_;
   Hessian QR_;
+  double negative_theta_penalty_factor_;
 };
 
 template <class T>
@@ -318,6 +333,134 @@ struct TwipDynamicsTerminalCost : public TerminalCostFunction<TwipDynamics<T>> {
 
   Gradient dc(const Eigen::Ref<const State> &x) {
     return Q_ * (x - TerminalCostFunction<TwipDynamics<T>>::xf);
+  }
+
+  Hessian d2c(const Eigen::Ref<const State> &x) { return Q_; }
+
+ private:
+  Hessian Q_;
+};
+
+template <class T>
+struct TwipDynamicsExt : public Dynamics<T, 10, 2> {
+  using State = typename Dynamics<T, 10, 2>::State;
+  using Control = typename Dynamics<T, 10, 2>::Control;
+  inline State f(const Eigen::Ref<const State> &x,
+                 const Eigen::Ref<const Control> &u) {
+    State xdot;
+    xdot.head(8) = twip_dynamics_.f(x.head(8), x.tail(2));
+    xdot.tail(2) = u;
+    return xdot;
+  }
+  TwipDynamics<T> twip_dynamics_;
+};
+
+template <class T>
+struct TwipDynamicsExtCost : public CostFunction<TwipDynamicsExt<T>> {
+  using Scalar = T;
+  using Dynamics = TwipDynamicsExt<T>;
+  using State = typename CostFunction<TwipDynamicsExt<T>>::State;
+  using Control = typename CostFunction<TwipDynamicsExt<T>>::Control;
+  using Gradient = typename CostFunction<TwipDynamicsExt<T>>::Gradient;
+  using Hessian = typename CostFunction<TwipDynamicsExt<T>>::Hessian;
+  using StateHessian = Eigen::Matrix<Scalar, TwipDynamicsExt<T>::StateSize,
+                                     TwipDynamicsExt<T>::StateSize>;
+  using ControlHessian = Eigen::Matrix<Scalar, TwipDynamicsExt<T>::ControlSize,
+                                       TwipDynamicsExt<T>::ControlSize>;
+
+  TwipDynamicsExtCost(const Eigen::Ref<const State> &xf,
+                      const Eigen::Ref<const StateHessian> &Q,
+                      const Eigen::Ref<const ControlHessian> &R,
+                      double negative_theta_penalty_factor = 1.0)
+      : CostFunction<TwipDynamicsExt<T>>(xf),
+        Q_(Q),
+        R_(R),
+        negative_theta_penalty_factor_(negative_theta_penalty_factor) {
+    QR_.setZero();
+    QR_.topLeftCorner(Dynamics::StateSize, Dynamics::StateSize) = Q;
+    QR_.bottomRightCorner(Dynamics::ControlSize, Dynamics::ControlSize) = R;
+  }
+
+  Scalar c(const Eigen::Ref<const State> &x,
+           const Eigen::Ref<const Control> &u) {
+    StateHessian Q_local = Q_;
+    State error = x - this->target();
+    if (error(2) < 0) Q_local(2, 2) = negative_theta_penalty_factor_ * Q_(2, 2);
+    return (error.transpose() * Q_local * error).value() +
+           (u.transpose() * R_ * u).value();
+  }
+
+  Gradient dc(const Eigen::Ref<const State> &x,
+              const Eigen::Ref<const Control> &u) {
+    Gradient g;
+    StateHessian Q_local = Q_;
+    State error = x - this->target();
+    if (error(2) < 0) Q_local(2, 2) = negative_theta_penalty_factor_ * Q_(2, 2);
+    g.head(Dynamics::StateSize) = Q_local * (x - this->target());
+    g.tail(Dynamics::ControlSize) = R_ * u;
+    return g;
+  }
+
+  Hessian d2c(const Eigen::Ref<const State> &x,
+              const Eigen::Ref<const Control> &u) {
+    Hessian QR_local = QR_;
+    State error = x - this->target();
+    if (error(2) < 0)
+      QR_local(2, 2) = negative_theta_penalty_factor_ * QR_(2, 2);
+    return QR_local;
+  }
+
+  // Cost Functions which takes reference instead of target
+  Scalar c_ref(const Eigen::Ref<const State> &x,
+               const Eigen::Ref<const Control> &u,
+               const Eigen::Ref<const State> &xf) {
+    State error = x - xf;
+    return (error.transpose() * Q_ * error).value() +
+           (u.transpose() * R_ * u).value();
+  }
+
+  Gradient dc_ref(const Eigen::Ref<const State> &x,
+                  const Eigen::Ref<const Control> &u,
+                  const Eigen::Ref<const State> &xf) {
+    Gradient g;
+    g.head(Dynamics::StateSize) = Q_ * (x - xf);
+    g.tail(Dynamics::ControlSize) = R_ * u;
+    return g;
+  }
+
+  Hessian d2c_ref(const Eigen::Ref<const State> &x,
+                  const Eigen::Ref<const Control> &u,
+                  const Eigen::Ref<const State> &xf) {
+    return QR_;
+  }
+
+ private:
+  StateHessian Q_;
+  ControlHessian R_;
+  Hessian QR_;
+  double negative_theta_penalty_factor_;
+};
+
+template <class T>
+struct TwipDynamicsExtTerminalCost
+    : public TerminalCostFunction<TwipDynamicsExt<T>> {
+  using Scalar = T;
+  using Dynamics = TwipDynamicsExt<T>;
+  using State = typename TerminalCostFunction<TwipDynamicsExt<T>>::State;
+  using Gradient = typename TerminalCostFunction<TwipDynamicsExt<T>>::Gradient;
+  using Hessian = typename TerminalCostFunction<TwipDynamicsExt<T>>::Hessian;
+
+  TwipDynamicsExtTerminalCost(const Eigen::Ref<const State> &xf,
+                              const Eigen::Ref<const Hessian> &Q)
+      : TerminalCostFunction<TwipDynamicsExt<T>>(xf), Q_(Q) {}
+
+  Scalar c(const Eigen::Ref<const State> &x) {
+    return (x - TerminalCostFunction<TwipDynamicsExt<T>>::xf).transpose() * Q_ *
+           (x - TerminalCostFunction<TwipDynamicsExt<T>>::xf);
+  }
+
+  Gradient dc(const Eigen::Ref<const State> &x) {
+    return Q_ * (x - TerminalCostFunction<TwipDynamicsExt<T>>::xf);
   }
 
   Hessian d2c(const Eigen::Ref<const State> &x) { return Q_; }
