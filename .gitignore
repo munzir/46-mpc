@@ -19,6 +19,7 @@
 !/cfg/balancing_params.cfg
 !/cfg/balancing_params_simulation.cfg
 !/cfg/mpc_params.cfg
+!/cfg/arms_params.cfg
 
 # docs
 !/doc/
