@@ -1,6 +1,6 @@
-# 35-balancing
+# 46-mpc
 
-This repo contains code for balancing krang. Aim is to implement original balancing logic (repo 28) such that it is more readable and maintainable.
+This repo contains code for balancing krang with MPC and IK.
 
 ## Dependencies
 
@@ -32,7 +32,7 @@ This repo contains code for balancing krang. Aim is to implement original balanc
 
 - [18-OnlineCoM](https://github.gatech.edu/WholeBodyControlAttempt1/18-OnlineCoM)
  Install the repository.
- 
+
 - [18h-krang-utils](https://github.gatech.edu/WholeBodyControlAttempt1/18h-krang-utils)
  Install the repository.
 
@@ -65,4 +65,4 @@ In order to run with a simulation, follow instructions in [41-krang-sim-ach](htt
 
     sudo ./01-balancing
 
-Press 'Enter' for the program to start running. Press 's' then 'Enter' to enable wheel control. Use joystick and keyboard to manipulate the robot. I will write instructions on joystick and keyboard functions later. For now, refer to 'events.cpp' file to see what buttons of joystick and keyboard perform what functionality.
+Press `Enter` for the program to start running. Press `s` then `Enter` to enable wheel control. Use joystick and keyboard to manipulate the robot. I will write instructions on joystick and keyboard functions later. For now, refer to `events.cpp` file to see what buttons of joystick and keyboard perform what functionality.

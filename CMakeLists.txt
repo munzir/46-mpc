@@ -4,7 +4,7 @@
 cmake_minimum_required(VERSION 2.6)
 project(balancing)
 
-find_package(DART 6.3.0 REQUIRED COMPONENTS utils-urdf gui CONFIG)
+find_package(DART 6.7.2 REQUIRED COMPONENTS utils-urdf gui CONFIG)
 
 # Set the top level directory for use in the code
 add_definitions(-DTOP_LEVEL_PATH="${CMAKE_SOURCE_DIR}")
