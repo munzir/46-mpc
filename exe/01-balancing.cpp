@@ -52,6 +52,7 @@
 #include <somatic.h>      // has the correct order of other somatic includes
 #include <dart/dart.hpp>  // dart::dynamics, dart::simulation
 #include <dart/utils/urdf/urdf.hpp>  // dart::utils::DartLoader
+#include <fstream>                   // std::ofstream
 #include <kore.hpp>                  // Krang::Hardware
 
 #include <somatic.pb-c.h>  // SOMATIC__: EVENT, MOTOR_PARAM; Somatic__WaistMode
@@ -66,6 +67,7 @@
 #include "balancing/events.h"    // Events()
 #include "balancing/joystick.h"  // Joystick
 #include "balancing/keyboard.h"  // KbShared, KbHit
+#include "balancing/timer.h"     // Timer
 #include "balancing/torso.h"     // TorsoState, ControlTorso()
 #include "balancing/waist.h"     // ControlWaist()
 
@@ -203,6 +205,11 @@ int main(int argc, char* argv[]) {
   somatic_d_event(&daemon_cx, SOMATIC__EVENT__PRIORITIES__NOTICE,
                   SOMATIC__EVENT__CODES__PROC_RUNNING, NULL, NULL);
 
+  // Timing investigation
+  std::ofstream time_log_file("/var/tmp/krangmpc/time_main");
+  Timer main_timer;
+  double main_real_dt, sim_real_dt;
+
   while (!somatic_sig_received) {
     bool debug = (debug_iter++ % 20 == 0);
 
@@ -234,8 +241,10 @@ int main(int argc, char* argv[]) {
 
     // If in simulation world, make the simulation time step forward
     if (params.is_simulation_) {
+      Timer sim_timer;
       bool success = world_interface->Step();
       if (!success) break;
+      sim_real_dt = sim_timer.ElapsedTimeSinceLastCall();
     }
 
     // Print the mode
@@ -247,6 +256,12 @@ int main(int argc, char* argv[]) {
       std::cout << "time: " << balance_control.get_time() << std::endl;
       if (start) std::cout << "Started..." << std::endl;
     }
+
+    // Timing investigation
+    main_real_dt = main_timer.ElapsedTimeSinceLastCall();
+    if (balance_control.get_mode() == BalanceControl::MPC) {
+      time_log_file << main_real_dt << ", " << sim_real_dt << std::endl;
+    }
   }
 
   // Send the stoppig event
@@ -254,6 +269,7 @@ int main(int argc, char* argv[]) {
                   SOMATIC__EVENT__CODES__PROC_STOPPING, NULL, NULL);
 
   std::cout << "destroying" << std::endl;
+  time_log_file.close();
   delete krang;
   if (params.is_simulation_) {
     delete world_interface;

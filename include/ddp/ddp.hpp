@@ -3,6 +3,7 @@
 
 #include <Eigen/Dense>
 #include <algorithm>
+#include <fstream>
 #include <limits>
 #include <memory>
 #include "boxqp.hpp"
@@ -60,9 +61,9 @@ class DDP {
     eye_uu_.setIdentity();
     lk_.setZero(DynamicsT::ControlSize, H_);
     cost_.setZero(iter_, H_);
-		lambda_factor_ = 1.6;
-		lambda_max_ = 1e10;
-		lambda_min_ = 1e-6;
+    lambda_factor_ = 1.6;
+    lambda_max_ = 1e10;
+    lambda_min_ = 1e-6;
   }
 
   template <typename CostFunction, typename TerminalCostFunction>
@@ -89,7 +90,7 @@ class DDP {
     int current_iteration = 0;
     double lambda = 1.0;
     double dlambda = 1.0;
-		bool success = true;
+    bool success = true;
     while (current_iteration < iter_) {
       // Obtain Jacobians -- this can be parallelized but is pretty bad with
       // OpenMP
@@ -204,8 +205,8 @@ class DDP {
           continue;
         }
         backpass_done = true;
-				dlambda   = std::min(dlambda / lambda_factor_, 1.0/lambda_factor_);
-				lambda = lambda * dlambda * (lambda > lambda_min_);
+        dlambda = std::min(dlambda / lambda_factor_, 1.0 / lambda_factor_);
+        lambda = lambda * dlambda * (lambda > lambda_min_);
       }
 
       bool accept = false;
@@ -243,10 +244,10 @@ class DDP {
         }
       }
 
-			if (!accept) {
-				success = false;
-				break;
-			}
+      if (!accept) {
+        success = false;
+        break;
+      }
       ++current_iteration;
     }
     warm_start_ = true;
@@ -260,8 +261,9 @@ class DDP {
   OptimizerResult<DynamicsT> run_horizon(
       const Eigen::Ref<const State> &x0,
       const Eigen::Ref<const ControlTrajectory> &u,
-			const Eigen::Ref<const StateTrajectory> &xs, DynamicsT &dynamics,
+      const Eigen::Ref<const StateTrajectory> &xs, DynamicsT &dynamics,
       CostFunction &run_cost, TerminalCostFunction &term_cost,
+      std::ofstream &cost_log_file,
       const Eigen::Ref<const Control> &u_min =
           -Control::Constant(std::numeric_limits<Scalar>::infinity()),
       const Eigen::Ref<const Control> &u_max =
@@ -281,7 +283,7 @@ class DDP {
     int current_iteration = 0;
     double lambda = 1.0;
     double dlambda = 1.0;
-		bool success = true;
+    bool success = true;
     while (current_iteration < iter_) {
       // Obtain Jacobians -- this can be parallelized but is pretty bad with
       // OpenMP
@@ -290,7 +292,7 @@ class DDP {
         df_.at(k).leftCols(DynamicsT::StateSize) += Is_;
         d2L_.at(k) = run_cost.d2c_ref(x_.col(k), u_.col(k), xs.col(k));
         dL_.col(k) = run_cost.dc_ref(x_.col(k), u_.col(k), xs.col(k));
-				L_(k) = run_cost.c_ref(x_.col(k), u_.col(k), xs.col(k));
+        L_(k) = run_cost.c_ref(x_.col(k), u_.col(k), xs.col(k));
       }
 
       // Evaluate boundary condition
@@ -396,8 +398,8 @@ class DDP {
           continue;
         }
         backpass_done = true;
-				dlambda   = std::min(dlambda / lambda_factor_, 1.0/lambda_factor_);
-				lambda = lambda * dlambda * (lambda > lambda_min_);
+        dlambda = std::min(dlambda / lambda_factor_, 1.0 / lambda_factor_);
+        lambda = lambda * dlambda * (lambda > lambda_min_);
       }
 
       bool accept = false;
@@ -416,7 +418,7 @@ class DDP {
             xnew.col(k + 1) =
                 xnew.col(k) + dynamics.f(xnew.col(k), unew.col(k)) * dt_;
             cost_(current_iteration, k) =
-								run_cost.c_ref(xnew.col(k), unew.col(k), xs.col(k)) * dt_;
+                run_cost.c_ref(xnew.col(k), unew.col(k), xs.col(k)) * dt_;
           }
           cost_(current_iteration, H_ - 1) = V_(H_ - 1);
 
@@ -426,6 +428,7 @@ class DDP {
             u_ = unew;
             x_ = xnew;
             accept = true;
+            cost_log_file << cost_.row(current_iteration).sum() << " ";
           } else {
             alpha *= static_cast<Scalar>(0.5);
             cost_.row(current_iteration).setZero();
@@ -435,14 +438,15 @@ class DDP {
         }
       }
 
-			if (!accept) {
-				success = false;
-				break;
-			}
+      if (!accept) {
+        success = false;
+        break;
+      }
       ++current_iteration;
     }
     warm_start_ = true;
 
+    cost_log_file << std::endl;
     return OptimizerResult<DynamicsT>(current_iteration, H_,
                                       cost_.row(current_iteration - 1).sum(),
                                       cost_, x_, u_, Lk_, lk_, success);
@@ -482,7 +486,8 @@ class DDP {
   Control qu_;
   Eigen::Matrix<Scalar, DynamicsT::ControlSize, DynamicsT::StateSize> qux_;
   Eigen::Matrix<Scalar, DynamicsT::StateSize, DynamicsT::StateSize> qxx_;
-  Eigen::Matrix<Scalar, DynamicsT::ControlSize, DynamicsT::ControlSize> quu_, quu_f_, eye_uu_;
+  Eigen::Matrix<Scalar, DynamicsT::ControlSize, DynamicsT::ControlSize> quu_,
+      quu_f_, eye_uu_;
   Eigen::Matrix<Scalar, DynamicsT::ControlSize, Eigen::Dynamic> lk_;
   Eigen::Matrix<Scalar, Eigen::Dynamic, Eigen::Dynamic> cost_;
   bool warm_start_;
