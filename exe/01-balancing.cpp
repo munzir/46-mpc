@@ -196,7 +196,17 @@ int main(int argc, char* argv[]) {
 
   // Flag to enable wheel control. Control inputs are not sent to the wheels
   // until this flag is set
-  bool start = false;
+  bool start = ((params.is_simulation_ &&
+                 (params.sim_init_balance_mode_ ==
+                      (int)BalanceControl::BalanceMode::BAL_LO ||
+                  params.sim_init_balance_mode_ ==
+                      (int)BalanceControl::BalanceMode::BAL_HI ||
+                  params.sim_init_balance_mode_ ==
+                      (int)BalanceControl::BalanceMode::STAND ||
+                  params.sim_init_balance_mode_ ==
+                      (int)BalanceControl::BalanceMode::MPC))
+                    ? true
+                    : false);
 
   // Other obvioius variables
   size_t debug_iter = 0;

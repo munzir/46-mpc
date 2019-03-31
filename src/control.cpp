@@ -116,8 +116,9 @@ BalanceControl::BalanceControl(Krang::Hardware* krang,
   waist_hi_lo_threshold_ = params.waistHiLoThreshold;
 
   // Initial values
-  balance_mode_ = BalanceControl::GROUND_LO;
-  pd_gains_ = pd_gains_list_[BalanceControl::GROUND_LO];
+  balance_mode_ =
+      (params.is_simulation_ ? (BalanceMode)params.sim_init_balance_mode_
+                             : GROUND_LO);
   ref_state_.setZero();
   state_.setZero();
   error_.setZero();

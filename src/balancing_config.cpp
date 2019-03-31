@@ -49,6 +49,8 @@
 #include <config4cpp/Configuration.h>
 #include <Eigen/Eigen>
 
+#include "balancing/control.h"  // BalanceControl::BAL_MODE_STRINGS
+
 // Function for reading configuration parameters. First argument is the location
 // of cfg file from the parameters are to be read. Second argument is the output
 // where the parameters are stored
@@ -138,12 +140,15 @@ void ReadConfigParams(const char* config_file, BalancingConfig* params) {
     std::cout << "imuSitAngle :" << params->imuSitAngle << std::endl;
     params->toBalThreshold = cfg->lookupFloat(scope, "toBalThreshold");
     std::cout << "toBalThreshold :" << params->toBalThreshold << std::endl;
-    params->startBalThresholdLo = cfg->lookupFloat(scope, "startBalThresholdLo");
-    std::cout << "startBalThresholdLo :" << params->startBalThresholdLo << std::endl;
-    params->startBalThresholdHi = cfg->lookupFloat(scope, "startBalThresholdHi");
-    std::cout << "startBalThresholdHi :" << params->startBalThresholdHi << std::endl;
-    params->waistHiLoThreshold =
-        cfg->lookupFloat(scope, "waistHiLoThreshold");
+    params->startBalThresholdLo =
+        cfg->lookupFloat(scope, "startBalThresholdLo");
+    std::cout << "startBalThresholdLo :" << params->startBalThresholdLo
+              << std::endl;
+    params->startBalThresholdHi =
+        cfg->lookupFloat(scope, "startBalThresholdHi");
+    std::cout << "startBalThresholdHi :" << params->startBalThresholdHi
+              << std::endl;
+    params->waistHiLoThreshold = cfg->lookupFloat(scope, "waistHiLoThreshold");
     std::cout << "waistHiLoThreshold :" << params->waistHiLoThreshold
               << std::endl;
 
@@ -155,8 +160,16 @@ void ReadConfigParams(const char* config_file, BalancingConfig* params) {
 
     // Max input current in simulation mode
     if (params->is_simulation_) {
-      params->sim_max_input_current_ = cfg->lookupFloat(scope, "maxInputCurrent");
-      std::cout << "maxInputCurrent: " << params->sim_max_input_current_ << std::endl;
+      params->sim_max_input_current_ =
+          cfg->lookupFloat(scope, "maxInputCurrent");
+      std::cout << "maxInputCurrent: " << params->sim_max_input_current_
+                << std::endl;
+
+      params->sim_init_balance_mode_ = cfg->lookupInt(scope, "init_balance_mode");
+      std::cout
+          << "init_balance_mode: "
+          << BalanceControl::BAL_MODE_STRINGS[params->sim_init_balance_mode_]
+          << std::endl;
     }
   } catch (const config4cpp::ConfigurationException& ex) {
     std::cerr << ex.c_str() << std::endl;
