@@ -92,6 +92,8 @@ struct BalancingConfig {
   bool is_simulation_;
   double sim_dt_;
   double sim_max_input_current_;
+
+  int sim_init_balance_mode_;
 };
 
 // Function for reading configuration parameters. First argument is the location
