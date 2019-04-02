@@ -209,7 +209,9 @@ int main(int argc, char* argv[]) {
                     : false);
 
   // Other obvioius variables
-  size_t debug_iter = 0;
+  Timer debug_timer;
+  double debug_time = 0.0;
+  bool debug = false;
 
   // Send a message to event logger; set the event code and the priority
   somatic_d_event(&daemon_cx, SOMATIC__EVENT__PRIORITIES__NOTICE,
@@ -221,12 +223,15 @@ int main(int argc, char* argv[]) {
   double main_real_dt, sim_real_dt;
 
   while (!somatic_sig_received) {
-    bool debug = (debug_iter++ % 20 == 0);
+    // Decide if we want printing to happen in this iteration
+    debug_time = (debug_time > 1.0
+                      ? 0.0
+                      : debug_time + debug_timer.ElapsedTimeSinceLastCall());
+    debug = (debug_time == 0.0);
 
     // Read time, state and joystick inputs
     balance_control.UpdateState();
-    bool joystick_msg_received = false;
-    while (!joystick_msg_received) joystick_msg_received = joystick.Update();
+    joystick.Update();
 
     // Decide control modes and generate control events based on keyb/joys input
     if (Events(kb_shared, joystick, &start, &balance_control, &waist_mode,
