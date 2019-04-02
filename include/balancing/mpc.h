@@ -207,6 +207,7 @@ class Mpc {
   std::mutex mpc_trajectory_main_mutex_, mpc_trajectory_backup_mutex_;
   CsvWriter<double> writer_;
   TwipDynamics<double>::ControlTrajectory nominal_traj_;
+  double ddp_real_time_;
 };
 
 #endif  // KRANG_BALANCING_MPC_H_

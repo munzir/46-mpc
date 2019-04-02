@@ -562,14 +562,23 @@ void Mpc::DdpThread() {
         break;
       }
       case DDP_FOR_MPC: {
-        // Current step
+        // Times
         double time_now = GetTime();
         double init_time = GetInitTime();
+
+        // Current step
         int current_step_in_last_iteration = current_step;
         current_step = floor((time_now - init_time) / param_.mpc_.dt_);
 
         // Don't perform DDP again if we are still on the same step
         if (current_step <= current_step_in_last_iteration) break;
+
+        // To make simulation mode more realistic, let sim_time catch up
+        // with ddp_real_time before performing anouther ddp computation
+        if (time_now - init_time < ddp_real_time_) break;
+        ddp_timer
+            .ElapsedTimeSinceLastCall();  // so the next call at the end of
+                                          // this block measures time from here
 
         // Initial State
         state_mutex_.lock();
@@ -658,6 +667,7 @@ void Mpc::DdpThread() {
 
         // Timing investigation
         ddp_real_dt = ddp_timer.ElapsedTimeSinceLastCall();
+        ddp_real_time_ += ddp_real_dt;
         time_log_file << ddp_real_dt << std::endl;
 
         break;
@@ -690,6 +700,7 @@ void Mpc::InitializeMpcObjects() {
   updating_iteration_backup_ =
       -1 * Eigen::Matrix<int, Eigen::Dynamic, 1>::Ones(traj_size);
   SetInitTime();
+  ddp_real_time_ = 0.0;
 }
 
 //============================================================================
