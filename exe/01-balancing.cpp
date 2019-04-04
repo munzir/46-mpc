@@ -231,7 +231,8 @@ int main(int argc, char* argv[]) {
 
     // Read time, state and joystick inputs
     balance_control.UpdateState();
-    joystick.Update();
+    bool joystick_msg_received = false;
+    while (!joystick_msg_received) joystick_msg_received = joystick.Update();
 
     // Decide control modes and generate control events based on keyb/joys input
     if (Events(kb_shared, joystick, &start, &balance_control, &waist_mode,
@@ -276,6 +277,14 @@ int main(int argc, char* argv[]) {
     main_real_dt = main_timer.ElapsedTimeSinceLastCall();
     if (balance_control.get_mode() == BalanceControl::MPC) {
       time_log_file << main_real_dt << ", " << sim_real_dt << std::endl;
+    }
+
+    // Wait till control loop's desired period ends
+    if (!params.is_simulation_) {
+      auto main_usecs = (unsigned int)(main_real_dt*1e6);
+      if (main_usecs < params.control_period_)
+        usleep(params.control_period_ - main_usecs);
+      main_timer.ElapsedTimeSinceLastCall(); // reset the timer
     }
   }
 
