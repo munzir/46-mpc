@@ -170,6 +170,9 @@ void ReadConfigParams(const char* config_file, BalancingConfig* params) {
           << "init_balance_mode: "
           << BalanceControl::BAL_MODE_STRINGS[params->sim_init_balance_mode_]
           << std::endl;
+    } else {
+      params->control_period_ = cfg->lookupInt(scope, "controlPeriod");
+      std::cout << "controlPeriod: " << params->control_period_ << std::endl;
     }
   } catch (const config4cpp::ConfigurationException& ex) {
     std::cerr << ex.c_str() << std::endl;
