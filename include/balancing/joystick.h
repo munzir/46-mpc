@@ -102,7 +102,7 @@ class Joystick {
 
   /* ************************************************************************ */
   /// Update joystick state
-  bool Update();
+  bool Update(bool update_map_if_no_msg_received = false);
 
  private:
   /* ************************************************************************ */
@@ -115,5 +115,7 @@ class Joystick {
   void MapToJoystickState(char* b, double* x);
 
   ach_channel_t ach_chan;				///< Read joystick data on this channel
+  char b[10];
+  double x[6];
 };
 #endif // KRANG_BALANCING_JOYSTICK_H_

@@ -88,25 +88,25 @@ void Joystick::OpenJoystickChannel() {
  */
 /// Returns the values of axes 1 (left up/down) and 2 (right left/right) in the
 /// joystick
-bool Joystick::Update() {
+bool Joystick::Update(bool update_map_if_no_msg_received) {
   // Get the message and check output is OK.
   int r = 0;
   Somatic__Joystick* js_msg =
       SOMATIC_GET_LAST_UNPACK(r, somatic__joystick, NULL, 4096, &ach_chan);
-  if (!(ACH_OK == r || ACH_MISSED_FRAME == r) || (js_msg == NULL)) return false;
+  bool msg_received = (ACH_OK == r || ACH_MISSED_FRAME == r) &&
+                      (js_msg != NULL);
 
-  // Get the values
-  char b[10];
-  for (size_t i = 0; i < 10; i++) b[i] = js_msg->buttons->data[i] ? 1 : 0;
+  if (msg_received) {
+    // Get the values
+    for (size_t i = 0; i < 10; i++) b[i] = js_msg->buttons->data[i] ? 1 : 0;
+    for (size_t i = 0; i < 6; i++) x[i] = js_msg->axes->data[i];
 
-  double x[6];
-  for (size_t i = 0; i < 6; i++) x[i] = js_msg->axes->data[i];
+    // Free the joystick message
+    somatic__joystick__free_unpacked(js_msg, NULL);
+  }
 
-  // Free the joystick message
-  somatic__joystick__free_unpacked(js_msg, NULL);
-
-  MapToJoystickState(b, x);
-  return true;
+  if (update_map_if_no_msg_received || msg_received) MapToJoystickState(b, x);
+  return msg_received;
 }
 
 /* *****************************************************************************
