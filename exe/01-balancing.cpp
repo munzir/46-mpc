@@ -231,8 +231,9 @@ int main(int argc, char* argv[]) {
 
     // Read time, state and joystick inputs
     balance_control.UpdateState();
-    bool joystick_msg_received = false;
-    while (!joystick_msg_received) joystick_msg_received = joystick.Update();
+    //bool joystick_msg_received = false;
+    //while (!joystick_msg_received) joystick_msg_received = joystick.Update();
+    joystick.Update(true);
 
     // Decide control modes and generate control events based on keyb/joys input
     if (Events(kb_shared, joystick, &start, &balance_control, &waist_mode,
