@@ -42,6 +42,7 @@
 
 #include "balancing/arms.h"
 
+#include <config4cpp/Configuration.h>
 #include <math.h>
 #include <unistd.h>
 
@@ -55,23 +56,50 @@
 #include "balancing/balancing_config.h"
 
 /* ************************************************************************************/
-// The preset arm configurations: forward, thriller, goodJacobian
-double ArmControl::presetArmConfs[][7] = {
-    {0.500, -0.600, 0.000, -1.000, 0.000, -1.450, 0.570},
-    {-0.500, 0.600, 0.000, 1.000, 0.000, 1.450, -0.480},
-    {1.130, -1.000, 0.000, -1.570, -0.000, 1.000, -1.104},
-    {-1.130, 1.000, -0.000, 1.570, 0.000, -1.000, -0.958},
-    {1.400, -1.000, 0.000, -0.800, 0.000, -0.500, -1.000},
-    {-1.400, 1.000, 0.000, 0.800, 0.000, 0.500, -1.000},
-    {0.000, 0.000, 0.000, 0.000, 0.000, 0.000, 0.000},
-    {0.000, 0.000, 0.000, 0.000, 0.000, 0.000, 0.000},
-};
+// Read preset arm configurations from config file
+void ArmControl::ReadPresetConfig(const char* config_file,
+                                  double output_array[8][7]) {
+  // Initialize the reader of the cfg file
+  config4cpp::Configuration* cfg = config4cpp::Configuration::create();
+  const char* scope = "";
+
+  // Temporaries we use for reading from config4cpp structure
+  const char* str;
+  std::istringstream stream;
+
+  std::cout << std::endl
+            << "Reading arms configuration parameters ..." << std::endl;
+  try {
+    // Parse the cfg file
+    cfg->parse(config_file);
+
+    // Read preset arm configurations
+    const char* presetArmStrings[] = {
+        "left_preset_1", "right_preset_1", "left_preset_2", "right_preset_2",
+        "left_preset_3", "right_preset_3", "left_preset_4", "right_preset_4"};
+    for (int i = 0; i < 8; i++) {
+      str = cfg->lookupString(scope, presetArmStrings[i]);
+      stream.str(str);
+      for (int j = 0; j < 7; j++) stream >> output_array[i][j];
+      stream.clear();
+      std::cout << presetArmStrings[i] << ":";
+      for (int j = 0; j < 7; j++) std::cout << " " << output_array[i][j];
+      std::cout << std::endl;
+    }
+  } catch (const config4cpp::ConfigurationException& ex) {
+    std::cerr << ex.c_str() << std::endl;
+    cfg->destroy();
+    assert(false && "Problem reading arm config parameters");
+  }
+}
 
 /* ************************************************************************************/
 /// Constructor
 ArmControl::ArmControl(somatic_d_t* daemon_cx_, Krang::Hardware* krang_,
                        BalancingConfig& params)
     : krang(krang_), daemon_cx(daemon_cx_) {
+  ReadPresetConfig("/usr/local/share/krang/balancing/cfg/arms_params.cfg",
+                   presetArmConfs);
   event_based_lock_unlock = params.manualArmLockUnlock;
   somatic_motor_halt(daemon_cx, krang->arms[Krang::LEFT]);
   somatic_motor_halt(daemon_cx, krang->arms[Krang::RIGHT]);
@@ -246,7 +274,7 @@ void ArmControl::ControlArms() {
       // Send preset config positions to left arm
       somatic_motor_cmd(daemon_cx, krang->arms[Krang::LEFT],
                         SOMATIC__MOTOR_PARAM__MOTOR_POSITION,
-                        presetArmConfs[2 * preset_config_num], 7, NULL);
+                        presetArmConfs[2 * (preset_config_num-1)], 7, NULL);
       break;
     }
     case ArmControl::kMoveRightToPresetPos: {
@@ -256,17 +284,17 @@ void ArmControl::ControlArms() {
       // Send preset config position to the right arm
       somatic_motor_cmd(daemon_cx, krang->arms[Krang::RIGHT],
                         SOMATIC__MOTOR_PARAM__MOTOR_POSITION,
-                        presetArmConfs[2 * preset_config_num + 1], 7, NULL);
+                        presetArmConfs[2 * (preset_config_num-1) + 1], 7, NULL);
       break;
     }
     case ArmControl::kMoveBothToPresetPos: {
       // Send present config positions to both arms
       somatic_motor_cmd(daemon_cx, krang->arms[Krang::LEFT],
                         SOMATIC__MOTOR_PARAM__MOTOR_POSITION,
-                        presetArmConfs[2 * preset_config_num], 7, NULL);
+                        presetArmConfs[2 * (preset_config_num-1)], 7, NULL);
       somatic_motor_cmd(daemon_cx, krang->arms[Krang::RIGHT],
                         SOMATIC__MOTOR_PARAM__MOTOR_POSITION,
-                        presetArmConfs[2 * preset_config_num + 1], 7, NULL);
+                        presetArmConfs[2 * (preset_config_num-1) + 1], 7, NULL);
       break;
     }
     default: {

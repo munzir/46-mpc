@@ -49,9 +49,12 @@
 #include <config4cpp/Configuration.h>
 #include <Eigen/Eigen>
 
+#include "balancing/control.h"  // BalanceControl::BAL_MODE_STRINGS
+
 // Function for reading configuration parameters. First argument is the location
 // of cfg file from the parameters are to be read. Second argument is the output
 // where the parameters are stored
+
 void ReadConfigParams(const char* config_file, BalancingConfig* params) {
   // Initialize the reader of the cfg file
   config4cpp::Configuration* cfg = config4cpp::Configuration::create();
@@ -61,17 +64,21 @@ void ReadConfigParams(const char* config_file, BalancingConfig* params) {
   const char* str;
   std::istringstream stream;
 
-  std::cout << "Reading configuration parameters ..." << std::endl;
+  std::cout << std::endl
+            << "Reading balancing configuration parameters ..." << std::endl;
   try {
     // Parse the cfg file
     cfg->parse(config_file);
 
     // Read the path to Krang urdf file
     strcpy(params->urdfpath, cfg->lookupString(scope, "urdfpath"));
+    std::cout << "urdfpath: " << params->urdfpath << std::endl;
 
     // Read the path to com estimation model parameters
     strcpy(params->comParametersPath,
            cfg->lookupString(scope, "comParametersPath"));
+    std::cout << "comParametersPath: " << params->comParametersPath
+              << std::endl;
 
     // Read PD Gains
     const char* pdGainsStrings[] = {"pdGainsGroundLo", "pdGainsGroundHi",
@@ -133,12 +140,15 @@ void ReadConfigParams(const char* config_file, BalancingConfig* params) {
     std::cout << "imuSitAngle :" << params->imuSitAngle << std::endl;
     params->toBalThreshold = cfg->lookupFloat(scope, "toBalThreshold");
     std::cout << "toBalThreshold :" << params->toBalThreshold << std::endl;
-    params->startBalThresholdLo = cfg->lookupFloat(scope, "startBalThresholdLo");
-    std::cout << "startBalThresholdLo :" << params->startBalThresholdLo << std::endl;
-    params->startBalThresholdHi = cfg->lookupFloat(scope, "startBalThresholdHi");
-    std::cout << "startBalThresholdHi :" << params->startBalThresholdHi << std::endl;
-    params->waistHiLoThreshold =
-        cfg->lookupFloat(scope, "waistHiLoThreshold");
+    params->startBalThresholdLo =
+        cfg->lookupFloat(scope, "startBalThresholdLo");
+    std::cout << "startBalThresholdLo :" << params->startBalThresholdLo
+              << std::endl;
+    params->startBalThresholdHi =
+        cfg->lookupFloat(scope, "startBalThresholdHi");
+    std::cout << "startBalThresholdHi :" << params->startBalThresholdHi
+              << std::endl;
+    params->waistHiLoThreshold = cfg->lookupFloat(scope, "waistHiLoThreshold");
     std::cout << "waistHiLoThreshold :" << params->waistHiLoThreshold
               << std::endl;
 
@@ -150,16 +160,25 @@ void ReadConfigParams(const char* config_file, BalancingConfig* params) {
 
     // Max input current in simulation mode
     if (params->is_simulation_) {
-      params->sim_max_input_current_ = cfg->lookupFloat(scope, "maxInputCurrent");
-      std::cout << "maxInputCurrent: " << params->sim_max_input_current_ << std::endl;
-    }
+      params->sim_max_input_current_ =
+          cfg->lookupFloat(scope, "maxInputCurrent");
+      std::cout << "maxInputCurrent: " << params->sim_max_input_current_
+                << std::endl;
 
+      params->sim_init_balance_mode_ = cfg->lookupInt(scope, "init_balance_mode");
+      std::cout
+          << "init_balance_mode: "
+          << BalanceControl::BAL_MODE_STRINGS[params->sim_init_balance_mode_]
+          << std::endl;
+    } else {
+      params->control_period_ = cfg->lookupInt(scope, "controlPeriod");
+      std::cout << "controlPeriod: " << params->control_period_ << std::endl;
+    }
   } catch (const config4cpp::ConfigurationException& ex) {
     std::cerr << ex.c_str() << std::endl;
     cfg->destroy();
-    assert(false && "Problem reading config parameters");
+    assert(false && "Problem reading balancing config parameters");
   }
-  std::cout << std::endl;
 }
 
 // Read the parameter named "time_step" from the give config file
