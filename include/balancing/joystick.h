@@ -47,6 +47,9 @@
 #include <somatic.h>
 #include <ach.h>
 
+#include <thread> // std::thread
+#include <mutex>  // std::mutex
+
 class Joystick {
  public:
   enum FingerButtons {
@@ -93,29 +96,38 @@ class Joystick {
     RIGHT
   };
   Joystick();
-  ~Joystick() {};
+  ~Joystick();
 
   FingerButtons fingerMode;
   RightThumb rightMode;
   LeftThumb leftMode;
   double thumbValue[2];
 
-  /* ************************************************************************ */
   /// Update joystick state
-  bool Update(bool update_map_if_no_msg_received = false);
+  void Update();
 
  private:
-  /* ************************************************************************ */
   // Opens ach channel to read joystick data
   void OpenJoystickChannel();
 
+  // Read the ach channel
+  bool ReadJoystickChannel();
 
-  /* ************************************************************************ */
+  // Infinite loop to read the ach channel forever, meant to be run as a thread
+  void ReadJoystickChannelForever();
+
   // Maps the data read from ach channels to JoystickState
   void MapToJoystickState(char* b, double* x);
 
-  ach_channel_t ach_chan;				///< Read joystick data on this channel
-  char b[10];
-  double x[6];
+  ach_channel_t ach_chan_;				///< Read joystick data on this channel
+  char b_[10];
+  double x_[6];
+
+  std::thread* thread_;
+  char shared_b_[10];
+  double shared_x_[6];
+  std::mutex bx_mutex_;
+  bool run_;
+  std::mutex run_mutex_;
 };
 #endif // KRANG_BALANCING_JOYSTICK_H_

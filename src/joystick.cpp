@@ -44,10 +44,10 @@
 
 #include <ach.h>
 #include <somatic.h>
+#include <amino/time.h>  // aa_tm, timespec
 #include <cmath>
 
-/* ********************************************************************************************
- */
+// ====================================================================
 // Order in which buttons of joystick appear on the data arrays from ach channel
 enum BUTTONS {
   ONE = 0,
@@ -71,46 +71,105 @@ enum ANALOG {
   CURSOR_VERT
 };
 
-Joystick::Joystick() { OpenJoystickChannel(); }
-/* *****************************************************************************
- */
+// ======================================================================yy
+Joystick::Joystick() {
+	// Initial value for the state
+	fingerMode = L1L2R1R2_FREE;
+	rightMode = RIGHT_THUMB_FREE;
+	leftMode = LEFT_THUMB_FREE;
+	thumbValue[0] = 0.0;
+	thumbValue[1] = 0.0;
+	for (int i = 0; i < 10; i++) { b_[i] = 0; shared_b_[i] = 0; }
+	for (int i = 0; i < 6; i++) { x_[i] = 0.0; shared_x_[i] = 0.0; }
+
+	//std::cout << "1" << std::endl;
+  OpenJoystickChannel();
+
+	//std::cout << "2" << std::endl;
+  run_ = true;
+  thread_ = new std::thread(&Joystick::ReadJoystickChannelForever, this);
+}
+
+// ======================================================================yy
+void Joystick::ReadJoystickChannelForever() {
+  bool run = true;
+  while (run) {
+		//std::cout << "3" << std::endl;
+    ReadJoystickChannel();
+
+		//std::cout << "4" << std::endl;
+    run_mutex_.lock();
+    run = run_;
+    run_mutex_.unlock();
+  }
+}
+// ======================================================================yy
+bool Joystick::ReadJoystickChannel() {
+  // Get the message and check output is OK.
+
+	//std::cout << "3.1" << std::endl;
+  int r = 0;
+	struct timespec curr_time;
+	clock_gettime(CLOCK_MONOTONIC, &curr_time);
+	//std::cout << "3.2" << std::endl;
+	struct timespec abstime = aa_tm_add(aa_tm_sec2timespec(1.0/30.0), curr_time);
+	//std::cout << "3.3" << std::endl;
+  Somatic__Joystick* js_msg =
+      SOMATIC_WAIT_LAST_UNPACK(r, somatic__joystick, NULL, 4096, &ach_chan_, &abstime);
+
+	//std::cout << "3.4" << std::endl;
+  if (!(ACH_OK == r || ACH_MISSED_FRAME == r) || (js_msg == NULL)) return false;
+
+  // Get the values
+	//std::cout << "3.5" << std::endl;
+	bx_mutex_.lock();
+  for (size_t i = 0; i < 10; i++)
+		shared_b_[i] = js_msg->buttons->data[i] ? 1 : 0;
+  for (size_t i = 0; i < 6; i++)
+		shared_x_[i] = js_msg->axes->data[i];
+	bx_mutex_.unlock();
+
+  // Free the joystick message
+	//std::cout << "3.6" << std::endl;
+  somatic__joystick__free_unpacked(js_msg, NULL);
+
+	return true;
+}
+// ======================================================================yy
+Joystick::~Joystick() {
+  run_mutex_.lock();
+  run_ = false;
+  run_mutex_.unlock();
+  thread_->join();
+  delete thread_;
+}
+// ======================================================================yy
 // Opens ach channel to read joystick data
 void Joystick::OpenJoystickChannel() {
   // Initialize the joystick channel
-  int r = ach_open(&ach_chan, "joystick-data", NULL);
+  int r = ach_open(&ach_chan_, "joystick-data", NULL);
   aa_hard_assert(r == ACH_OK,
                  "Ach failure '%s' on opening Joystick channel (%s, line %d)\n",
                  ach_result_to_string(static_cast<ach_status_t>(r)), __FILE__,
                  __LINE__);
 }
 
-/* *****************************************************************************
- */
+// ======================================================================yy
 /// Returns the values of axes 1 (left up/down) and 2 (right left/right) in the
 /// joystick
-bool Joystick::Update(bool update_map_if_no_msg_received) {
-  // Get the message and check output is OK.
-  int r = 0;
-  Somatic__Joystick* js_msg =
-      SOMATIC_GET_LAST_UNPACK(r, somatic__joystick, NULL, 4096, &ach_chan);
-  bool msg_received = (ACH_OK == r || ACH_MISSED_FRAME == r) &&
-                      (js_msg != NULL);
+void Joystick::Update() {
 
-  if (msg_received) {
-    // Get the values
-    for (size_t i = 0; i < 10; i++) b[i] = js_msg->buttons->data[i] ? 1 : 0;
-    for (size_t i = 0; i < 6; i++) x[i] = js_msg->axes->data[i];
+	//std::cout << "        Update 1" << std::endl;
+	bx_mutex_.lock();
+	for (int i = 0; i < 10; i++) b_[i] = shared_b_[i];
+	for (int i = 0; i < 6; i++) x_[i] = shared_x_[i];
+	bx_mutex_.unlock();
 
-    // Free the joystick message
-    somatic__joystick__free_unpacked(js_msg, NULL);
-  }
-
-  if (update_map_if_no_msg_received || msg_received) MapToJoystickState(b, x);
-  return msg_received;
+	//std::cout << "        Update 2" << std::endl;
+  MapToJoystickState(b_, x_);
 }
 
-/* *****************************************************************************
- */
+// ======================================================================yy
 void Joystick::MapToJoystickState(char* b, double* x) {
   // b={(1),(2),(3),(4),L1,L2,R1,R2,(9),(10)}
   // b={  0,  0,  0,  0, 0, 0, 0, 0,  0,  1 }
