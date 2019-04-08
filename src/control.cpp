@@ -48,7 +48,6 @@
 #include <iostream>   // std::cout, std::endl
 #include <string>     // std::string
 
-#include <amino/time.h>  // aa_tm: _now(), _timespec2sec(), _sub()
 #include <Eigen/Eigen>  // Eigen:: MatrixXd, VectorXd, Vector3d, Matrix<double, #, #>
 #include <dart/dart.hpp>             // dart::dynamics::SkeletonPtr
 #include <kore.hpp>                  // Krang::Hardware
@@ -117,8 +116,9 @@ BalanceControl::BalanceControl(Krang::Hardware* krang,
   waist_hi_lo_threshold_ = params.waistHiLoThreshold;
 
   // Initial values
-  balance_mode_ = BalanceControl::GROUND_LO;
-  pd_gains_ = pd_gains_list_[BalanceControl::GROUND_LO];
+  balance_mode_ =
+      (params.is_simulation_ ? (BalanceMode)params.sim_init_balance_mode_
+                             : GROUND_LO);
   ref_state_.setZero();
   state_.setZero();
   error_.setZero();
@@ -140,9 +140,6 @@ BalanceControl::BalanceControl(Krang::Hardware* krang,
     BalanceControl::SetComParameters(beta, 4);
   }
 
-  // time
-  t_prev_ = aa_tm_now();
-
   // To correctly do ComputeLqrGains()
   UpdateState();
 
@@ -161,15 +158,6 @@ BalanceControl::BalanceControl(Krang::Hardware* krang,
 }
 
 //============================================================================
-double BalanceControl::ElapsedTimeSinceLastCall() {
-  struct timespec t_now = aa_tm_now();
-  double dt = (double)aa_tm_timespec2sec(aa_tm_sub(t_now, t_prev_));
-  t_prev_ = t_now;
-
-  return dt;
-}
-
-//============================================================================
 Eigen::Vector3d BalanceControl::GetBodyCom(dart::dynamics::SkeletonPtr robot) {
   dart::dynamics::BodyNodePtr lwheel = robot->getBodyNode("LWheel");
   dart::dynamics::BodyNodePtr rwheel = robot->getBodyNode("RWheel");
@@ -183,7 +171,7 @@ Eigen::Vector3d BalanceControl::GetBodyCom(dart::dynamics::SkeletonPtr robot) {
 //============================================================================
 void BalanceControl::UpdateState() {
   // Time
-  dt_ = (is_simulation_ ? sim_dt_ : ElapsedTimeSinceLastCall());
+  dt_ = (is_simulation_ ? sim_dt_ : timer_.ElapsedTimeSinceLastCall());
   time_ += dt_;
   mpc_.SetTime(time_);
 

@@ -50,6 +50,7 @@
 
 #include "balancing/balancing_config.h"  // BalancingConfig
 #include "balancing/mpc.h"               // Mpc
+#include "balancing/timer.h"             // Timer
 
 class BalanceControl {
  public:
@@ -138,6 +139,7 @@ class BalanceControl {
   Eigen::Matrix<double, 6, 1> get_state() const { return state_; }
   Eigen::Matrix<double, 3, 1> get_com() const { return com_; }
   double get_time() const { return time_; }
+  BalanceMode get_mode() const { return balance_mode_; }
 
  private:
   // Set parameters in the model used to compute CoM
@@ -180,7 +182,7 @@ class BalanceControl {
   Eigen::Matrix<double, 3, 1> com_;  // Current center of mass
   double joystick_forw,
       joystick_spin;  // forw and spin motion control references
-  struct timespec t_prev_;
+  Timer timer_;
   double dt_;
   double u_theta_, u_x_,
       u_spin_;  // individual components of the wheel current
