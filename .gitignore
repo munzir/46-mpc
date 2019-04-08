@@ -18,11 +18,11 @@
 /cfg/*
 !/cfg/balancing_params.cfg
 !/cfg/balancing_params_simulation.cfg
+!/cfg/mpc_params.cfg
+!/cfg/arms_params.cfg
 
 # docs
 !/doc/
-/doc/*
-!/doc/verification_checklist
 
 # include
 !/include/
@@ -33,29 +33,40 @@
 !/include/balancing/balancing.h
 !/include/balancing/balancing_config.h
 !/include/balancing/control.h
+!/include/balancing/ddp_objects.h
 !/include/balancing/events.h
 !/include/balancing/grippers.h
 !/include/balancing/joystick.h
 !/include/balancing/keyboard.h
+!/include/balancing/mpc.h
+!/include/balancing/timer.h
 !/include/balancing/torso.h
 !/include/balancing/waist.h
+
+# ddp
+!/include/ddp/
 
 # src
 !/src/
 /src/*
-!/src/helpers.cpp
 !/src/balancing_config.cpp
 !/src/arms.cpp
-!/src/waist.cpp
+!/src/balancing_config.cpp
+!/src/control.cpp
+!/src/events.cpp
+!/src/file_ops.cpp
 !/src/grippers.cpp
-!/src/torso.cpp
+!/src/helpers.cpp
 !/src/joystick.cpp
 !/src/keyboard.cpp
-!/src/events.cpp
-!/src/control.cpp
+!/src/mpc.cpp
+!/src/timer.cpp
+!/src/torso.cpp
+!/src/waist.cpp
 
 # exe
 !/exe/
 /exe/*
 !/exe/01-balancing.cpp
 !/exe/02-joystick_testing.cpp
+!/exe/plot_script.py

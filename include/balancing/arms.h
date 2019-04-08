@@ -67,9 +67,9 @@ class ArmControl {
                             // presetArmConfs[2*preset_config_num+1]
     kMoveBothToPresetPos    // does both the above
   };
-  static double presetArmConfs[][7];  // should be const but somatic_motor_cmd
-                                      // gives problems when passing directly
-                                      // const array pointers to it
+  double presetArmConfs[8][7];  // should be const but somatic_motor_cmd
+                                // gives problems when passing directly
+                                // const array pointers to it
 
   ArmControl(somatic_d_t* daemon_cx_, Krang::Hardware* krang_,
              BalancingConfig& params);
@@ -83,6 +83,7 @@ class ArmControl {
   double command_vals[7];
 
  private:
+  void ReadPresetConfig(const char* config_file, double output_array[8][7]);
   bool ArmResetIfNeeded(ArmMode& last_mode);
   void StopLeftArm();
   void StopRightArm();

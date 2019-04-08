@@ -36,8 +36,8 @@
 /**
  * @file control.cpp
  * @author Munzir Zafar
- * @date Oct 31, 2018
- * @brief Implements balancing control functions
+ * @date Jan 22, 2019
+ * @brief Implements mpc along with the legacy balancing control functions
  */
 
 #include "balancing/control.h"
@@ -48,7 +48,6 @@
 #include <iostream>   // std::cout, std::endl
 #include <string>     // std::string
 
-#include <amino/time.h>  // aa_tm: _now(), _timespec2sec(), _sub()
 #include <Eigen/Eigen>  // Eigen:: MatrixXd, VectorXd, Vector3d, Matrix<double, #, #>
 #include <dart/dart.hpp>             // dart::dynamics::SkeletonPtr
 #include <kore.hpp>                  // Krang::Hardware
@@ -57,24 +56,29 @@
 #include <krang-utils/lqr.hpp>            // lqr()
 
 #include "balancing/balancing_config.h"  // BalancingConfig
+#include "balancing/mpc.h"               // Mpc
 
 //============================================================================
-const char BalanceControl::MODE_STRINGS[][16] = {
-    "Ground Lo", "Stand", "Sit", "Bal Lo", "Bal Hi", "Ground Hi"};
-
+const char BalanceControl::BAL_MODE_STRINGS[][16] = {
+    "Ground Lo", "Stand", "Sit", "Bal Lo", "Bal Hi", "Ground Hi", "MPC"};
 //============================================================================
 BalanceControl::BalanceControl(Krang::Hardware* krang,
                                dart::dynamics::SkeletonPtr robot,
                                BalancingConfig& params)
-    : krang_(krang), robot_(robot), is_simulation_(params.is_simulation_) {
+    : krang_(krang),
+      robot_(robot),
+      is_simulation_(params.is_simulation_),
+      sim_dt_(params.sim_dt_),
+      mpc_("/usr/local/share/krang/balancing/cfg/mpc_params.cfg") {
   // if in simulation mode dt = sim_dt, if not then 0.001 only until first
   // iteration begins
-  dt_ = (is_simulation_? params.sim_dt_ : 0.01);
+  dt_ = (is_simulation_ ? sim_dt_ : 0.01);
 
   // Define max input current based on simulation mode or not
   max_input_current_ = (is_simulation_ ? params.sim_max_input_current_
                                        : kMaxInputCurrentHardware);
   std::cout << "max input current: " << max_input_current_ << std::endl;
+  mpc_.max_input_current_ = max_input_current_;
 
   // LQR Gains
   dynamic_lqr_ = params.dynamicLQR;
@@ -112,8 +116,9 @@ BalanceControl::BalanceControl(Krang::Hardware* krang,
   waist_hi_lo_threshold_ = params.waistHiLoThreshold;
 
   // Initial values
-  balance_mode_ = BalanceControl::GROUND_LO;
-  pd_gains_ = pd_gains_list_[BalanceControl::GROUND_LO];
+  balance_mode_ =
+      (params.is_simulation_ ? (BalanceMode)params.sim_init_balance_mode_
+                             : GROUND_LO);
   ref_state_.setZero();
   state_.setZero();
   error_.setZero();
@@ -135,9 +140,6 @@ BalanceControl::BalanceControl(Krang::Hardware* krang,
     BalanceControl::SetComParameters(beta, 4);
   }
 
-  // time
-  t_prev_ = aa_tm_now();
-
   // To correctly do ComputeLqrGains()
   UpdateState();
 
@@ -149,15 +151,10 @@ BalanceControl::BalanceControl(Krang::Hardware* krang,
     lqr_hack_ratios_(i, i) =
         pd_gains_list_[BalanceControl::STAND](i) / -lqrGains(i);
   }
-}
 
-//============================================================================
-double BalanceControl::ElapsedTimeSinceLastCall() {
-  t_now_ = aa_tm_now();
-  dt_ = (double)aa_tm_timespec2sec(aa_tm_sub(t_now_, t_prev_));
-  t_prev_ = t_now_;
-
-  return dt_;
+  // Cloning the robot so that mutex sharing is not necessary among
+  // threads
+  mpc_.robot_ = robot_->clone();
 }
 
 //============================================================================
@@ -173,8 +170,18 @@ Eigen::Vector3d BalanceControl::GetBodyCom(dart::dynamics::SkeletonPtr robot) {
 
 //============================================================================
 void BalanceControl::UpdateState() {
+  // Time
+  dt_ = (is_simulation_ ? sim_dt_ : timer_.ElapsedTimeSinceLastCall());
+  time_ += dt_;
+  mpc_.SetTime(time_);
+
   // Read motor encoders, imu and ft and update dart skeleton
   krang_->updateSensors(dt_);
+
+  // Update robot pose variable shared with the ddp thread
+  mpc_.robot_pose_mutex_.lock();
+  mpc_.robot_pose_ = robot_->getPositions();
+  mpc_.robot_pose_mutex_.unlock();
 
   // Calculate the COM Using Skeleton
   com_ = GetBodyCom(robot_) - robot_->getPositions().segment(3, 3);
@@ -192,6 +199,23 @@ void BalanceControl::UpdateState() {
   // Making adjustment in com to make it consistent with the hack above for
   // state(0)
   com_(0) = com_(2) * tan(state_(0));
+
+  // copy of state for the ddp thread
+  mpc_.state_mutex_.lock();
+  mpc_.state_ << state_;
+  mpc_.state_mutex_.unlock();
+
+  // update augmented state
+  double R = 0.25;
+  double L = 0.68;
+  double dx = R * state_(3);
+  mpc_.init_heading_mutex_.lock();
+  double psi = R / L * 2.0 * state_(4) - mpc_.init_heading_.direction_;
+  mpc_.init_heading_mutex_.unlock();
+  mpc_.augmented_state_mutex_.lock();
+  mpc_.augmented_state_.x0_ += dx * cos(psi) * dt_;
+  mpc_.augmented_state_.y0_ += dx * sin(psi) * dt_;
+  mpc_.augmented_state_mutex_.unlock();
 }
 
 //============================================================================
@@ -309,7 +333,7 @@ Eigen::MatrixXd BalanceControl::ComputeLqrGains() {
     // TODO: LQR gains were calculated with only single wheel torque
     // They should be halved to divide between two wheels.
     // This may end up having to find lqr_hack_ratios_
-		LQR_Gains = 0.5 * LQR_Gains;
+    LQR_Gains = 0.5 * LQR_Gains;
     LQR_Gains = lqr_hack_ratios_ * LQR_Gains;
   }
 
@@ -324,9 +348,14 @@ void BalanceControl::BalancingController(double* control_input) {
   // transitioned to STAND mode, this timer is zero in the beginning.
   // In STAND mode this timer starts running if robot is balancing. After it
   // crosses the TimerLimit, mode is switched to balancing.
-  static int stood_up_timer = 0;
-  const int kStoodUpTimerLimit = 100;
-  if (balance_mode_ != BalanceControl::STAND) stood_up_timer = 0;
+  static double stood_up_timer = 0.0;
+  const double kStoodUpTimerLimit = 1.0;  // sec
+  if (balance_mode_ != BalanceControl::STAND) stood_up_timer = 0.0;
+
+  // Timer for exiting MPC once it has stopped moving
+  static double mpc_stable_timer = 0.0;
+  const double kMpcStableTimerLimit = 1.0;
+  if (balance_mode_ != BalanceControl::MPC) mpc_stable_timer = 0.0;
 
   // Controllers for each mode
   pd_gains_.setZero();
@@ -373,8 +402,8 @@ void BalanceControl::BalancingController(double* control_input) {
       BalanceControl::ComputeCurrent(pd_gains_, error_, &control_input[0]);
 
       // State Transitions
-      // If in ground Hi mode and waist angle decreases below waist_hi_lo_threshold_ goto
-      // groundLo mode
+      // If in ground Hi mode and waist angle decreases below
+      // waist_hi_lo_threshold_ goto groundLo mode
       if ((krang_->waist->pos[0] - krang_->waist->pos[1]) / 2.0 >
           waist_hi_lo_threshold_ * M_PI / 180.0) {
         balance_mode_ = BalanceControl::GROUND_LO;
@@ -407,7 +436,7 @@ void BalanceControl::BalancingController(double* control_input) {
       // Former is determined by imu and latter by state(1)
       const double kImuSitAngle = ((imu_sit_angle_ / 180.0) * M_PI);
       if (krang_->imu > kImuSitAngle && fabs(state_(1)) < to_bal_threshold_) {
-        stood_up_timer++;
+        stood_up_timer += dt_;
       } else {
         stood_up_timer = 0;
       }
@@ -491,6 +520,23 @@ void BalanceControl::BalancingController(double* control_input) {
 
       break;
     }
+    case BalanceControl::MPC: {
+      // Perform computation of wheel torques based on mpc control step
+      mpc_.Control(control_input);
+
+      // Check if stable
+      mpc_stable_timer = (mpc_.static_ ? (mpc_stable_timer + dt_) : 0);
+      bool stable = (mpc_stable_timer > kMpcStableTimerLimit);
+
+      // Transition to balance mode when MPC is done or stabilized
+      if (mpc_.done_ || stable) {
+        CancelPositionBuiltup();
+        balance_mode_ = previous_balance_mode_;
+        mpc_.SetDdpMode(Mpc::DDP_IDLE);
+      }
+
+      break;
+    }
   }
 }
 
@@ -504,9 +550,11 @@ void BalanceControl::Print() {
   std::cout << "refState: " << ref_state_.transpose() << std::endl;
   std::cout << "error: " << error_.transpose();
   std::cout << ", imu: " << krang_->imu / M_PI * 180.0 << std::endl;
-  std::cout << "dynamic lqr: " << (dynamic_lqr_? "true" : "false") << std::endl;
+  std::cout << "dynamic lqr: " << (dynamic_lqr_ ? "true" : "false")
+            << std::endl;
   std::cout << "PD Gains: " << pd_gains_.transpose() << std::endl;
-  std::cout << "Mode : " << MODE_STRINGS[balance_mode_] << "      ";
+  std::cout << "Mode : " << BAL_MODE_STRINGS[balance_mode_] << " - ";
+  std::cout << mpc_.DDP_MODE_STRINGS[mpc_.GetDdpMode()] << "     ";
   std::cout << "dt: " << dt_ << std::endl;
 }
 
@@ -543,6 +591,79 @@ void BalanceControl::StandSitEvent() {
     } else {
       std::cout << "[ERR ] Can't sit down, Waist is too high! " << std::endl;
     }
+  }
+
+  // If in MPC mode, waist not too high sit down. IF waist is high,
+  // go to Bal Hi mode
+  else if (balance_mode_ == BalanceControl::MPC) {
+    if ((krang_->waist->pos[0] - krang_->waist->pos[1]) / 2.0 >
+        150.0 * M_PI / 180.0) {
+      balance_mode_ = BalanceControl::SIT;
+      std::cout << "[MODE] SIT " << std::endl;
+    } else {
+      CancelPositionBuiltup();
+      balance_mode_ = BalanceControl::BAL_HI;
+      std::cout << "[MODE] BAL HI " << std::endl;
+    }
+  }
+
+  // Go to DDP_IDLE mode
+  Mpc::DdpMode ddp_mode = mpc_.GetDdpMode();
+  if (ddp_mode == Mpc::DDP_COMPUTE_TRAJ || ddp_mode == Mpc::DDP_TRAJ_OK ||
+      ddp_mode == Mpc::DDP_FOR_MPC) {
+    mpc_.SetDdpMode(Mpc::DDP_IDLE);
+  }
+}
+
+//============================================================================
+void BalanceControl::StartMpcEvent() {
+  if (balance_mode_ == BAL_LO || balance_mode_ == BAL_HI) {
+    if (mpc_.GetDdpMode() == Mpc::DDP_IDLE) {
+      mpc_.SetDdpMode(Mpc::DDP_COMPUTE_TRAJ);
+    }
+  }
+}
+
+//============================================================================
+void BalanceControl::UserAcceptsTrajectoryEvent() {
+  if (mpc_.GetDdpMode() == Mpc::DDP_TRAJ_OK &&
+      (balance_mode_ == BAL_LO || balance_mode_ == BAL_HI)) {
+    // Initializes mpc control trajectory with the ddp control trajectory
+    // and also sets the initial time that will be used as reference for
+    // determining the current step during MPC execution
+    mpc_.InitializeMpcObjects();
+
+    // Change mode of the ddp_thread to DDP_FOR_MPC
+    mpc_.SetDdpMode(Mpc::DDP_FOR_MPC);
+
+    // Note the current balance mode, so that this where we revert after
+    // MPC is done
+    previous_balance_mode_ = balance_mode_;
+
+    // Change mode of the main thread to MPC
+    balance_mode_ = MPC;
+  }
+}
+
+//============================================================================
+void BalanceControl::UserDemandsRecomputationEvent() {
+  if (mpc_.GetDdpMode() == Mpc::DDP_TRAJ_OK) {
+    mpc_.SetDdpMode(Mpc::DDP_COMPUTE_TRAJ);
+  }
+}
+
+//============================================================================
+void BalanceControl::StopMpcEvent() {
+  if (balance_mode_ == MPC) {
+    CancelPositionBuiltup();
+    balance_mode_ = previous_balance_mode_;
+  }
+
+  // Go to DDP_IDLE mode
+  Mpc::DdpMode ddp_mode = mpc_.GetDdpMode();
+  if (ddp_mode == Mpc::DDP_COMPUTE_TRAJ || ddp_mode == Mpc::DDP_TRAJ_OK ||
+      ddp_mode == Mpc::DDP_FOR_MPC) {
+    mpc_.SetDdpMode(Mpc::DDP_IDLE);
   }
 }
 
