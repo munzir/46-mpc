@@ -154,7 +154,7 @@ BalanceControl::BalanceControl(Krang::Hardware* krang,
 
   // Cloning the robot so that mutex sharing is not necessary among
   // threads
-  mpc_.robot_ = robot_->clone();
+  mpc_.robot_ = robot_->cloneSkeleton();
 }
 
 //============================================================================
