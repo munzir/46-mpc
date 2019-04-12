@@ -142,6 +142,7 @@ Joystick::~Joystick() {
   run_mutex_.unlock();
   thread_->join();
   delete thread_;
+  ach_close(&ach_chan_);
 }
 // ======================================================================yy
 // Opens ach channel to read joystick data

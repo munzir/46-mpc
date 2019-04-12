@@ -5,9 +5,14 @@
 
 int main() {
   // Initialize the daemon
-  // somatic_d_t daemon_cx;				///< The context of the current
-  // daemon somatic_d_opts_t dopt; memset(&dopt, 0, sizeof(dopt)); dopt.ident =
-  // "02-joystick_testing"; somatic_d_init(&daemon_cx, &dopt);
+  somatic_d_opts_t dopt;
+  memset(&dopt, 0, sizeof(dopt));
+  dopt.ident = "02-joystick_testing";
+  somatic_d_t daemon_cx;  ///< The context of the current daemon
+  memset(&daemon_cx, 0, sizeof(daemon_cx));
+  somatic_d_init(&daemon_cx, &dopt);
+
+  // Initialize the daemon
   Joystick joystick;
 
   Joystick::FingerButtons last_finger_mode;

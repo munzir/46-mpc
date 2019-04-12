@@ -222,6 +222,9 @@ int main(int argc, char* argv[]) {
   Timer main_timer;
   double main_real_dt, sim_real_dt;
 
+  // Filtering investigation
+  std::ofstream imu_log_file("/var/tmp/krangmpc/imu_log.csv");
+
   while (!somatic_sig_received) {
     // Decide if we want printing to happen in this iteration
     debug_time = (debug_time > 1.0
@@ -280,6 +283,11 @@ int main(int argc, char* argv[]) {
       time_log_file << main_real_dt << ", " << sim_real_dt << std::endl;
     }
 
+    // Filtering investigation
+    imu_log_file << balance_control.get_time() << ", " << krang->rawImu << ", "
+                 << krang->rawImuSpeed << ", " << krang->imu << ", "
+                 << krang->imuSpeed << std::endl;
+
     // Wait till control loop's desired period ends
     if (!params.is_simulation_) {
       auto main_usecs = (unsigned int)(main_real_dt*1e6);
@@ -295,6 +303,7 @@ int main(int argc, char* argv[]) {
 
   std::cout << "destroying" << std::endl;
   time_log_file.close();
+  imu_log_file.close();
   delete krang;
   if (params.is_simulation_) {
     delete world_interface;
