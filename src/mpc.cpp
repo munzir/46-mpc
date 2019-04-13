@@ -50,11 +50,13 @@
 #include <dart/utils/urdf/urdf.hpp>  // dart::utils::DartLoader
 #include <ddp/ddp.hpp>               // optimizer, OptimizerResult
 #include <ddp/util.hpp>              // util::DefaultLogger, util::time_steps
+#include <fstream>                   // std::ofstream
 #include <mutex>                     // std::mutex
 #include <sstream>                   // std::stringstream
 #include <thread>                    // std::thread
 
 #include "balancing/ddp_objects.h"  // TwipDynamics...
+#include "balancing/timer.h"        // Timer
 
 //============================================================================
 const char Mpc::DDP_MODE_STRINGS[][32] = {"DDP Idle", "DDP Compute Traj",
@@ -64,6 +66,8 @@ const char Mpc::DDP_MODE_STRINGS[][32] = {"DDP Idle", "DDP Compute Traj",
 Mpc::Mpc(const char* mpc_config_file) {
   ReadConfigParameters(mpc_config_file);
   writer_.OpenFile(param_.final_trajectory_output_path_);
+  nominal_traj_ =
+      TwipDynamics<double>::ControlTrajectory::Zero(2, param_.mpc_.horizon_);
 
   // Launch the DDP thread
   dart::utils::DartLoader loader;
@@ -414,6 +418,12 @@ double Mpc::GetInitTime() {
 void Mpc::DdpThread() {
   std::cout << "Entering DDP Thread ..." << std::endl;
 
+  // Timing investigation
+  std::ofstream time_log_file("/var/tmp/krangmpc/time_ddp");
+  std::ofstream cost_log_file("/var/tmp/krangmpc/costs");
+  Timer ddp_timer;
+  double ddp_real_dt;
+
   int current_step;
   bool run = true;
   while (run) {
@@ -497,7 +507,8 @@ void Mpc::DdpThread() {
         int trajectory_size = optimizer_result.state_trajectory.cols();
         std::cout << std::endl << "1" << std::endl << std::flush;
         ddp_trajectory_.state_ = TwipDynamics<double>::StateTrajectory::Zero(
-            TwipDynamics<double>::StateSize, trajectory_size + param_.mpc_.horizon_);
+            TwipDynamics<double>::StateSize,
+            trajectory_size + param_.mpc_.horizon_);
         std::cout << std::endl << "2" << std::endl << std::flush;
         ddp_trajectory_.state_ << optimizer_result.state_trajectory.topRows(8),
             param_.ddp_.goal_state_.head(8).replicate(1, param_.mpc_.horizon_);
@@ -530,6 +541,10 @@ void Mpc::DdpThread() {
             << param_.initial_trajectory_output_path_ << " &";
         int e = system(python_plot_command.str().c_str());
 
+        // Stay here until an external event changes the mode_
+        std::unique_lock<std::mutex> lock(mode_mutex_);
+        while (mode_ == DDP_TRAJ_OK) mode_change_signal_.wait(lock);
+
         // current_step was originally local to DDP_FOR_MPC mode
         // but when running simulation with very small dt, this could
         // result in recomputation of ddp multiple times in a single time step.
@@ -541,21 +556,29 @@ void Mpc::DdpThread() {
         // be -1
         current_step = -1;
 
-        // Stay here until an external event changes the mode_
-        std::unique_lock<std::mutex> lock(mode_mutex_);
-        while (mode_ == DDP_TRAJ_OK) mode_change_signal_.wait(lock);
+        // Timing investigation
+        ddp_timer.ElapsedTimeSinceLastCall();
 
         break;
       }
       case DDP_FOR_MPC: {
-        // Current step
+        // Times
         double time_now = GetTime();
         double init_time = GetInitTime();
+
+        // Current step
         int current_step_in_last_iteration = current_step;
         current_step = floor((time_now - init_time) / param_.mpc_.dt_);
 
         // Don't perform DDP again if we are still on the same step
         if (current_step <= current_step_in_last_iteration) break;
+
+        // To make simulation mode more realistic, let sim_time catch up
+        // with ddp_real_time before performing anouther ddp computation
+        if (time_now - init_time < ddp_real_time_) break;
+        ddp_timer
+            .ElapsedTimeSinceLastCall();  // so the next call at the end of
+                                          // this block measures time from here
 
         // Initial State
         state_mutex_.lock();
@@ -589,14 +612,20 @@ void Mpc::DdpThread() {
         TwipDynamicsTerminalCost<double> ddp_terminal_cost(
             terminal_state, param_.mpc_.terminal_state_hessian_);
 
-        // Nominal trajectory
-        // TODO: Warm start
-        auto nominal_traj = TwipDynamics<double>::ControlTrajectory::Zero(
-            2, param_.mpc_.horizon_);
-        OptimizerResult<TwipDynamics<double>> optimizer_result;
-        optimizer_result.control_trajectory =
-            nominal_traj;  // I don't see why this is needed. For now just
-                           // copying Shimin's logic
+        // Nominal trajectory - Warm start
+        // nominal_traj_ is already set for first iter (i.e. when current_step =
+        // 0)
+        if (current_step > 0) {
+          int shift = current_step - current_step_in_last_iteration;
+          int reuse_size = param_.mpc_.horizon_ - shift;
+          mpc_trajectory_main_mutex_.lock();
+          nominal_traj_.leftCols(reuse_size) =
+              mpc_trajectory_main_.block(0, current_step, 2, reuse_size);
+          for (int i = 0; i < shift; i++)
+            nominal_traj_.col(reuse_size + i) =
+                nominal_traj_.col(reuse_size - 1);
+          mpc_trajectory_main_mutex_.unlock();
+        }
 
         // Reference trajectory
         TwipDynamics<double>::StateTrajectory reference_traj =
@@ -609,9 +638,9 @@ void Mpc::DdpThread() {
         optimizer::DDP<TwipDynamics<double>> ddp_optimizer(
             param_.mpc_.dt_, param_.mpc_.horizon_, param_.mpc_.max_iter_,
             &logger, verbose);
-        optimizer_result = ddp_optimizer.run_horizon(
-            x0, nominal_traj, reference_traj, ddp_dynamics, ddp_cost,
-            ddp_terminal_cost);
+        auto optimizer_result = ddp_optimizer.run_horizon(
+            x0, nominal_traj_, reference_traj, ddp_dynamics, ddp_cost,
+            ddp_terminal_cost, cost_log_file);
 
         // Upon failure, keep moving without updating the trajectory
         // TODO: Maybe we should exit mpc mode in the main thread
@@ -636,6 +665,11 @@ void Mpc::DdpThread() {
             Eigen::Matrix<int, Eigen::Dynamic, 1>::Ones(param_.mpc_.horizon_);
         mpc_trajectory_backup_mutex_.unlock();
 
+        // Timing investigation
+        ddp_real_dt = ddp_timer.ElapsedTimeSinceLastCall();
+        ddp_real_time_ += ddp_real_dt;
+        time_log_file << ddp_real_dt << std::endl;
+
         break;
       }
     }
@@ -645,6 +679,10 @@ void Mpc::DdpThread() {
     run = thread_run_;
     thread_run_mutex_.unlock();
   }
+  // Timing investigation
+  time_log_file.close();
+  cost_log_file.close();
+
   std::cout << "Exiting DDP Thread ..." << std::endl;
 }
 
@@ -652,6 +690,7 @@ void Mpc::DdpThread() {
 void Mpc::InitializeMpcObjects() {
   mpc_trajectory_main_ = ddp_trajectory_.control_;
   mpc_trajectory_backup_ = ddp_trajectory_.control_;
+  nominal_traj_ = ddp_trajectory_.control_.leftCols(param_.mpc_.horizon_);
 
   // Updating iteration number defaults to -1 indicating that it is not yet
   // updated by the mpc iterations but only by the DDP_COMPUTE_TRAJ
@@ -661,6 +700,7 @@ void Mpc::InitializeMpcObjects() {
   updating_iteration_backup_ =
       -1 * Eigen::Matrix<int, Eigen::Dynamic, 1>::Ones(traj_size);
   SetInitTime();
+  ddp_real_time_ = 0.0;
 }
 
 //============================================================================
