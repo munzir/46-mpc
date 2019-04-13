@@ -56,8 +56,8 @@ For simulation:
 
     mkdir build
     cd build
-    cmake ..
-    make
+    cmake -DCMAKE_BUILD_TYPE=Release ..
+    sudo make install
 
 ## Usage
 
