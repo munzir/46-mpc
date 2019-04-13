@@ -158,15 +158,6 @@ BalanceControl::BalanceControl(Krang::Hardware* krang,
 }
 
 //============================================================================
-double BalanceControl::ElapsedTimeSinceLastCall() {
-  struct timespec t_now = aa_tm_now();
-  double dt = (double)aa_tm_timespec2sec(aa_tm_sub(t_now, t_prev_));
-  t_prev_ = t_now;
-
-  return dt;
-}
-
-//============================================================================
 Eigen::Vector3d BalanceControl::GetBodyCom(dart::dynamics::SkeletonPtr robot) {
   dart::dynamics::BodyNodePtr lwheel = robot->getBodyNode("LWheel");
   dart::dynamics::BodyNodePtr rwheel = robot->getBodyNode("RWheel");
