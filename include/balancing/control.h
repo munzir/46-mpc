@@ -137,6 +137,7 @@ class BalanceControl {
   // Getters
   Eigen::Matrix<double, 6, 1> get_pd_gains() const { return pd_gains_; }
   Eigen::Matrix<double, 6, 1> get_state() const { return state_; }
+  Eigen::Matrix<double, 6, 1> get_ref_state() const { return ref_state_; }
   Eigen::Matrix<double, 3, 1> get_com() const { return com_; }
   double get_time() const { return time_; }
   BalanceMode get_mode() const { return balance_mode_; }

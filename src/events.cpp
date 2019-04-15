@@ -55,10 +55,10 @@
 /// Events
 bool Events(KbShared& kb_shared, Joystick& joystick, bool* start,
             BalanceControl* balance_control, Somatic__WaistMode* waist_mode,
-            TorsoState* torso_state, ArmControl* arm_control) {
+            TorsoState* torso_state, ArmControl* arm_control, bool* log_mark) {
   KeyboardEvents(kb_shared, start, balance_control, arm_control);
   return JoystickEvents(joystick, balance_control, waist_mode, torso_state,
-                        arm_control);
+                        arm_control, log_mark);
 }
 
 /* ********************************************************************************************
@@ -104,7 +104,7 @@ void KeyboardEvents(KbShared& kb_shared, bool* start_,
 /// Joystick Events
 bool JoystickEvents(Joystick& joystick, BalanceControl* balance_control,
                     Somatic__WaistMode* waist_mode, TorsoState* torso_state,
-                    ArmControl* arm_control) {
+                    ArmControl* arm_control, bool* log_mark) {
   // Default values
   balance_control->SetFwdInput(0.0);
   balance_control->SetSpinInput(0.0);
@@ -113,6 +113,7 @@ bool JoystickEvents(Joystick& joystick, BalanceControl* balance_control,
   for (int i = 0; i < 7; i++) arm_control->command_vals[i] = 0.0;
   torso_state->mode = TorsoState::kStop;
   bool kill_program = false;
+  if (log_mark) *log_mark = false;
 
   // Delta change in gains
   const double deltaTH = 0.2;
@@ -634,7 +635,20 @@ bool JoystickEvents(Joystick& joystick, BalanceControl* balance_control,
       }
       break;
     }
-    // case(Joystick::L1R1):
+    case(Joystick::L1R1): {
+      switch (joystick.leftMode) {
+        case (Joystick::LEFT_THUMB_FREE): {
+          switch (joystick.rightMode) {
+            case(Joystick::B1_PRESS): {
+              if (log_mark) *log_mark = true;
+              break;
+            }
+          }
+          break;
+        }
+      }
+      break;
+    }
     // case(Joystick::L1R2):
     // case(Joystick::L2R1):
     // case(Joystick::L2R2):

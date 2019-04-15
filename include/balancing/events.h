@@ -59,7 +59,8 @@
 /// Events
 bool Events(KbShared& kb_shared, Joystick& joystick, bool* start,
             BalanceControl* balance_control, Somatic__WaistMode* waist_mode,
-            TorsoState* torso_state, ArmControl* arm_control);
+            TorsoState* torso_state, ArmControl* arm_control,
+            bool* log_mark = NULL);
 
 /* ********************************************************************************************
  */
@@ -72,6 +73,6 @@ void KeyboardEvents(KbShared& kb_shared, bool* start_,
 /// Joystick Events
 bool JoystickEvents(Joystick& joystick, BalanceControl* balance_control,
                     Somatic__WaistMode* waist_mode, TorsoState* torso_state,
-                    ArmControl* arm_control);
+                    ArmControl* arm_control, bool* log_mark = NULL);
 
 #endif  // KRANG_BALANCING_EVENTS_H_
