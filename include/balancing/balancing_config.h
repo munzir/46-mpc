@@ -47,6 +47,15 @@
 #include <Eigen/Eigen>
 #include <memory>
 
+struct WholeBodyBasicParams {
+  double joystick_forw_max_;
+  double ramp_up_time_;
+  double stop_time_;
+  double ramp_down_time_;
+  bool state_based_stop_;
+  double goal_heading_position_;
+};
+
 // Structure in which all configurable parameters are read at the beginning of
 // the program
 struct BalancingConfig {
@@ -95,6 +104,8 @@ struct BalancingConfig {
 
   int sim_init_balance_mode_;
   unsigned int control_period_;
+
+  WholeBodyBasicParams whole_body_basic_params_;
 };
 
 // Function for reading configuration parameters. First argument is the location

@@ -60,7 +60,8 @@
 
 //============================================================================
 const char BalanceControl::BAL_MODE_STRINGS[][16] = {
-    "Ground Lo", "Stand", "Sit", "Bal Lo", "Bal Hi", "Ground Hi", "MPC"};
+    "Ground Lo", "Stand",     "Sit", "Bal Lo",
+    "Bal Hi",    "Ground Hi", "MPC", "WholeBodyBasic"};
 //============================================================================
 BalanceControl::BalanceControl(Krang::Hardware* krang,
                                dart::dynamics::SkeletonPtr robot,
@@ -79,6 +80,22 @@ BalanceControl::BalanceControl(Krang::Hardware* krang,
                                        : kMaxInputCurrentHardware);
   std::cout << "max input current: " << max_input_current_ << std::endl;
   mpc_.max_input_current_ = max_input_current_;
+
+  // Parameters for whole body basic
+  whole_body_basic_params_ = params.whole_body_basic_params_;
+  std::cout << "whole_body_basic_joystick_forw_max: "
+            << whole_body_basic_params_.joystick_forw_max_ << std::endl;
+  std::cout << "whole_body_basic_ramp_up_time: "
+            << whole_body_basic_params_.ramp_up_time_ << std::endl;
+  std::cout << "whole_body_basic_stop_time: "
+            << whole_body_basic_params_.stop_time_ << std::endl;
+  std::cout << "whole_body_basic_ramp_down_time: "
+            << whole_body_basic_params_.ramp_down_time_ << std::endl;
+  std::cout << "whole_body_basic_state_based_stop: "
+            << (whole_body_basic_params_.state_based_stop_ ? "true" : "false")
+            << std::endl;
+  std::cout << "whole_body_basic_goal_heading_position: "
+            << whole_body_basic_params_.goal_heading_position_ << std::endl;
 
   // LQR Gains
   dynamic_lqr_ = params.dynamicLQR;
@@ -122,8 +139,8 @@ BalanceControl::BalanceControl(Krang::Hardware* krang,
   ref_state_.setZero();
   state_.setZero();
   error_.setZero();
-  joystick_forw = 0.0;
-  joystick_spin = 0.0;
+  joystick_forw_ = 0.0;
+  joystick_spin_ = 0.0;
 
   // Read CoM estimation model paramters
   if (strlen(params.comParametersPath) != 0) {
@@ -357,14 +374,20 @@ void BalanceControl::BalancingController(double* control_input) {
   const double kMpcStableTimerLimit = 1.0;
   if (balance_mode_ != BalanceControl::MPC) mpc_stable_timer = 0.0;
 
+  // Timer for whole body basic
+  static double whole_body_basic_timer = 0.0;
+  if (balance_mode_ != WHOLE_BODY_BASIC) whole_body_basic_timer = 0.0;
+
   // Controllers for each mode
   pd_gains_.setZero();
   switch (balance_mode_) {
     case BalanceControl::GROUND_LO: {
       //  Update Reference
       double forw, spin;
-      forw = joystick_gains_list_[BalanceControl::GROUND_LO][0] * joystick_forw;
-      spin = joystick_gains_list_[BalanceControl::GROUND_LO][1] * joystick_spin;
+      forw =
+          joystick_gains_list_[BalanceControl::GROUND_LO][0] * joystick_forw_;
+      spin =
+          joystick_gains_list_[BalanceControl::GROUND_LO][1] * joystick_spin_;
       BalanceControl::UpdateReference(forw, spin);
 
       // Calculate state Error
@@ -388,8 +411,10 @@ void BalanceControl::BalancingController(double* control_input) {
     case BalanceControl::GROUND_HI: {
       //  Update Reference
       double forw, spin;
-      forw = joystick_gains_list_[BalanceControl::GROUND_HI][0] * joystick_forw;
-      spin = joystick_gains_list_[BalanceControl::GROUND_HI][1] * joystick_spin;
+      forw =
+          joystick_gains_list_[BalanceControl::GROUND_HI][0] * joystick_forw_;
+      spin =
+          joystick_gains_list_[BalanceControl::GROUND_HI][1] * joystick_spin_;
       BalanceControl::UpdateReference(forw, spin);
 
       // Calculate state Error
@@ -449,8 +474,8 @@ void BalanceControl::BalancingController(double* control_input) {
     case BalanceControl::BAL_LO: {
       //  Update Reference
       double forw, spin;
-      forw = joystick_gains_list_[BalanceControl::BAL_LO][0] * joystick_forw;
-      spin = joystick_gains_list_[BalanceControl::BAL_LO][1] * joystick_spin;
+      forw = joystick_gains_list_[BalanceControl::BAL_LO][0] * joystick_forw_;
+      spin = joystick_gains_list_[BalanceControl::BAL_LO][1] * joystick_spin_;
       BalanceControl::UpdateReference(forw, spin);
 
       // Calculate state Error
@@ -472,8 +497,8 @@ void BalanceControl::BalancingController(double* control_input) {
     case BalanceControl::BAL_HI: {
       //  Update Reference
       double forw, spin;
-      forw = joystick_gains_list_[BalanceControl::BAL_HI][0] * joystick_forw;
-      spin = joystick_gains_list_[BalanceControl::BAL_HI][1] * joystick_spin;
+      forw = joystick_gains_list_[BalanceControl::BAL_HI][0] * joystick_forw_;
+      spin = joystick_gains_list_[BalanceControl::BAL_HI][1] * joystick_spin_;
       BalanceControl::UpdateReference(forw, spin);
 
       // Calculate state Error
@@ -537,6 +562,53 @@ void BalanceControl::BalancingController(double* control_input) {
 
       break;
     }
+    case BalanceControl::WHOLE_BODY_BASIC: {
+      // Time
+      whole_body_basic_timer += dt_;
+
+      // Get time-based joystick reference
+      double joystick_forw, joystick_spin;
+      switch (whole_body_basic_mode_) {
+        case MOVE: {
+          WholeBodyBasicForwSpinMotionRef(whole_body_basic_timer,
+                                          &joystick_forw, &joystick_spin);
+          break;
+        }
+        case STOP: {
+          WholeBodyBasicForwSpinStopRef(whole_body_basic_timer, &joystick_forw,
+                                        &joystick_spin);
+          break;
+        }
+        case EXIT: {
+          joystick_forw = 0.0;
+          joystick_spin = 0.0;
+          balance_mode_ = BAL_LO;
+          break;
+        }
+      }
+
+      //  Update Reference
+      double forw, spin;
+      forw = joystick_gains_list_[BalanceControl::BAL_LO][0] * joystick_forw;
+      spin = joystick_gains_list_[BalanceControl::BAL_LO][1] * joystick_spin;
+      BalanceControl::UpdateReference(forw, spin);
+
+      // Calculate state Error
+      error_ = state_ - ref_state_;
+
+      // Gains
+      pd_gains_ = pd_gains_list_[BalanceControl::BAL_LO];
+      if (dynamic_lqr_ == true) {
+        Eigen::MatrixXd LQR_Gains;
+        LQR_Gains = BalanceControl::ComputeLqrGains();
+        pd_gains_.head(4) = -LQR_Gains;
+      }
+
+      // Compute the current
+      BalanceControl::ComputeCurrent(pd_gains_, error_, &control_input[0]);
+
+      break;
+    }
   }
 }
 
@@ -545,8 +617,8 @@ void BalanceControl::Print() {
   std::cout << "\nstate: " << state_.transpose() << std::endl;
   std::cout << "com: " << com_.transpose() << std::endl;
   std::cout << "WAIST ANGLE: " << krang_->waist->pos[0] << std::endl;
-  std::cout << "js_forw: " << joystick_forw;
-  std::cout << ", js_spin: " << joystick_spin << std::endl;
+  std::cout << "js_forw: " << joystick_forw_;
+  std::cout << ", js_spin: " << joystick_spin_ << std::endl;
   std::cout << "refState: " << ref_state_.transpose() << std::endl;
   std::cout << "error: " << error_.transpose();
   std::cout << ", imu: " << krang_->imu / M_PI * 180.0 << std::endl;
@@ -668,7 +740,56 @@ void BalanceControl::StopMpcEvent() {
 }
 
 //============================================================================
-void BalanceControl::SetFwdInput(double forw) { joystick_forw = forw; }
+void BalanceControl::SetFwdInput(double forw) { joystick_forw_ = forw; }
 
 //============================================================================
-void BalanceControl::SetSpinInput(double spin) { joystick_spin = spin; }
+void BalanceControl::SetSpinInput(double spin) { joystick_spin_ = spin; }
+
+//============================================================================
+void BalanceControl::StartStopWholeBodyBasicEvent() {
+  if (balance_mode_ == BAL_LO) {
+    balance_mode_ = WHOLE_BODY_BASIC;
+    whole_body_basic_mode_ = MOVE;
+    whole_body_basic_init_state_ = state_;
+  } else if (balance_mode_ == WHOLE_BODY_BASIC) {
+    balance_mode_ = BAL_LO;
+  }
+}
+
+//============================================================================
+void BalanceControl::WholeBodyBasicForwSpinMotionRef(double time, double* forw,
+                                                     double* spin) {
+  *spin = 0.0;
+
+  if (time < whole_body_basic_params_.ramp_up_time_) {
+    *forw = whole_body_basic_params_.joystick_forw_max_ *
+            (time / whole_body_basic_params_.ramp_up_time_);
+  } else {
+    *forw = whole_body_basic_params_.joystick_forw_max_;
+  }
+
+  if (whole_body_basic_params_.state_based_stop_) {
+    if ((state_(2) - whole_body_basic_init_state_(2)) * 0.25 >
+        whole_body_basic_params_.goal_heading_position_) {
+      whole_body_basic_mode_ = STOP;
+      whole_body_basic_stop_time_ = time;
+    }
+  } else if (time >= whole_body_basic_params_.stop_time_) {
+    whole_body_basic_mode_ = STOP;
+    whole_body_basic_stop_time_ = time;
+  }
+}
+//============================================================================
+void BalanceControl::WholeBodyBasicForwSpinStopRef(double time, double* forw,
+                                                   double* spin) {
+  *spin = 0.0;
+
+  double local_time = time - whole_body_basic_stop_time_;
+  if (local_time < whole_body_basic_params_.ramp_down_time_) {
+    *forw = whole_body_basic_params_.joystick_forw_max_ *
+            (1.0 - local_time / whole_body_basic_params_.ramp_down_time_);
+  } else {
+    *forw = 0.0;
+    whole_body_basic_mode_ = EXIT;
+  }
+}

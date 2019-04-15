@@ -48,7 +48,7 @@
 #include <dart/dart.hpp>  // dart::dynamics::SkeletonPtr
 #include <kore.hpp>       // Krang::Hardware
 
-#include "balancing/balancing_config.h"  // BalancingConfig
+#include "balancing/balancing_config.h"  // BalancingConfig, WholeBodyBasicParams
 #include "balancing/mpc.h"               // Mpc
 #include "balancing/timer.h"             // Timer
 
@@ -67,9 +67,16 @@ class BalanceControl {
     BAL_HI,
     GROUND_HI,
     MPC,
+    WHOLE_BODY_BASIC,
     NUM_BAL_MODES
   };
   static const char BAL_MODE_STRINGS[][16];
+
+  enum WholeBodyBasicMode {
+    MOVE,
+    STOP,
+    EXIT
+  };
 
   // Returns the time in seconds since last call to this function
   // For the first call, returns the time elapsed since the call to the
@@ -134,6 +141,9 @@ class BalanceControl {
   // Sets spin speed control reference
   void SetSpinInput(double spin);
 
+  // Start/Stop Whole Body Basic Mode
+  void StartStopWholeBodyBasicEvent();
+
   // Getters
   Eigen::Matrix<double, 6, 1> get_pd_gains() const { return pd_gains_; }
   Eigen::Matrix<double, 6, 1> get_state() const { return state_; }
@@ -167,13 +177,20 @@ class BalanceControl {
   // lqrR_ to return a 4-element vector comprising the LQR gains for theta,
   // dtheta, x, dx respectively
   Eigen::MatrixXd ComputeLqrGains();
+
+  // Time based reference for joystick forw and spin inputs in the
+  // WHOLE_BODY_BASIC mode. Returns true when completion has happened
+  // triggering the calling function to exit out of the mode
+  void WholeBodyBasicForwSpinMotionRef(double time, double* forw, double* spin);
+  void WholeBodyBasicForwSpinStopRef(double time, double* forw, double* spin);
+
  private:
   BalanceMode
       balance_mode_;  // Current mode of the balancing thread state machine
   Eigen::Matrix<double, 4, 4>
       lqr_hack_ratios_;  // gains_that_work/computed_lqr_gains
   Eigen::Matrix<double, 6, 1> pd_gains_, ref_state_, state_,
-      error_;  // state: th, dth, forw, dforw, spin, dspin
+      error_, whole_body_basic_init_state_;  // state: th, dth, forw, dforw, spin, dspin
   Eigen::Matrix<double, 6, 1>
       pd_gains_list_[NUM_BAL_MODES];  // fixed pd gains for each mode
                                       // specified in the config file
@@ -181,8 +198,8 @@ class BalanceControl {
                              [2];    // fixed joystick gains for each mode
                                      // specified in the config file
   Eigen::Matrix<double, 3, 1> com_;  // Current center of mass
-  double joystick_forw,
-      joystick_spin;  // forw and spin motion control references
+  double joystick_forw_,
+      joystick_spin_;  // forw and spin motion control references
   Timer timer_;
   double dt_;
   double u_theta_, u_x_,
@@ -214,5 +231,10 @@ class BalanceControl {
   Mpc mpc_;
   BalanceMode previous_balance_mode_;
   double time_;
+
+  WholeBodyBasicMode
+      whole_body_basic_mode_; // Current mode within whole body basic mode
+  WholeBodyBasicParams whole_body_basic_params_;
+  double whole_body_basic_stop_time_;
 };
 #endif  // KRANG_BALANCING_CONTROL_H_
