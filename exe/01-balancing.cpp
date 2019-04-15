@@ -225,6 +225,11 @@ int main(int argc, char* argv[]) {
   // Filtering investigation
   std::ofstream imu_log_file("/var/tmp/krangmpc/imu_log.csv");
 
+  // Logging data for learning
+  std::ofstream state_log_file("/var/tmp/krangmpc/state_log.csv");
+  bool log_mark = false;  // a mark to be placed in the log file for identifying
+                          // when we start trying to move 5 meters
+
   while (!somatic_sig_received) {
     // Decide if we want printing to happen in this iteration
     debug_time = (debug_time > 1.0
@@ -234,13 +239,13 @@ int main(int argc, char* argv[]) {
 
     // Read time, state and joystick inputs
     balance_control.UpdateState();
-    //bool joystick_msg_received = false;
-    //while (!joystick_msg_received) joystick_msg_received = joystick.Update();
+    // bool joystick_msg_received = false;
+    // while (!joystick_msg_received) joystick_msg_received = joystick.Update();
     joystick.Update();
 
     // Decide control modes and generate control events based on keyb/joys input
     if (Events(kb_shared, joystick, &start, &balance_control, &waist_mode,
-               &torso_state, &arm_control)) {
+               &torso_state, &arm_control, &log_mark)) {
       // kill program if kill event was triggered
       break;
     }
@@ -276,6 +281,29 @@ int main(int argc, char* argv[]) {
       std::cout << "time: " << balance_control.get_time() << std::endl;
       if (start) std::cout << "Started..." << std::endl;
     }
+    if (log_mark)
+      std::cout << std::endl
+                << std::endl
+                << "[INFO] Putting a mark in the log file" << std::endl
+                << std::endl;
+
+    // Filtering investigation
+    imu_log_file << balance_control.get_time() << ", " << krang->rawImu << ", "
+                 << krang->rawImuSpeed << ", " << krang->imu << ", "
+                 << krang->imuSpeed << std::endl;
+
+    // Logging data for learning
+    if (log_mark)
+      state_log_file << Eigen::Matrix<double, 1, 29>::Zero() << std::endl;
+    state_log_file << balance_control.get_time() << " "
+                   << balance_control.get_mode() << " " << krang->rawImu << " "
+                   << krang->imu << " " << krang->rawImuSpeed << " "
+                   << krang->imuSpeed << " "
+                   << balance_control.get_com().transpose() << " "
+                   << balance_control.get_state().transpose() << " "
+                   << balance_control.get_ref_state().transpose() << " "
+                   << balance_control.get_pd_gains().transpose() << " "
+                   << control_input[0] << " " << control_input[1] << std::endl;
 
     // Timing investigation
     main_real_dt = main_timer.ElapsedTimeSinceLastCall();
@@ -283,17 +311,12 @@ int main(int argc, char* argv[]) {
       time_log_file << main_real_dt << ", " << sim_real_dt << std::endl;
     }
 
-    // Filtering investigation
-    imu_log_file << balance_control.get_time() << ", " << krang->rawImu << ", "
-                 << krang->rawImuSpeed << ", " << krang->imu << ", "
-                 << krang->imuSpeed << std::endl;
-
     // Wait till control loop's desired period ends
     if (!params.is_simulation_) {
-      auto main_usecs = (unsigned int)(main_real_dt*1e6);
+      auto main_usecs = (unsigned int)(main_real_dt * 1e6);
       if (main_usecs < params.control_period_)
         usleep(params.control_period_ - main_usecs);
-      main_timer.ElapsedTimeSinceLastCall(); // reset the timer
+      main_timer.ElapsedTimeSinceLastCall();  // reset the timer
     }
   }
 
@@ -304,6 +327,7 @@ int main(int argc, char* argv[]) {
   std::cout << "destroying" << std::endl;
   time_log_file.close();
   imu_log_file.close();
+  state_log_file.close();
   delete krang;
   if (params.is_simulation_) {
     delete world_interface;
