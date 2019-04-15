@@ -165,7 +165,8 @@ void ReadConfigParams(const char* config_file, BalancingConfig* params) {
       std::cout << "maxInputCurrent: " << params->sim_max_input_current_
                 << std::endl;
 
-      params->sim_init_balance_mode_ = cfg->lookupInt(scope, "init_balance_mode");
+      params->sim_init_balance_mode_ =
+          cfg->lookupInt(scope, "init_balance_mode");
       std::cout
           << "init_balance_mode: "
           << BalanceControl::BAL_MODE_STRINGS[params->sim_init_balance_mode_]
@@ -174,6 +175,41 @@ void ReadConfigParams(const char* config_file, BalancingConfig* params) {
       params->control_period_ = cfg->lookupInt(scope, "controlPeriod");
       std::cout << "controlPeriod: " << params->control_period_ << std::endl;
     }
+
+    params->whole_body_basic_params_.joystick_forw_max_ =
+        cfg->lookupFloat(scope, "whole_body_basic_joystick_forw_max");
+    std::cout << "whole_body_basic_joystick_forw_max: "
+              << params->whole_body_basic_params_.joystick_forw_max_
+              << std::endl;
+
+    params->whole_body_basic_params_.ramp_up_time_ =
+        cfg->lookupFloat(scope, "whole_body_basic_ramp_up_time");
+    std::cout << "whole_body_basic_ramp_up_time: "
+              << params->whole_body_basic_params_.ramp_up_time_ << std::endl;
+
+    params->whole_body_basic_params_.stop_time_ =
+        cfg->lookupFloat(scope, "whole_body_basic_stop_time");
+    std::cout << "whole_body_basic_stop_time: "
+              << params->whole_body_basic_params_.stop_time_ << std::endl;
+
+    params->whole_body_basic_params_.ramp_down_time_ =
+        cfg->lookupFloat(scope, "whole_body_basic_ramp_down_time");
+    std::cout << "whole_body_basic_ramp_down_time: "
+              << params->whole_body_basic_params_.ramp_down_time_ << std::endl;
+
+    params->whole_body_basic_params_.state_based_stop_ =
+        cfg->lookupBoolean(scope, "whole_body_basic_state_based_stop");
+    std::cout << "whole_body_basic_state_based_stop: ";
+    std::cout << (params->whole_body_basic_params_.state_based_stop_ ? "true"
+                                                                     : "false")
+              << std::endl;
+
+    params->whole_body_basic_params_.goal_heading_position_ =
+        cfg->lookupFloat(scope, "whole_body_basic_goal_heading_position");
+    std::cout << "whole_body_basic_goal_heading_position: "
+              << params->whole_body_basic_params_.goal_heading_position_
+              << std::endl;
+
   } catch (const config4cpp::ConfigurationException& ex) {
     std::cerr << ex.c_str() << std::endl;
     cfg->destroy();
