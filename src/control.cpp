@@ -360,7 +360,9 @@ Eigen::MatrixXd BalanceControl::ComputeLqrGains() {
 }
 
 //============================================================================
-void BalanceControl::BalancingController(double* control_input) {
+void BalanceControl::BalancingController(double* control_input,
+                                         double* dqref_left,
+                                         double* dqref_right) {
   // The timer we use for deciding whether krang_ has stood up and needs to
   // be switched to BAL_LO mode. This timer is supposed to be zero in all
   // other modes excepts STAND mode. This is to ensure that no matter how we
@@ -614,6 +616,10 @@ void BalanceControl::BalancingController(double* control_input) {
     case BalanceControl::WHOLE_BODY_BASIC_TEST: {
       control_input[0] = 0.0;
       control_input[1] = 0.0;
+      double time = time_ - whole_body_basic_.GetInitTime();
+      whole_body_basic_.ComputeReferenceSpeeds(
+          time, krang_->arms[Krang::LEFT]->pos, krang_->arms[Krang::RIGHT]->pos,
+          dqref_left, dqref_right);
       break;
     }
   }
@@ -767,6 +773,7 @@ void BalanceControl::StartStopWholeBodyBasicEvent() {
 void BalanceControl::StartStopWholeBodyBasicTestEvent() {
   if (balance_mode_ == GROUND_LO) {
     balance_mode_ = WHOLE_BODY_BASIC_TEST;
+    whole_body_basic_.SetInitTime(time_);
   } else if (balance_mode_ == WHOLE_BODY_BASIC_TEST) {
     balance_mode_ = GROUND_LO;
   }

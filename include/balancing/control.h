@@ -74,11 +74,7 @@ class BalanceControl {
   };
   static const char BAL_MODE_STRINGS[][64];
 
-  enum WholeBodyBasicMode {
-    MOVE,
-    STOP,
-    EXIT
-  };
+  enum WholeBodyBasicMode { MOVE, STOP, EXIT };
 
   // Returns the time in seconds since last call to this function
   // For the first call, returns the time elapsed since the call to the
@@ -102,7 +98,8 @@ class BalanceControl {
 
   // The main controller logic. Implements control logic as applicable to the
   // current mode of the state machine
-  void BalancingController(double* control_input);
+  void BalancingController(double* control_input, double* dqref_left,
+                           double* dqref_right);
 
   // Change a gain among the current pd_gains_
   // index: represents the targeted gain
@@ -194,8 +191,8 @@ class BalanceControl {
       balance_mode_;  // Current mode of the balancing thread state machine
   Eigen::Matrix<double, 4, 4>
       lqr_hack_ratios_;  // gains_that_work/computed_lqr_gains
-  Eigen::Matrix<double, 6, 1> pd_gains_, ref_state_, state_,
-      error_, whole_body_basic_init_state_;  // state: th, dth, forw, dforw, spin, dspin
+  Eigen::Matrix<double, 6, 1> pd_gains_, ref_state_, state_, error_,
+      whole_body_basic_init_state_;  // state: th, dth, forw, dforw, spin, dspin
   Eigen::Matrix<double, 6, 1>
       pd_gains_list_[NUM_BAL_MODES];  // fixed pd gains for each mode
                                       // specified in the config file
@@ -220,14 +217,14 @@ class BalanceControl {
   Eigen::Matrix<double, 4, 4> lqrQ_;  // Q matrix for LQR
   Eigen::Matrix<double, 1, 1> lqrR_;  // R matrix for LQR
 
-  double to_bal_threshold_;     // if CoM angle error < value, STAND mode
-                                // automatically transitions to BAL_LO
+  double to_bal_threshold_;        // if CoM angle error < value, STAND mode
+                                   // automatically transitions to BAL_LO
   double start_bal_threshold_lo_;  // if CoM angle error < value, krang
-                                // will refuse to stand
+                                   // will refuse to stand
   double start_bal_threshold_hi_;  // if CoM angle error > value, krang
-                                // will refuse to stand
-  double imu_sit_angle_;        // if angle < value, SIT mode automatically
-                                // transitions to GROUND_LO mode
+                                   // will refuse to stand
+  double imu_sit_angle_;           // if angle < value, SIT mode automatically
+                                   // transitions to GROUND_LO mode
   double waist_hi_lo_threshold_;
   bool is_simulation_;
   double sim_dt_;
@@ -238,7 +235,7 @@ class BalanceControl {
   double time_;
 
   WholeBodyBasicMode
-      whole_body_basic_mode_; // Current mode within whole body basic mode
+      whole_body_basic_mode_;  // Current mode within whole body basic mode
   WholeBodyBasicParams whole_body_basic_params_;
   double whole_body_basic_stop_time_;
   WholeBodyBasic whole_body_basic_;

@@ -252,7 +252,9 @@ int main(int argc, char* argv[]) {
 
     // Balancing Control
     double control_input[2];
-    balance_control.BalancingController(&control_input[0]);
+    balance_control.BalancingController(&control_input[0],
+                                        &arm_control.command_vals[0],
+                                        &arm_control.more_command_vals[0]);
     if (start) {
       somatic_motor_cmd(&daemon_cx, krang->amc,
                         SOMATIC__MOTOR_PARAM__MOTOR_CURRENT, control_input, 2,

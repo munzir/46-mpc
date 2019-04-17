@@ -65,7 +65,10 @@ class ArmControl {
                             // presetArmConfs[2*preset_config_num]
     kMoveRightToPresetPos,  // right arms' pos =
                             // presetArmConfs[2*preset_config_num+1]
-    kMoveBothToPresetPos    // does both the above
+    kMoveBothToPresetPos,    // does both the above
+    kMoveBothAtRefSpeed  // Move both arms at desired speeds set in
+                         // command_vals[0-6] for left arm and
+                         // more_command_vals[0-6] for the right arm
   };
   double presetArmConfs[8][7];  // should be const but somatic_motor_cmd
                                 // gives problems when passing directly
@@ -81,6 +84,7 @@ class ArmControl {
   ArmMode mode;
   int preset_config_num;
   double command_vals[7];
+  double more_command_vals[7];
 
  private:
   void ReadPresetConfig(const char* config_file, double output_array[8][7]);

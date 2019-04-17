@@ -705,5 +705,12 @@ bool JoystickEvents(Joystick& joystick, BalanceControl* balance_control,
     }
   }
 
+  // Arms to be controlled by balancing controller in whole body mode
+  if (balance_control->get_mode() == BalanceControl::WHOLE_BODY_BASIC ||
+      balance_control->get_mode() == BalanceControl::WHOLE_BODY_BASIC_TEST) {
+    arm_control->mode = ArmControl::kMoveBothAtRefSpeed;
+  }
+
+
   return kill_program;
 }

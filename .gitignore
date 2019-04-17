@@ -20,6 +20,7 @@
 !/cfg/balancing_params_simulation.cfg
 !/cfg/mpc_params.cfg
 !/cfg/arms_params.cfg
+!/cfg/whole_body_basic.cfg
 
 # docs
 !/doc/
