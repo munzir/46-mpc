@@ -70,7 +70,8 @@ BalanceControl::BalanceControl(Krang::Hardware* krang,
       robot_(robot),
       is_simulation_(params.is_simulation_),
       sim_dt_(params.sim_dt_),
-      mpc_("/usr/local/share/krang/balancing/cfg/mpc_params.cfg") {
+      mpc_("/usr/local/share/krang/balancing/cfg/mpc_params.cfg"),
+      whole_body_basic_(params.path_to_arm_trajectories_) {
   // if in simulation mode dt = sim_dt, if not then 0.001 only until first
   // iteration begins
   dt_ = (is_simulation_ ? sim_dt_ : 0.01);

@@ -51,6 +51,7 @@
 #include "balancing/balancing_config.h"  // BalancingConfig, WholeBodyBasicParams
 #include "balancing/mpc.h"               // Mpc
 #include "balancing/timer.h"             // Timer
+#include "balancing/whole_body_basic.h"  // WholeBodyBasic
 
 class BalanceControl {
  public:
@@ -236,5 +237,6 @@ class BalanceControl {
       whole_body_basic_mode_; // Current mode within whole body basic mode
   WholeBodyBasicParams whole_body_basic_params_;
   double whole_body_basic_stop_time_;
+  WholeBodyBasic whole_body_basic_;
 };
 #endif  // KRANG_BALANCING_CONTROL_H_
