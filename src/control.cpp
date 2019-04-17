@@ -59,9 +59,10 @@
 #include "balancing/mpc.h"               // Mpc
 
 //============================================================================
-const char BalanceControl::BAL_MODE_STRINGS[][16] = {
-    "Ground Lo", "Stand",     "Sit", "Bal Lo",
-    "Bal Hi",    "Ground Hi", "MPC", "WholeBodyBasic"};
+const char BalanceControl::BAL_MODE_STRINGS[][64] = {
+    "Ground Lo", "Stand",          "Sit",
+    "Bal Lo",    "Bal Hi",         "Ground Hi",
+    "MPC",       "WholeBodyBasic", "WholeBodyBasicTest"};
 //============================================================================
 BalanceControl::BalanceControl(Krang::Hardware* krang,
                                dart::dynamics::SkeletonPtr robot,
@@ -610,6 +611,11 @@ void BalanceControl::BalancingController(double* control_input) {
 
       break;
     }
+    case BalanceControl::WHOLE_BODY_BASIC_TEST: {
+      control_input[0] = 0.0;
+      control_input[1] = 0.0;
+      break;
+    }
   }
 }
 
@@ -754,6 +760,15 @@ void BalanceControl::StartStopWholeBodyBasicEvent() {
     whole_body_basic_init_state_ = state_;
   } else if (balance_mode_ == WHOLE_BODY_BASIC) {
     balance_mode_ = BAL_LO;
+  }
+}
+
+//============================================================================
+void BalanceControl::StartStopWholeBodyBasicTestEvent() {
+  if (balance_mode_ == GROUND_LO) {
+    balance_mode_ = WHOLE_BODY_BASIC_TEST;
+  } else if (balance_mode_ == WHOLE_BODY_BASIC_TEST) {
+    balance_mode_ = GROUND_LO;
   }
 }
 

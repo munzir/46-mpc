@@ -647,6 +647,10 @@ bool JoystickEvents(Joystick& joystick, BalanceControl* balance_control,
               balance_control->StartStopWholeBodyBasicEvent();
               break;
             }
+            case(Joystick::B3_PRESS): {
+              balance_control->StartStopWholeBodyBasicTestEvent();
+              break;
+            }
           }
           break;
         }

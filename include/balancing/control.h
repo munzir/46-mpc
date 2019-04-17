@@ -69,9 +69,10 @@ class BalanceControl {
     GROUND_HI,
     MPC,
     WHOLE_BODY_BASIC,
+    WHOLE_BODY_BASIC_TEST,
     NUM_BAL_MODES
   };
-  static const char BAL_MODE_STRINGS[][16];
+  static const char BAL_MODE_STRINGS[][64];
 
   enum WholeBodyBasicMode {
     MOVE,
@@ -144,6 +145,9 @@ class BalanceControl {
 
   // Start/Stop Whole Body Basic Mode
   void StartStopWholeBodyBasicEvent();
+
+  // Start/Stop Whole Body Basic Test Mode
+  void StartStopWholeBodyBasicTestEvent();
 
   // Getters
   Eigen::Matrix<double, 6, 1> get_pd_gains() const { return pd_gains_; }
