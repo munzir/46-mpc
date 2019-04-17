@@ -106,6 +106,7 @@ struct BalancingConfig {
   unsigned int control_period_;
 
   WholeBodyBasicParams whole_body_basic_params_;
+  char path_to_arm_trajectories_[1024];
 };
 
 // Function for reading configuration parameters. First argument is the location

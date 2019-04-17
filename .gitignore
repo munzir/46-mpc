@@ -42,6 +42,7 @@
 !/include/balancing/timer.h
 !/include/balancing/torso.h
 !/include/balancing/waist.h
+!/include/balancing/whole_body_basic.h
 
 # ddp
 !/include/ddp/
@@ -63,6 +64,7 @@
 !/src/timer.cpp
 !/src/torso.cpp
 !/src/waist.cpp
+!/src/whole_body_basic.cpp
 
 # exe
 !/exe/

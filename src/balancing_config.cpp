@@ -210,6 +210,12 @@ void ReadConfigParams(const char* config_file, BalancingConfig* params) {
               << params->whole_body_basic_params_.goal_heading_position_
               << std::endl;
 
+    // Read path to arm trajectories
+    strcpy(params->path_to_arm_trajectories_,
+           cfg->lookupString(scope, "path_to_arm_trajectories"));
+    std::cout << "path_to_arm_trajectories: "
+              << params->path_to_arm_trajectories_ << std::endl;
+
   } catch (const config4cpp::ConfigurationException& ex) {
     std::cerr << ex.c_str() << std::endl;
     cfg->destroy();
