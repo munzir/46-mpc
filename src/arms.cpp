@@ -121,7 +121,8 @@ bool ArmControl::ArmResetIfNeeded(ArmControl::ArmMode& last_mode) {
         (mode == ArmControl::kMoveLeftBigSet ||
          mode == ArmControl::kMoveLeftSmallSet ||
          mode == ArmControl::kMoveLeftToPresetPos ||
-         mode == ArmControl::kMoveBothToPresetPos)) {
+         mode == ArmControl::kMoveBothToPresetPos ||
+         mode == ArmControl::kMoveBothAtRefSpeed)) {
       somatic_motor_reset(daemon_cx, krang->arms[Krang::LEFT]);
 
       // return to allow delay after reset (assuming that by the time this
@@ -140,7 +141,8 @@ bool ArmControl::ArmResetIfNeeded(ArmControl::ArmMode& last_mode) {
              (mode == ArmControl::kMoveRightBigSet ||
               mode == ArmControl::kMoveRightSmallSet ||
               mode == ArmControl::kMoveRightToPresetPos ||
-              mode == ArmControl::kMoveBothToPresetPos)) {
+              mode == ArmControl::kMoveBothToPresetPos ||
+              mode == ArmControl::kMoveBothAtRefSpeed)) {
       somatic_motor_reset(daemon_cx, krang->arms[Krang::RIGHT]);
 
       // return to allow delay after reset
@@ -274,7 +276,7 @@ void ArmControl::ControlArms() {
       // Send preset config positions to left arm
       somatic_motor_cmd(daemon_cx, krang->arms[Krang::LEFT],
                         SOMATIC__MOTOR_PARAM__MOTOR_POSITION,
-                        presetArmConfs[2 * (preset_config_num-1)], 7, NULL);
+                        presetArmConfs[2 * (preset_config_num - 1)], 7, NULL);
       break;
     }
     case ArmControl::kMoveRightToPresetPos: {
@@ -284,17 +286,29 @@ void ArmControl::ControlArms() {
       // Send preset config position to the right arm
       somatic_motor_cmd(daemon_cx, krang->arms[Krang::RIGHT],
                         SOMATIC__MOTOR_PARAM__MOTOR_POSITION,
-                        presetArmConfs[2 * (preset_config_num-1) + 1], 7, NULL);
+                        presetArmConfs[2 * (preset_config_num - 1) + 1], 7,
+                        NULL);
       break;
     }
     case ArmControl::kMoveBothToPresetPos: {
       // Send present config positions to both arms
       somatic_motor_cmd(daemon_cx, krang->arms[Krang::LEFT],
                         SOMATIC__MOTOR_PARAM__MOTOR_POSITION,
-                        presetArmConfs[2 * (preset_config_num-1)], 7, NULL);
+                        presetArmConfs[2 * (preset_config_num - 1)], 7, NULL);
       somatic_motor_cmd(daemon_cx, krang->arms[Krang::RIGHT],
                         SOMATIC__MOTOR_PARAM__MOTOR_POSITION,
-                        presetArmConfs[2 * (preset_config_num-1) + 1], 7, NULL);
+                        presetArmConfs[2 * (preset_config_num - 1) + 1], 7,
+                        NULL);
+      break;
+    }
+    case ArmControl::kMoveBothAtRefSpeed: {
+      // Send velocity commands to both configs
+      somatic_motor_cmd(daemon_cx, krang->arms[Krang::LEFT],
+                        SOMATIC__MOTOR_PARAM__MOTOR_VELOCITY, command_vals, 7,
+                        NULL);
+      somatic_motor_cmd(daemon_cx, krang->arms[Krang::RIGHT],
+                        SOMATIC__MOTOR_PARAM__MOTOR_VELOCITY, more_command_vals,
+                        7, NULL);
       break;
     }
     default: {

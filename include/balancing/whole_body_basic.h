@@ -50,9 +50,22 @@ class WholeBodyBasic {
  public:
   WholeBodyBasic(const std::string& path_to_arm_trajectories);
   ~WholeBodyBasic(){};
-  Eigen::VectorXd GetCurrentRef(const Eigen::MatrixXd& q_traj,
-                                const double time);
+  Eigen::VectorXd GetPositionTrajRef(const Eigen::MatrixXd& q_traj, const double time);
+  Eigen::VectorXd GetSpeedTrajRef(const Eigen::MatrixXd& dq_traj, const double time);
+  void ComputeReferenceSpeeds(const double time, double* dq_left,
+                              double* dq_right);
+  void ComputeReferenceSpeeds(const double time, const Eigen::VectorXd& q_left,
+                              const Eigen::VectorXd& q_right,
+                              double* dqref_left, double* dqref_right);
+  void ComputeReferenceSpeeds(const double time, const double* q_left,
+                              const double* q_right, double* dqref_left,
+                              double* dqref_right);
+  void SetInitTime(const double time);
+  double GetInitTime();
+  const int num_joints_;
   Eigen::MatrixXd q_left_traj_, dq_left_traj_, q_right_traj_, dq_right_traj_;
+  Eigen::MatrixXd gains_left_, gains_right_;
+  double init_time_;
 };
 
 #endif  // KRANG_SIMULATION_WHOLE_BODY_BASIC_H_
