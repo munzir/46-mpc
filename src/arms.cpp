@@ -113,6 +113,7 @@ ArmControl::ArmControl(somatic_d_t* daemon_cx_, Krang::Hardware* krang_,
 // be used Returns true if a reset was performed
 bool ArmControl::ArmResetIfNeeded(ArmControl::ArmMode& last_mode) {
   if (!event_based_lock_unlock) {
+    bool reset_performed = false;
     // If left arm was on break and needs to be reset
     if ((last_mode == ArmControl::kStop ||
          last_mode == ArmControl::kMoveRightBigSet ||
@@ -124,33 +125,31 @@ bool ArmControl::ArmResetIfNeeded(ArmControl::ArmMode& last_mode) {
          mode == ArmControl::kMoveBothToPresetPos ||
          mode == ArmControl::kMoveBothAtRefSpeed)) {
       somatic_motor_reset(daemon_cx, krang->arms[Krang::LEFT]);
-
-      // return to allow delay after reset (assuming that by the time this
-      // function is called again, some time will have passed)
-      last_mode = mode;
       std::cout << "[INFO] ArmResetIfNeeded just reset the left arm"
                 << std::endl;
-      return true;
+      reset_performed = true;
     }
 
     // If right arm needs to be reset
-    else if ((last_mode == ArmControl::kStop ||
-              last_mode == ArmControl::kMoveLeftBigSet ||
-              last_mode == ArmControl::kMoveLeftSmallSet ||
-              last_mode == ArmControl::kMoveLeftToPresetPos) &&
-             (mode == ArmControl::kMoveRightBigSet ||
-              mode == ArmControl::kMoveRightSmallSet ||
-              mode == ArmControl::kMoveRightToPresetPos ||
-              mode == ArmControl::kMoveBothToPresetPos ||
-              mode == ArmControl::kMoveBothAtRefSpeed)) {
+    if ((last_mode == ArmControl::kStop ||
+         last_mode == ArmControl::kMoveLeftBigSet ||
+         last_mode == ArmControl::kMoveLeftSmallSet ||
+         last_mode == ArmControl::kMoveLeftToPresetPos) &&
+        (mode == ArmControl::kMoveRightBigSet ||
+         mode == ArmControl::kMoveRightSmallSet ||
+         mode == ArmControl::kMoveRightToPresetPos ||
+         mode == ArmControl::kMoveBothToPresetPos ||
+         mode == ArmControl::kMoveBothAtRefSpeed)) {
       somatic_motor_reset(daemon_cx, krang->arms[Krang::RIGHT]);
-
-      // return to allow delay after reset
-      last_mode = mode;
       std::cout << "[INFO] ArmResetIfNeeded just reset the right arm"
                 << std::endl;
-      return true;
+      reset_performed = true;
     }
+    last_mode = mode;
+
+    // return to allow delay after reset (assuming that by the time this
+    // function is called again, some time will have passed)
+    return reset_performed;
   }
   return false;
 }
