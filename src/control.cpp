@@ -620,6 +620,9 @@ void BalanceControl::BalancingController(double* control_input,
       whole_body_basic_.ComputeReferenceSpeeds(
           time, krang_->arms[Krang::LEFT]->pos, krang_->arms[Krang::RIGHT]->pos,
           dqref_left, dqref_right);
+      whole_body_basic_.Log(
+          time, krang_->arms[Krang::LEFT]->pos, krang_->arms[Krang::LEFT]->vel,
+          krang_->arms[Krang::RIGHT]->pos, krang_->arms[Krang::RIGHT]->vel);
       break;
     }
   }
@@ -771,7 +774,7 @@ void BalanceControl::StartStopWholeBodyBasicEvent() {
 
 //============================================================================
 void BalanceControl::StartStopWholeBodyBasicTestEvent() {
-  if (balance_mode_ == GROUND_LO) {
+  if (balance_mode_ == GROUND_LO || balance_mode_ == GROUND_HI) {
     balance_mode_ = WHOLE_BODY_BASIC_TEST;
     whole_body_basic_.SetInitTime(time_);
   } else if (balance_mode_ == WHOLE_BODY_BASIC_TEST) {

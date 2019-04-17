@@ -111,6 +111,7 @@ WholeBodyBasic::WholeBodyBasic(const std::string& path_to_arm_trajectories)
     cfg->destroy();
     assert(false && "Problem reading whole body basic parameters");
   }
+  q_log_ = std::ofstream("/var/tmp/krangmpc/q_log");
 }
 
 Eigen::VectorXd WholeBodyBasic::GetPositionTrajRef(
@@ -167,4 +168,37 @@ void WholeBodyBasic::ComputeReferenceSpeeds(const double time,
 
   // convert from Eigen vector to double array
   for (int i = 0; i < num_joints_; i++) dqref_right[i] = dqref_right_eig(i);
+}
+
+void WholeBodyBasic::Log(const double time, const double* q_left,
+                         const double* dq_left, const double* q_right,
+                         const double* dq_right) {
+  // time
+  q_log_ << time;
+
+  // qref_left
+  q_log_ << " " << GetPositionTrajRef(q_left_traj_, time).transpose();
+
+  // q_left
+  for (int i = 0; i < num_joints_; i++) q_log_ << " " << q_left[i];
+
+  // dqref_left
+  q_log_ << " " << GetSpeedTrajRef(dq_left_traj_, time).transpose();
+
+  // dq_left
+  for (int i = 0; i < num_joints_; i++) q_log_ << " " << dq_left[i];
+
+  // qref_right
+  q_log_ << " " << GetPositionTrajRef(q_right_traj_, time).transpose();
+
+  // q_right
+  for (int i = 0; i < num_joints_; i++) q_log_ << " " << q_right[i];
+
+  // dqref_right
+  q_log_ << " " << GetSpeedTrajRef(dq_right_traj_, time).transpose();
+
+  // dq_right
+  for (int i = 0; i < num_joints_; i++) q_log_ << " " << dq_right[i];
+
+  q_log_ << std::endl;
 }

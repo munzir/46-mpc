@@ -676,17 +676,17 @@ bool JoystickEvents(Joystick& joystick, BalanceControl* balance_control,
             }
             case (Joystick::B2_HOLD): {
               arm_control->mode = ArmControl::kMoveBothToPresetPos;
-              arm_control->preset_config_num = 1;
+              arm_control->preset_config_num = 2;
               break;
             }
             case (Joystick::B3_HOLD): {
               arm_control->mode = ArmControl::kMoveBothToPresetPos;
-              arm_control->preset_config_num = 1;
+              arm_control->preset_config_num = 3;
               break;
             }
             case (Joystick::B4_HOLD): {
               arm_control->mode = ArmControl::kMoveBothToPresetPos;
-              arm_control->preset_config_num = 1;
+              arm_control->preset_config_num = 4;
               break;
             }
               // case(Joystick::B10_PRESS):
