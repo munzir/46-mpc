@@ -98,6 +98,9 @@ BalanceControl::BalanceControl(Krang::Hardware* krang,
             << std::endl;
   std::cout << "whole_body_basic_goal_heading_position: "
             << whole_body_basic_params_.goal_heading_position_ << std::endl;
+  std::cout << "whole_body_basic_data_collection: "
+            << (whole_body_basic_params_.data_collection_ ? "true" : "false")
+            << std::endl;
 
   // LQR Gains
   dynamic_lqr_ = params.dynamicLQR;
@@ -610,6 +613,15 @@ void BalanceControl::BalancingController(double* control_input,
 
       // Compute the current
       BalanceControl::ComputeCurrent(pd_gains_, error_, &control_input[0]);
+
+      // If it's just for CoM data collection, then skip whole body stuff and break
+      if (whole_body_basic_params_.data_collection_) {
+        for (int i = 0; i < 7; i++) {
+          dqref_left[i] = 0.0;
+          dqref_right[i] = 0.0;
+        }
+        break;
+      }
 
       // Follow the trajectory for the arms
       double time = time_ - whole_body_basic_.GetInitTime();

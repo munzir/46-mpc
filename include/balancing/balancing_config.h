@@ -54,6 +54,7 @@ struct WholeBodyBasicParams {
   double ramp_down_time_;
   bool state_based_stop_;
   double goal_heading_position_;
+  bool data_collection_;
 };
 
 // Structure in which all configurable parameters are read at the beginning of

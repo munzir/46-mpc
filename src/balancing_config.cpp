@@ -210,6 +210,13 @@ void ReadConfigParams(const char* config_file, BalancingConfig* params) {
               << params->whole_body_basic_params_.goal_heading_position_
               << std::endl;
 
+    params->whole_body_basic_params_.data_collection_ =
+        cfg->lookupBoolean(scope, "whole_body_basic_data_collection");
+    std::cout << "whole_body_basic_data_collection: ";
+    std::cout << (params->whole_body_basic_params_.data_collection_ ? "true"
+                                                                    : "false")
+              << std::endl;
+
     // Read path to arm trajectories
     strcpy(params->path_to_arm_trajectories_,
            cfg->lookupString(scope, "path_to_arm_trajectories"));
