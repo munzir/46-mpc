@@ -611,6 +611,15 @@ void BalanceControl::BalancingController(double* control_input,
       // Compute the current
       BalanceControl::ComputeCurrent(pd_gains_, error_, &control_input[0]);
 
+      // Follow the trajectory for the arms
+      double time = time_ - whole_body_basic_.GetInitTime();
+      whole_body_basic_.ComputeReferenceSpeeds(
+          time, krang_->arms[Krang::LEFT]->pos, krang_->arms[Krang::RIGHT]->pos,
+          dqref_left, dqref_right);
+      whole_body_basic_.Log(
+          time, krang_->arms[Krang::LEFT]->pos, krang_->arms[Krang::LEFT]->vel,
+          krang_->arms[Krang::RIGHT]->pos, krang_->arms[Krang::RIGHT]->vel);
+
       break;
     }
     case BalanceControl::WHOLE_BODY_BASIC_TEST: {
@@ -767,6 +776,7 @@ void BalanceControl::StartStopWholeBodyBasicEvent() {
     balance_mode_ = WHOLE_BODY_BASIC;
     whole_body_basic_mode_ = MOVE;
     whole_body_basic_init_state_ = state_;
+    whole_body_basic_.SetInitTime(time_);
   } else if (balance_mode_ == WHOLE_BODY_BASIC) {
     balance_mode_ = BAL_LO;
   }
